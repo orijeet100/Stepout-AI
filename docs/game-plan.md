@@ -82,6 +82,15 @@ Every milestone is tested offline with a scripted model, plus one live check who
 | Poor planning | The Plan and Trace are visible; add a Verifier or a separate Planner only if real runs show it |
 | File text reaches the API when read | Accepted in V0 and visible in the Trace (the Reader step); metadata-only steps never send contents |
 
+## Later: smarter file search (the User's idea)
+
+M2 already works dir by dir: `find` refuses a whole drive, so the Files agent lists the drive, searches the likely folders, and asks for a hint when it can't tell. To grow that:
+- **Ask well.** Offer the likely folders and let the User pick or name one. Needs the Question/Answer pause-and-resume from S3: today a hint arrives as a new request with no memory of the old one, so the User has to restate the goal.
+- **Rank folders** by how likely they are to hold the thing: names (Resume, Documents, Work), recent changes, and where it was found before (Memory, S5 — "where the resume lives" is a Persona fact).
+- **Prune** folders that can't hold it (`node_modules`, `.git`, virtual environments, caches, build output) so a wider search stays fast.
+- **Fuzzy name matching** (typos, "cv" vs "resume") on top of the any-of-these terms `find` takes today.
+No full-drive scans: counts stay capped at 60 s and report partial.
+
 ## After V0-basic
 
 Approvals (S3) so uploads and form filling become possible; then Memory (S5), Evaluation (S6–S7, S10), Telegram (S4), organizing files (S11).

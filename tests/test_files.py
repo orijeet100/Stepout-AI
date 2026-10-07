@@ -110,6 +110,23 @@ def test_the_block_list_beats_a_whole_drive_grant():
         assert "off-limits" in run(fs, "list", path)
 
 
+def test_find_ignores_quotes_and_takes_several_terms(fs, tree):
+    assert "a.pdf" in run(fs, "find", tree[0], '"pdf"')  # quotes are never part of a file name
+    out = run(fs, "find", tree[0], '"notes" "pic"')
+    assert "notes.txt" in out and "pic.jpg" in out  # several terms = any of them
+    assert "notes.txt" in run(fs, "find", tree[0], "notes, nothing")
+    assert "notes.txt" in run(fs, "find", tree[0], '"n*es.txt"')
+    assert run(fs, "find", tree[0], '""').startswith("Error")
+
+
+def test_find_refuses_a_whole_drive_but_other_operations_and_folders_are_fine(tree):
+    fs = Files([Grant("c:\\", "read")])
+    out = run(fs, "find", "C:\\", "resume")
+    assert out.startswith("Denied") and "too broad" in out  # no walk happens at all
+    assert not run(fs, "list", "C:\\").startswith("Denied")
+    assert "matches" in run(fs, "find", tree[0], "pdf")  # a folder below the root is fine (tmp is under C:)
+
+
 def test_no_grants_means_no_access(tree, tmp_path):
     assert "outside every grant" in run(Files(), "list", tree[0])
     assert "outside every grant" in run(Files.from_config(tmp_path / "missing.toml"), "list", tree[0])

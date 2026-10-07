@@ -112,6 +112,7 @@ class Runner:
     async def _agent(self, role_name: str, goal: str, run: _Run, parent: str | None) -> Finding:
         role = ROLES[role_name]
         notes: list[str] = []
+        ran: set[str] = set()  # hand actions already run: asking again cannot change the answer
         for _ in range(role.max_steps):
             if self._cancel.is_set():
                 return await self._stop(run, role_name, parent, "Stopped by you.")
@@ -134,7 +135,10 @@ class Runner:
                 notes.append(f"Refused: {verdict.reason}")
                 continue
 
+            key = action.model_dump_json()
             match action:
+                case FilesAction() | FetchAction() if key in ran:
+                    notes.append("You already ran exactly this and the result will not change. Try something different, or answer.")
                 case AnswerAction(text=text):
                     return Finding(text, ok=bool(text.strip()))
                 case PlanAction(steps=steps):
@@ -157,9 +161,11 @@ class Runner:
                     await self._emit(run, "return", plan_step.role, f"{plan_step.status}: {child.text[:200]}", parent=step.id, ok=child.ok)
                     notes.append(f"Finding for step {i} ({plan_step.status}):\n{child.text[:_TEXT_CHARS]}")
                 case FilesAction(op=op, path=path, pattern=pattern):
+                    ran.add(key)
                     result = await self._files.run(op, path, pattern, self._cancel.is_set)
                     notes.append(f"files {op} {path}:\n{result[:_TEXT_CHARS]}")
                 case FetchAction(url=url):
+                    ran.add(key)
                     try:
                         page = await self._fetcher.get(url)
                         notes.append(f"Fetched {url}:\n{page.text[:_TEXT_CHARS]}")

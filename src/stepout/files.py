@@ -143,6 +143,13 @@ class _Walk:
                         continue
 
 
+def _terms(pattern: str) -> list[str]:
+    """Quoted words or comma/pipe-separated words are alternatives; a bare phrase is one term. Quotes are never part of a name."""
+    quoted = re.findall(r"\"([^\"]+)\"|'([^']+)'", pattern)
+    parts = [a or b for a, b in quoted] or re.split(r"[,|]", pattern)
+    return [t for t in (p.strip().strip("\"'").strip() for p in parts) if t]
+
+
 def _date(ts: float) -> str:
     return datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
 
@@ -168,8 +175,13 @@ class Files:
         if op == "count":
             return self._count(real, cancelled)
         if op == "find":
-            if not (pattern or "").strip():
+            if not _terms(pattern or ""):
                 return "Error: find needs a pattern"
+            if os.path.splitdrive(real)[1] in ("", "\\"):  # a drive root
+                return (
+                    "Denied: find on a whole drive is too broad and cannot finish. `list` the drive, then find inside the "
+                    "folders most likely to hold it. If you cannot tell where to look, say so, so the User can be asked."
+                )
             return self._find(real, pattern.strip(), cancelled)
         return f"Error: unknown operation {op!r}"
 
@@ -239,11 +251,11 @@ class Files:
         return "\n".join(lines)
 
     def _find(self, real: str, pattern: str, cancelled: Callable[[], bool]) -> str:
-        glob = pattern.lower() if any(c in pattern for c in "*?[") else f"*{pattern.lower()}*"
+        globs = [t.lower() if any(c in t for c in "*?[") else f"*{t.lower()}*" for t in _terms(pattern)]
         hits = []
         walk = _Walk(real, cancelled)
         for e, is_dir in walk:
-            if not fnmatch.fnmatch(e.name.lower(), glob):
+            if not any(fnmatch.fnmatch(e.name.lower(), g) for g in globs):
                 continue
             try:
                 st = e.stat(follow_symlinks=False)

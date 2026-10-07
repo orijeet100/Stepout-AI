@@ -228,3 +228,12 @@ async def test_the_files_agent_cannot_fetch_and_the_direct_agent_cannot_look_at_
     (tmp_path / "2").mkdir(exist_ok=True)
     await h.run()
     assert files.calls == []
+
+
+async def test_repeating_an_identical_hand_action_is_not_run_again(tmp_path):
+    files = FakeFiles("nothing")
+    same = looks("find", "D:\\Docs", "resume")
+    h = Harness(tmp_path, [plan("a", role="files"), delegate(0), same, same, looks("find", "D:\\Work", "resume"), say("not found"), say("done")], files=files)
+    await h.run()
+    assert [c[1] for c in files.calls] == ["D:\\Docs", "D:\\Work"]  # the repeat never reached the disk
+    assert "already ran exactly this" in h.seen_by(4)

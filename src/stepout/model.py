@@ -57,7 +57,7 @@ _CLIENT_TOOLS = {
             "files",
             "Look at the user's disk: names, sizes, dates and counts only, never file contents. op 'list' shows one folder; "
             "'count' totals a whole folder tree by file extension; 'find' searches a folder tree for names containing the pattern "
-            "(or matching a * glob), newest first. Paths are Windows paths such as D:\\Documents.",
+            "(or matching a * glob; several quoted or comma-separated terms match any of them), newest first. Paths are Windows paths such as D:\\Documents.",
             required=["op", "path"],
             op={"type": "string", "enum": ["list", "count", "find"]},
             path={"type": "string"},
