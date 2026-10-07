@@ -4,7 +4,7 @@ A task agent you drive from your phone. Send a request on Telegram (or a React w
 
 **The claim to prove:** human interventions per task fall across repeated attempts, against a memory-off control. No model training — improvement comes from recall.
 
-**Status:** Slice 0 — requirements, architecture and roadmap only; no application code yet.
+**Status:** Slice 1 — domain core (Intake, Gate, Runner with fetch/search, Ledger, CLI Channel). `pytest` green offline; live CLI demo pending an `ANTHROPIC_API_KEY`. See [`docs/results/s1.md`](docs/results/s1.md).
 
 ## Docs
 - [`docs/requirements.md`](docs/requirements.md) — what V0 must do, the metric, the 16-scenario acceptance script
