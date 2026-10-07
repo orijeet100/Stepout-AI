@@ -56,7 +56,7 @@ def _state(goal: str, plan: list[PlanStep], notes: list[str]) -> str:
 def _summary(action, plan: list[PlanStep]) -> str:
     match action:
         case PlanAction(steps=steps):
-            return f"plan: {len(steps)} step(s)"
+            return "plan: " + "; ".join(f"{s.role}: {s.goal[:70]}" for s in steps)
         case DelegateAction(step=i) if 0 <= i < len(plan):
             return f"delegate {i} → {plan[i].role}: {plan[i].goal}"
         case DelegateAction(step=i):
@@ -109,6 +109,17 @@ class Runner:
         await self._emit(run, "stop", role, text, parent=parent)
         return Finding(text, ok=False)
 
+    async def _run_step(self, run: _Run, i: int, parent: str, notes: list[str]) -> None:
+        """Run plan step `i` with its Role and note the Finding for the Orchestrator."""
+        plan_step = run.plan[i]
+        plan_step.status = "running"
+        await self._emit_plan(run)
+        child = await self._agent(plan_step.role, plan_step.goal, run, parent=parent)
+        plan_step.status = "done" if child.ok else "failed"
+        await self._emit_plan(run)
+        await self._emit(run, "return", plan_step.role, f"{plan_step.status}: {child.text[:200]}", parent=parent, ok=child.ok)
+        notes.append(f"Finding for step {i} ({plan_step.status}):\n{child.text[:_TEXT_CHARS]}")
+
     async def _agent(self, role_name: str, goal: str, run: _Run, parent: str | None) -> Finding:
         role = ROLES[role_name]
         notes: list[str] = []
@@ -148,18 +159,12 @@ class Runner:
                         run.plans += 1
                         run.plan = steps
                         await self._emit_plan(run)
+                        await self._run_step(run, 0, step.id, notes)  # a plan starts itself: saves a model call per Task
                 case DelegateAction(step=i):
                     if not 0 <= i < len(run.plan):
                         notes.append(f"Refused: there is no step {i}.")
                         continue
-                    plan_step = run.plan[i]
-                    plan_step.status = "running"
-                    await self._emit_plan(run)
-                    child = await self._agent(plan_step.role, plan_step.goal, run, parent=step.id)
-                    plan_step.status = "done" if child.ok else "failed"
-                    await self._emit_plan(run)
-                    await self._emit(run, "return", plan_step.role, f"{plan_step.status}: {child.text[:200]}", parent=step.id, ok=child.ok)
-                    notes.append(f"Finding for step {i} ({plan_step.status}):\n{child.text[:_TEXT_CHARS]}")
+                    await self._run_step(run, i, step.id, notes)
                 case FilesAction(op=op, path=path, pattern=pattern):
                     ran.add(key)
                     result = await self._files.run(op, path, pattern, self._cancel.is_set)
