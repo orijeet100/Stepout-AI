@@ -1,23 +1,23 @@
 # Architecture — V0
 
-Status: draft for sign-off · Date: 2026-10-06 · Language: [`CONTEXT-MAP.md`](../CONTEXT-MAP.md) · Requirements: [`requirements.md`](requirements.md) · Order of work: [`roadmap.md`](roadmap.md)
+Status: draft for sign-off · Date: 2026-10-07 · Language: [`CONTEXT-MAP.md`](../CONTEXT-MAP.md) · Requirements: [`requirements.md`](requirements.md) · Order of work: [`roadmap.md`](roadmap.md)
 
 One Python process on the laptop. Two bounded contexts — **Assistant** (the product, `src/stepout/`) and **Evaluation** (the proof, `tests/eval/`) — see [ADR 0005](adr/0005-two-bounded-contexts.md). Design vocabulary: **module**, **interface**, **seam**, **adapter**, **depth** (leverage per unit of interface).
 
 ## 1. The shape
 
 ```
-            OUTSIDE                       ASSISTANT (src/stepout)                         OUTSIDE
-                                 ┌──────────────────────────────────────────────┐
- Telegram ──► Telegram adapter ─┐│                                              │
- Web page ──► Web adapter ──────┼┼─► app ──► Intake ──► Runner ──► Gate (pure) │
- Terminal ──► CLI adapter ──────┘│     ▲        │          │  ├─► Browser ──────┼──► websites
-                                 │     │        │          │  ├─► Fetcher ──────┼──► websites
- EVALUATION (tests/eval)         │     │        ▼          ▼  ├─► Memory        │
- Simulated user ── Channel ──────┼─────┘      Model ◄──────┘  └─► Ledger        │
-   reads Ledger ◄────────────────┼───────────────────────────────── (SQLite)    │
-                                 └──────────────────────────────────┬───────────┘
-                                                                    └──► model provider
+ Telegram ───┐
+ React page ─┤                    ┌─► Gate  (pure rules; every Action gets a Verdict)
+ Terminal ───┼─► Channel ─► app ─► Intake ─► Runner ─┼─► Browser ───► websites
+ Simulated ──┘   (interface)         │               ├─► Fetcher ───► websites
+ user (eval)                         ▼               ├─► Files ─────► your folders (Grants)
+                                   Model             ├─► Memory ────► data/memory/
+                                  (port)             └─► Ledger ────► Store ─► data/stepout.db
+                                     │                  (Runner also keeps run state in Store)
+                                     └─► model provider
+
+ Evaluation (tests/eval) drives the Channel as the Simulated user and reads the Ledger.
 ```
 
 The dependency rule: arrows point inward to `Gate` and the domain types. Nothing in the Assistant imports a Channel adapter except `app` (the composition root). Evaluation imports nothing from the Assistant except the Channel interface, the domain types and the Ledger reader.
@@ -29,15 +29,18 @@ Each is **deep**: callers learn a small interface; the behaviour behind it is la
 | Module | Interface (all a caller learns) | Hides | Depends on |
 |---|---|---|---|
 | **Intake** | `read(message) → Reading` | fast paths (reply-to, buttons, `/commands`), Stale check, scope screening, cheap-model routing and classification | Model, Gate.`screen`, run state, clock |
-| **Runner** | `submit(task)` · `deliver(answer \| approval \| cancel)` · `recover()` | the Run state machine, Steps, the agent loop, tool dispatch, Budgets, Checkpoints, at-most-once, Recollection at start, Memory writes at end, browser lifecycle | Model, Gate, Browser, Fetcher, Memory, Ledger, clock, `notify` |
-| **Gate** | `check(action, ctx) → Verdict` · `screen(request) → Screening` | every rule: Risk classes, Forbidden list, navigation rules, Approved sites, Approval matching and expiry, Budget checks | nothing — pure functions |
-| **Memory** | `recall(task) → Recollection` · `remember(item) → Remembered \| Rejected` · `forget(what) → count` | Provenance check, secret/PII redaction, Pinned entries, Note expiry, bounded recall, storage format | a store behind an **internal** seam (files now; mem0 in S9) |
-| **Ledger** | `record(event)` · `query(run=None, since=None) → events` | schema, append-only rule, cost totals, no Persona or Document contents | SQLite |
-| **Browser** | `open() → session`; session `look() → PageView` · `do(action) → Result` · `close()` | Playwright, page views, screenshots, **network policy on every request including ones pages start themselves**, temp downloads, Chromium sandbox | Playwright |
-| **Fetcher** | `get(url) → FetchedPage` | HTTP, same network policy, HTML → text, size limits | httpx |
-| **app** | `main()` | wiring, the receive → read → submit/deliver loop, commands (`/status`, `/stop`, `/forget`, `/persona`, `/retry`) | everything (composition root) |
+| **Runner** | `submit(task)` · `deliver(answer \| approval \| cancel)` · `recover()` | the Run state machine, Steps, the agent loop, tool dispatch, Budgets (including the read Budget), Checkpoints, at-most-once, Taint, Recollection at start, Memory writes at end, browser lifecycle | Model, Gate, Browser, Fetcher, Files, Memory, Ledger, Store, clock, `notify` |
+| **Gate** | `check(action, ctx) → Verdict` · `screen(request) → Screening` | every rule: Risk classes, Forbidden list, navigation rules, Approved sites, Approval matching and expiry, Taint, Grants, Budget checks | nothing — pure functions |
+| **Memory** | `recall(task) → Recollection` · `remember(item) → Remembered \| Rejected` · `forget(what) → count` | Provenance check, secret/PII redaction, Pinned entries, Note expiry, bounded recall, storage format | a store behind an **internal** seam (files now; mem0 in S10) |
+| **Ledger** | `record(event)` · `query(run=None, since=None) → events` | schema, append-only rule, cost totals, references instead of contents | Store |
+| **Browser** | `open() → session`; session `look() → PageView` · `do(action) → Result` · `close()` | Playwright, page views, screenshots, **network policy on every request including ones pages start themselves**, uploads from Grants, temp downloads, Chromium sandbox | Playwright |
+| **Fetcher** | `get(url) → FetchedPage` | HTTP, the same network policy, HTML → text, size limits | httpx |
+| **Files** | `find(query) · list(folder) · stat(folder) · read(path)` (S11: `plan` · `apply` · `undo`) | Grants and Modes, **Off-limits**, real-path resolution, PDF text extraction, secret screening, the Undo journal | Grants config, the local disk |
+| **app** | `main()` | wiring, the receive → read → submit/deliver loop, commands (`/status`, `/stop`, `/forget`, `/persona`, `/retry`, `/undo`) | everything (composition root) |
 
-**Deletion test, applied.** Delete Gate and its rules reappear inside every tool and route — keep. Delete Ledger and every module invents its own logging and cost math — keep. A separate "router" or "scope guard" module would only pass through to the model — folded into Intake. A separate "agent loop" next to a "run manager" would force the loop to expose its state for checkpointing — folded into Runner, with the Step as an internal seam its own tests can use.
+**Store** is internal, not a module callers see: the one place holding the connection, the migrations and every SQL statement, used by Ledger and Runner. A move to Postgres touches this one file ([ADR 0006](adr/0006-sqlite-for-runs-and-ledger.md)).
+
+**Deletion test, applied.** Delete Gate and its rules reappear inside every tool and route — keep. Delete Ledger and every module invents its own logging and cost math — keep. A separate "router" or "scope guard" module would only pass through to the model — folded into Intake. A separate "agent loop" next to a "run manager" would force the loop to expose its state for checkpointing — folded into Runner, with the Step as an internal seam its own tests can use. Files stays separate from Browser: Grants, Off-limits and path safety are a body of rules of their own.
 
 ## 3. Seams and adapters
 
@@ -45,14 +48,15 @@ A seam is only real when two adapters exist (production + test counts).
 
 | Seam | Adapters | Dependency kind |
 |---|---|---|
-| **Channel** — `messages() → stream of Message` · `send(reply)` | Telegram (S4), Web (S8), CLI (S1), Simulated user (Evaluation, S6) | external, owned translation |
+| **Channel** — `messages() → stream of Message` · `send(reply)` | Telegram (S4), React web (S9), CLI (S1), Simulated user (Evaluation, S6) | external, owned translation |
 | **Model** — `call(request) → response` (response carries tokens and money spent) | provider adapter (S1), scripted model (tests, S1) | true external → mocked in tests |
-| **Memory store** (internal to Memory) | Markdown files (S5), mem0 (S9) | local; the rules stay above the seam |
+| **Memory store** (internal to Memory) | Markdown files (S5), mem0 (S10) | local; the rules stay above the seam |
 
 **Deliberately not seams** (one adapter, tested with a local stand-in instead):
 - **Browser** — tested with real Chromium against the Simulated web. No fake page driver: a fake drifts from real pages, and fast tests come from Gate, Intake and Memory, which need no browser.
 - **Fetcher** — tested against the Simulated web.
-- **Run state and Ledger storage** — SQLite in a temp file ([ADR 0006](adr/0006-sqlite-for-runs-and-ledger.md)).
+- **Files** — the local disk, tested against a Simulated folder. In V1 the laptop helper becomes a second adapter and the seam turns real; Actions and Results are plain data from S1 so that costs little ([ADR 0007](adr/0007-brain-and-hands.md)).
+- **Store** — SQLite in a temp file. Postgres becomes the second adapter when a second machine or many Users write.
 - **Clock** — a `now` parameter, not an adapter.
 
 ## 4. Interfaces — invariants and error modes
@@ -85,32 +89,42 @@ class Memory:
     def recall(self, task: Task) -> Recollection: ...
     def remember(self, item: MemoryItem) -> Remembered | Rejected: ...
     def forget(self, what: str) -> int: ...
+
+class Files:
+    def find(self, query: str) -> list[FileRef] | Denied: ...
+    def list(self, folder: Path) -> list[FileRef] | Denied: ...
+    def stat(self, folder: Path) -> FolderStats | Denied: ...        # counts by type, sizes, dates
+    def read(self, path: Path) -> FileText | Denied: ...             # Mode >= read; screened
+    # S11: plan(folder, goal) -> Plan · apply(plan) -> Applied · undo(run) -> Undone
 ```
 
+- **Actions and Results are plain serializable data** (Pydantic models; no live objects, handles or callbacks), with a round-trip test. This is what lets Browser and Files run elsewhere in V1.
 - **Intake** — Messages from anyone but the User never reach it (the adapter drops them; Intake asserts). Fast paths run before any model call: a reply to a Question is an `AnswerTo`, a button is an `ApprovalGiven`, `/x` is a `Command`. Free text while a Run is paused and unclear → `Unclear` (two buttons: "answer to the current Task" / "new Task"). `screen` runs before money is spent; the model is asked only when `screen` says `Unsure`. Error: model unreachable → the Message waits and is re-read later.
-- **Runner** — one Run executes at a time; others queue. Every Action passes `check` before it happens. A Consequential Action is written as *intended* in the same transaction as the Checkpoint, then *done* after — a crash in between makes the Outcome **Uncertain**, and the Action is never repeated. Budget is checked before every model call. Recollection is taken once, at Run start; Memory is written only from the User's Answers and the Run's own Outcome. Errors: Budget reached → Question; Blocker → Blocked; malformed model output → one retry, then Failed; browser crash → resume once from the Checkpoint with a fresh browser, then Failed; no Answer for 24 h → Expired.
-- **Gate** — pure and total: every Action gets a Verdict. Forbidden beats everything. Unknown Risk → Ask. An Approval matches one exact Action (same kind, target, values) and expires after ~15 min. Navigation allowed only to `http(s)` on public hosts.
-- **Memory** — rejects items whose Provenance isn't a User Message or a Run Outcome. Redacts card numbers, national IDs, bank details and passwords before writing. Never overwrites a Pinned entry. Expired Notes are never recalled. Recall is bounded (the Persona plus a few Notes and History entries).
-- **Ledger** — append-only. Holds references to Persona facts and Documents, never their contents. Every model call has tokens and cost.
-- **Browser** — enforces the network policy on **every** request (redirects, iframes, page scripts), not only on the Assistant's own Actions, because a page can reach `localhost`, the home network or `file://` by itself. Downloads go to a temp folder.
+- **Runner** — one Run executes at a time; others queue. Every Action passes `check` before it happens. A Consequential Action is written as *intended* in the same transaction as the Checkpoint, then *done* after — a crash in between makes the Outcome **Uncertain**, and the Action is never repeated; a unique constraint on (run, step, action) enforces it. Budget (money, Steps, time, files read) is checked before every model call and every file read. Recollection is taken once, at Run start; Memory is written only from the User's Answers and the Run's own Outcome. Reading file contents sets the Run **Tainted**. Errors: Budget reached → Question; Blocker → Blocked; malformed model output → one retry, then Failed; browser crash → resume once from the Checkpoint with a fresh browser, then Failed; no Answer for 24 h → Expired.
+- **Gate** — pure and total: every Action gets a Verdict. Forbidden and Off-limits beat everything. Unknown Risk → Ask. An Approval matches one exact Action (same kind, target, values) and expires after ~15 min. In a Tainted Run every outward Action → Ask, with the exact data and destination. Navigation allowed only to `http(s)` on public hosts.
+- **Memory** — rejects items whose Provenance isn't a User Message or a Run Outcome. Redacts card numbers, national IDs, bank details and passwords before writing. Never overwrites a Pinned entry. Expired Notes are never recalled. Recall is bounded.
+- **Ledger** — append-only. Holds references to Persona facts and files, never their contents. Every model call has tokens and cost; every file opened has a path and size.
+- **Browser** — enforces the network policy on **every** request (redirects, iframes, page scripts), not only on the Assistant's own Actions. Uploads only files the Gate has allowed from a Grant. Downloads go to a temp folder.
+- **Files** — resolves the real path first, then checks Off-limits, then the Grant and its Mode; `Denied(reason)` otherwise. Rejects `..`, symlinks, junctions and network paths. Never returns contents in `metadata` Mode. Never writes in V0 (until S11). Screens contents for secrets before returning them. The Runner counts reads against the Budget (it `stat`s before it reads).
 
 ## 5. A Message's journey
 
 ```
-You: "apply to this job with my resume" ─► Telegram adapter ─► app
-app ─► Intake.read ─► NewTask(route = Browse)                         [cheap model]
+You: "upload my resume to this job form" ─► Telegram adapter ─► app
+app ─► Intake.read ─► NewTask(route = Browse)                          [cheap model]
 app ─► Runner.submit(task)
-  Runner: Memory.recall ─► Recollection (Persona: name, email · Document: resume)
+  Runner: Memory.recall ─► Recollection (Persona: name, email, resume lives at …\Resume\cv.pdf)
   each Step:
-    Model.call(transcript) ─► proposes an Action                      [strong model]
+    Model.call(transcript) ─► proposes an Action                       [strong model]
     Gate.check(action)
-      Allow  ─► Browser.do ─► page view ─► Checkpoint + Ledger
-      Ask    ─► Approval sent with the exact fields ─► PAUSE
+      Allow  ─► Browser.do / Files.find ─► result ─► Checkpoint + Ledger
+      Ask    ─► Approval sent with the exact file, size and destination ─► PAUSE
       Refuse ─► the model is told why; the Run continues or ends
     Model needs a phone number ─► Question sent ─► PAUSE
 You: "+1 555 …" ─► Intake.read ─► AnswerTo(question) ─► Runner.deliver ─► RESUME from Checkpoint
-You tap Approve ─► ApprovalGiven ─► Runner.deliver ─► Browser.do(submit)
-Run ends Done ─► Memory.remember(phone, from your Answer · Note about the site) ─► result sent to you
+You tap Approve ─► ApprovalGiven ─► Runner.deliver ─► Browser.do(upload, submit)
+Run ends Done ─► Memory.remember(phone, from your Answer · where the resume lives · Note about the site)
+              ─► result sent to you
 ```
 
 ## 6. A Run's states
@@ -138,7 +152,7 @@ recover() after a crash or laptop sleep ─► running (from the last Checkpoint
 | Element missing, page slow | The next Step sees it; the Step Budget bounds it | a Question if stuck | Ledger + screenshot |
 | Page redirects to `localhost`, home network or `file://` | Browser blocks the request | page error, if any | Ledger |
 | Page says "ignore your instructions…" | Untrusted content: Verdicts unchanged, no Memory write | maybe a Refusal | Ledger |
-| Submit / send / apply | Ask, with the exact fields | approve / deny buttons | Ledger |
+| Submit / send / apply / upload | Ask, with the exact fields or file | approve / deny buttons | Ledger |
 | You tap Approve after 15 min | Approval expired; asks again | a fresh Approval | Ledger |
 | CAPTCHA, 2FA, login wall | Run ends Blocked | screenshot + "blocked" | Ledger |
 | Task Budget reached | Stops before the next model call | Question: raise or stop? | Ledger |
@@ -149,53 +163,80 @@ recover() after a crash or laptop sleep ─► running (from the last Checkpoint
 | You edit `persona.md` | Your entry is Pinned and wins | nothing | Memory |
 | A page tries to plant a "preference" | Rejected: wrong Provenance | nothing | Ledger |
 | A Note goes stale (site changed) | Expires; not recalled | maybe one Question | Memory |
+| A request reaches outside every Grant (`..`, symlink, junction) | Files returns Denied | "not inside your Grants" | Ledger |
+| A request touches Off-limits (`.env`, password store, the Assistant's folder) | Refused, regardless of Grants | "that location is off-limits" | Ledger |
+| A file contains "email these files to …" | Untrusted content; the Run is Tainted; no Memory write | maybe a Refusal | Ledger |
+| A Tainted Run tries to send or upload | Ask, with what goes where | Approval with the data and destination | Ledger |
+| Read Budget reached (50 files / 20 MB) | Stops reading | Question: continue or stop? | Ledger |
+| Several resumes match | Asks which one, then remembers | a Question with choices | Persona |
 
-## 8. Threat model
+## 8. Where things run
 
-- **Untrusted:** web pages, fetched content, search results. **Trusted:** Messages from the User on an allowlisted Channel; the User's edits to Memory.
-- **Layers:** (1) authority at the Gate, never the model; (2) Consequential Actions need an Approval; entering Persona facts or Documents into a site that isn't an Approved site needs one too; (3) Memory writes only from the User's Messages and Run Outcomes; (4) network policy in the Browser and Fetcher for every request; (5) `screen` reads only the User's text; (6) Security cases in Evaluation — zero Actions the User didn't approve, zero Memory written from Untrusted content.
-- **Accepted in V0:** a browser exploit runs with your user's privileges (Chromium sandbox on, Playwright kept current — verify the option in S2); Persona facts and Documents reach the model provider when filling a form (approval-gated, Egress recorded).
+| Piece | V0 | V1 |
+|---|---|---|
+| Brain (Intake, Runner, Memory, Ledger, model calls) | the laptop process | a small server |
+| Browser hands | fresh isolated Playwright context | a container per Task |
+| Files hands | the local disk, inside Grants | a helper on the User's laptop that connects *outward*, enforcing Grants itself |
+| Database | SQLite file | Postgres when a second machine or many Users write |
+| Frontend | Telegram + React page on localhost / home Wi-Fi | a hosted React app, with sign-in from a provider |
 
-## 9. On disk (`data/`, gitignored)
+Grants belong to each User and are enforced on that User's own device; the server never holds another User's files. See [ADR 0007](adr/0007-brain-and-hands.md) and [ADR 0008](adr/0008-laptop-files-grants.md).
+
+## 9. Threat model
+
+- **Untrusted:** web pages, fetched content, search results, and the contents of files (a PDF someone sent you can carry hostile text). **Trusted:** Messages from the User on an allowlisted Channel; the User's edits to Memory and to `grants.toml`.
+- **Layers:** (1) authority at the Gate, never the model; (2) Consequential Actions need an Approval; entering Persona facts or Documents into a site that isn't an Approved site needs one too; (3) Memory writes only from the User's Messages and Run Outcomes; (4) network policy in the Browser and Fetcher for every request; (5) `screen` reads only the User's text; (6) Grants set only by the User; Off-limits fixed in code, including the Assistant's own folder; Files enforces both itself; (7) reading file contents Taints the Run — outward Actions need an Approval showing what goes where; (8) a read Budget per Run; (9) secrets screened out of file contents before they reach the model; (10) Security cases in Evaluation — zero Actions the User didn't approve, zero Memory from Untrusted content, zero reads outside Grants.
+- **Accepted in V0:** a browser exploit runs with your user's privileges (Chromium sandbox on, Playwright kept current — verify the option in S2); Persona facts, Documents and `read`-Mode file contents reach the model provider (approval-gated or Grant-gated, Egress recorded); a whole-profile Grant widens the blast radius of a successful injection, which taint and Approvals are there to contain.
+
+## 10. On disk (`data/`, gitignored)
 
 ```
 data/stepout.db                   Tasks, Runs, Checkpoints, Questions, Approvals, Approved sites, Ledger
+data/config/grants.toml           Grants — edited only by the User
 data/memory/persona.md            Persona (Pinned entries marked)
 data/memory/history.md            History
 data/memory/notes/<site>.md       Notes, each with Provenance and expiry
-data/documents/                   Documents (resume, …)
+data/documents/                   files given directly (optional)
+data/undo/<run_id>.jsonl          Undo journal (S11)
 data/runs/<run_id>/               screenshots
 ```
 
-## 10. Package layout
+## 11. Package layout
 
 ```
+web/               React + Vite + TypeScript (S9): package.json, src/, dist/ (build output, gitignored)
 src/stepout/
-  CONTEXT.md     Assistant language
-  domain.py      Message, Reply, Task, Run, Action, Verdict, Question, Approval, Outcome, Event …
-  app.py         composition root
-  intake.py · runner.py · gate.py · memory.py · ledger.py · browser.py · fetch.py · model.py
-  channels/      cli.py · telegram.py · web.py
+  CONTEXT.md       Assistant language
+  domain.py        Message, Reply, Task, Run, Action, Result, Verdict, Question, Approval, Outcome, Event …
+  app.py           composition root
+  store.py         the one SQL module; migrations/ holds numbered .sql files
+  intake.py · runner.py · gate.py · memory.py · ledger.py · browser.py · fetch.py · files.py · model.py
+  channels/        cli.py · telegram.py · web.py (serves web/dist)
 tests/
-  support/       scripted model, Simulated-web launcher
-  simweb/        sites, Variants, Receipts
-  test_gate.py · test_intake.py · test_memory.py · test_runner.py · test_app.py
-  eval/          Evaluation: CONTEXT.md, golden/, harness, Simulated user
+  support/         scripted model, Simulated-web launcher, Simulated-folder builder
+  simweb/          sites, Variants, Receipts
+  test_gate.py · test_intake.py · test_memory.py · test_files.py · test_runner.py · test_app.py
+  eval/            Evaluation: CONTEXT.md, golden/, harness, Simulated user
 ```
 
-## 11. Testing — the interface is the test surface
+## 12. Testing — the interface is the test surface
 
 - **Gate** — table-driven, pure, hundreds of cases in milliseconds. The most important tests in the repo.
+- **Files** — table-driven path cases against a Simulated folder: `..`, symlinks, junctions, network paths, Off-limits, Mode limits, the read Budget.
 - **Intake** and **Memory** — through their interfaces, with the scripted model and a temp folder.
 - **Runner** — through `submit` / `deliver` / `recover`, with the scripted model, real Chromium, the Simulated web and a temp SQLite file. Kill-and-recover tests live here.
 - **app** — end to end through the CLI Channel.
 - **Evaluation** — its own context; costs money; `pytest -m eval`.
 - Replace, don't layer: when a module deepens, its old internal tests are deleted in favour of interface tests.
 
-## 12. Open design questions (each settled in a slice)
+## 13. Open design questions (each settled in a slice)
 
 1. **Search** — the model provider's built-in web search vs a search API. *S1.*
-2. **Page view** — accessibility snapshot, screenshot, or both: token cost vs success on the Simulated web. *S2 spike.*
-3. **Is this click Consequential?** — classify from the element (role, form submit, label) plus the model's stated intent, unknown → Ask; backstop: the Browser holds non-GET requests to other sites unless Approved. *S3, attacked in S7.*
-4. **Models per role** — a cheap model for Intake, a strong one for the Runner; check current IDs and prices. *S1.*
-5. **Evaluation size vs Budget** — see the estimate in the roadmap. *S6.*
+2. **Models per role** — a cheap model for Intake, a strong one for the Runner; check current IDs and prices. *S1.*
+3. **Page view** — accessibility snapshot, screenshot, or both: token cost vs success on the Simulated web. *S2 spike.*
+4. **Is this click Consequential?** — classify from the element (role, form submit, label) plus the model's stated intent, unknown → Ask; backstop: the Browser holds non-GET requests to other sites unless Approved. *S3, attacked in S7.*
+5. **Exfiltration after a file read** — a Tainted Run could leak through a URL's query string. Leaning: in a Tainted Run, the Browser and Fetcher may reach only Approved sites and domains already visited before the first read. *S8.*
+6. **PDF text** — pypdf vs PyMuPDF: check licences (PyMuPDF is AGPL, as I recall) and quality on real resumes. *S8.*
+7. **Windows path edge cases** — junctions, 8.3 short names, alternate data streams, `\\?\` and UNC paths; verify the real-path check handles each. *S8.*
+8. **Secret screening** — patterns vs a model check; what to do when it can't tell. *S8.*
+9. **Evaluation size vs Budget** — see the estimate in the roadmap. *S6.*

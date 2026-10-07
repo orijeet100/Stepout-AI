@@ -16,6 +16,10 @@ _Avoid_: mock, copy
 Sites that Evaluation controls and serves locally, built to behave like real ones.
 _Avoid_: sandbox, mock site, fixture
 
+**Simulated folder**:
+A temporary folder tree Evaluation builds for Laptop Tasks — files, folders and hostile documents — so file Tasks can be repeated exactly.
+_Avoid_: fixture, test directory
+
 **Variant**:
 A version of a Simulated-web site — Stable, Changed (layout or labels moved), or Poisoned (carrying hostile instructions).
 

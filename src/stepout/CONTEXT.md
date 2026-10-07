@@ -1,13 +1,13 @@
 # Assistant
 
-A personal assistant the User drives from a Channel. It turns Requests into Tasks, carries them out on the web, asks the User only when it must, and keeps Memory so it needs the User less over time.
+A personal assistant the User drives from a Channel. It turns Requests into Tasks, carries them out on the web and in the User's folders, asks the User only when it must, and keeps Memory so it needs the User less over time.
 
 ## Language
 
 ### People and conversation
 
 **User**:
-The person the Assistant works for. In V0 there is exactly one.
+The person the Assistant works for. Each User has their own Grants, Memory and Budget.
 _Avoid_: owner, customer, account
 
 **Channel**:
@@ -40,7 +40,7 @@ An accepted Request the Assistant is responsible for finishing. It ends with an 
 _Avoid_: job, workflow, ticket
 
 **Route**:
-The kind of work a Task needs — Answer (no tools), Lookup (fetch or search), Browse (a browser), or Laptop (the User's own computer; unavailable in V0).
+The kind of work a Task needs — Answer (no tools), Lookup (fetch or search), Browse (a browser), or Laptop (the User's own files and folders, inside Grants).
 _Avoid_: mode, workflow type
 
 **Run**:
@@ -52,7 +52,7 @@ One look–decide–act cycle inside a Run.
 _Avoid_: turn, iteration
 
 **Action**:
-One thing the Assistant wants to do in the world during a Step — navigate, click, type, submit, fetch.
+One thing the Assistant wants to do in the world during a Step — navigate, click, type, submit, fetch, read a file, upload a file.
 _Avoid_: command, operation, tool call
 
 **Outcome**:
@@ -103,23 +103,49 @@ The Gate's answer for an Action — Allow, Ask (needs an Approval), or Refuse.
 _Avoid_: decision, result
 
 **Risk**:
-The class of an Action — Safe (read, search, summarize, draft), Consequential (submit, send, post, apply, entering Persona facts or Documents into a site), or Forbidden (payments, cancellations, deletions, security changes, creating accounts).
+The class of an Action — Safe (read, search, summarize, draft, find or count files), Consequential (submit, send, post, apply, upload a file, move or rename files, enter Persona facts or Documents into a site), or Forbidden (payments, cancellations, deleting anything, security changes, creating accounts).
 _Avoid_: severity, danger level
 
 **Refused**:
-An Action the Gate will never allow, because its Risk is Forbidden.
+An Action the Gate will never allow, because its Risk is Forbidden or its target is Off-limits.
 
 **Approved site**:
 A website the User has approved for Consequential Actions. The list grows only through Approvals.
 _Avoid_: whitelist, trusted domain
 
 **Untrusted content**:
-Anything the Assistant reads from the web. It is data only — never an instruction, never Memory, never a permission.
+Anything the Assistant reads from the web or from a file. It is data only — never an instruction, never Memory, never a permission.
 _Avoid_: external input, page instructions
 
+**Tainted**:
+A Run that has read file contents. Every outward Action in it needs an Approval that shows what goes where.
+_Avoid_: contaminated, dirty
+
 **Budget**:
-The limits on a Task (money, Steps, active time) and on the month.
+The limits on a Task (money, Steps, active time, files read) and on the month.
 _Avoid_: quota, cap, limit
+
+### Laptop
+
+**Grant**:
+A folder the User allows the Assistant to reach, with a Mode. Only the User creates or changes Grants; the Assistant and the model never can. A User with no Grants has no file access.
+_Avoid_: permission, access rule, mount, allowlist
+
+**Mode**:
+How far a Grant reaches — metadata (names, counts, sizes, dates), read (contents too), or organize (make folders, move, rename). Each includes the ones before it.
+_Avoid_: level, permission level
+
+**Off-limits**:
+Places no Grant can reach — password stores and browser profiles, key and credential files, system folders, and the Assistant's own folder.
+_Avoid_: blocklist, exclusion
+
+**Plan**:
+The list of changes an organizing Task would make, shown to the User for Approval before anything moves.
+_Avoid_: preview, dry run
+
+**Undo journal**:
+The record that lets the User reverse a Run's moves.
+_Avoid_: backup, rollback log
 
 ### Memory
 
@@ -128,14 +154,14 @@ What the Assistant keeps between Tasks about the User and the web: Persona, Note
 _Avoid_: context, knowledge base, state
 
 **Persona**:
-Facts and preferences about the User, kept where the User can read and edit them.
+Facts and preferences about the User, including where their usual Documents live, kept where the User can read and edit them.
 _Avoid_: profile, user model
 
 **Pinned**:
 A Persona entry the User wrote or edited. The Assistant never overwrites it.
 
 **Document**:
-A file the User gave the Assistant on purpose, such as a resume.
+A file the Assistant uses for the User, such as a resume — found inside a Grant, or given directly.
 _Avoid_: profile data, attachment, upload
 
 **Note**:
@@ -160,7 +186,7 @@ The User removing something from Memory.
 ### Record
 
 **Ledger**:
-The append-only record of everything that happened — Messages, Steps, Verdicts, Questions, Approvals, money spent and Egress. It is not Memory and the model never sees it.
+The append-only record of everything that happened — Messages, Steps, Verdicts, Questions, Approvals, files opened (paths and sizes, never contents), money spent and Egress. It is not Memory and the model never sees it.
 _Avoid_: log, trace, audit trail
 
 **Egress**:
