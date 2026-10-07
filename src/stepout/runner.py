@@ -51,7 +51,10 @@ def _state(goal: str, plan: list[PlanStep], notes: list[str]) -> str:
     parts = [f"Task: {goal}"]
     if plan:
         parts.append("Plan:\n" + "\n".join(f"{i}. [{s.status}] {s.role}: {s.goal}" for i, s in enumerate(plan)))
-    return "\n\n".join(parts + notes)
+    parts += notes
+    if notes:  # without this, models re-run the call they just made instead of reading its result
+        parts.append("The results of your calls are above. If they are enough, give your answer now; otherwise make a different call.")
+    return "\n\n".join(parts)
 
 
 def _shrink_old_pages(notes: list[str], keep: int = 2) -> None:
@@ -163,7 +166,7 @@ class Runner:
 
             key = action.model_dump_json()
             match action:
-                case FilesAction() | FetchAction() if key in ran:
+                case BrowseAction(op="open") | FilesAction() | FetchAction() if key in ran:
                     notes.append("You already ran exactly this and the result will not change. Try something different, or answer.")
                 case AnswerAction(text=text):
                     return Finding(text, ok=bool(text.strip()))
@@ -185,6 +188,7 @@ class Runner:
                     result = await self._files.run(op, path, pattern, self._cancel.is_set)
                     notes.append(f"files {op} {path}:\n{result[:_TEXT_CHARS]}")
                 case BrowseAction(op=op, url=url, link=link):
+                    ran.add(key)
                     view, shot = await self._browser.run(run.id, op, url, link)
                     notes.append(f"browse {op}:\n{view}")
                     _shrink_old_pages(notes)
