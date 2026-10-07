@@ -1,0 +1,12 @@
+# secrets
+.env
+
+# local state: memory, profile files, run ledgers, checkpoints (personal data)
+data/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
