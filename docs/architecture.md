@@ -77,7 +77,7 @@ A seam is only real when two adapters exist (production + test counts).
 
 | Seam | Adapters | Dependency kind |
 |---|---|---|
-| **Channel** — `messages() → stream of Message` · `send(reply)` | Telegram (S4), React web (S9), CLI (S1), Simulated user (Evaluation, S6) | external, owned translation |
+| **Channel** — `messages() → stream of Message` · `send(reply)` · `trace(event)` (live view of the Run) · `cancel` flag (Stop) | Telegram (S4), React web (S9), CLI (S1), Simulated user (Evaluation, S6) | external, owned translation |
 | **Model** — `call(request) → response` (response carries tokens and money spent) | provider adapter (S1), scripted model (tests, S1) | true external → mocked in tests |
 | **Memory store** (internal to Memory) | Markdown files (S5), mem0 (S10) | local; the rules stay above the seam |
 
@@ -240,7 +240,7 @@ src/stepout/
   domain.py        Message, Reply, Task, Run, Action, Result, Verdict, Question, Approval, Outcome, Event …
   app.py           composition root
   store.py         the one SQL module; migrations/ holds numbered .sql files
-  intake.py · runner.py (loop + Role table) · gate.py · memory.py · ledger.py · browser.py · fetch.py · files.py · model.py
+  intake.py · runner.py (the loop) · roles.py (Role table) · gate.py · memory.py · ledger.py · browser.py · fetch.py · files.py · model.py
   channels/        cli.py · telegram.py · web.py (serves web/dist)
 tests/
   support/         scripted model, Simulated-web launcher, Simulated-folder builder
