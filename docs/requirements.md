@@ -26,7 +26,7 @@ You send a Request from **Telegram** or a **React web page**. The Assistant does
 
 **B. Execution**
 - FR5. Agent loop: observe → model proposes one Action → Gate → act → repeat until done, blocked, or capped; the loop runs under a Role (FR38). Tools: fetch/search, browser (fresh isolated context per Task), files, ask-human, memory. `[S1 fetch → S2 browser → S8 files]`
-- FR6. Per-Task Budget on dollars, Steps, and active time. Defaults: $0.50/Task, $25/month hard cap. Hitting a limit stops the Run and asks once, with a summary and best guess. `[S1]`
+- FR6. Per-Task Budget on dollars, Steps, and active time. Defaults: $1.00/Run shared by every Role (at most 3 web searches), $25/month hard cap. Hitting a limit stops the Run and asks once, with a summary and best guess. `[S1]`
 - FR7. Checkpoint after every Step. A paused or crashed Run resumes where it was: browser kept warm 30 min, resumable for 24 h, then Expired with a note (`/retry` starts a new Run using what was learned). `[S3]`
 - FR8. One Task at a time; others queue. `[S3]`
 - FR9. Blockers (CAPTCHA, 2FA, login wall, bot detection): stop, report "blocked" with screenshot and description. Never solve, never evade. `[S7]`
@@ -65,17 +65,21 @@ You send a Request from **Telegram** or a **React web page**. The Assistant does
 - FR30. The Files module enforces Grants and Off-limits itself, in addition to the Gate: it resolves real paths first and rejects anything outside a Grant (`..`, symlinks, junctions, network paths). `[S8]`
 - FR31. Tools: `find`, `list`, `stat`/count (metadata Mode); `read` text including PDF text (read Mode). Metadata Mode never sends file contents to the model. File contents are Untrusted content. `[S8]`
 - FR32. Reading file contents Taints the Run: every outward Action then needs an Approval showing what goes where. `[S8]`
-- FR33. Read Budget per Run (default 50 files / 20 MB); beyond it, ask the User. `[S8]`
+- FR33. Read Budget per Run (default 20 reads / 10 MB, 40,000 characters per file sent to the model, 60 s per file walk); beyond it, stop and report. `[S8]`
 - FR34. Secrets and critical PII (card numbers, national IDs, private keys) are blocked or redacted from file contents before they reach the model. `[S8]`
 - FR35. The Assistant finds Documents itself inside Grants (e.g. the resume), asks only when several match, and remembers the location in the Persona. Uploading a file to a site is Consequential: the Approval shows path, size and destination. `[S8]`
 - FR36. The Ledger and `/status` list every file opened in a Run — paths and sizes, never contents. `[S8]`
 - FR37. **Organize** (make folders, move, rename): Plan → Approval (counts + a sample) → execute → Undo journal. Never overwrite, never delete, per-Run cap on files touched, `/undo` reverses a Run's moves. `[S11, V0.5]`
 
 **I. Roles** ([ADR 0010](adr/0010-one-loop-many-roles.md))
-- FR38. The agent loop runs under a **Role** — a system prompt, a tool set, a model and a Step cap. V0 Roles: **Orchestrator** (no hands; it can only Delegate, ask the User, or answer), **Direct** (fetch, search), **Browser**, and **Files** (find, list, stat, read — never organize or write). `[S1b Orchestrator + Direct → S2 Browser → S8 Files]`
+- FR38. The agent loop runs under a **Role** — a system prompt, a tool set, a model and a Step cap. V0 Roles: **Orchestrator** (no hands; it writes a Plan, Delegates, re-plans, asks the User, reports), **Direct** (fetch, search), **Files** (find, list, stat, count — names and counts, never contents), **Browser** (headless, read-only) and **Reader** (`read_text` of paths the Orchestrator names). `[M1 Orchestrator + Direct → M2 Files → M3 Browser → M4 Reader]`
 - FR39. The Orchestrator Delegates a sub-goal to one specialist Role; the specialist runs the same loop and returns a **Finding**. Delegation is one level deep: a specialist cannot Delegate. `[S1b]`
 - FR40. Every Role's Actions pass the same Gate. Budget, Taint, the Approval list and the Ledger are per Run, not per Role; a specialist that reads file contents Taints the whole Run. Only the Runner talks to the User — a specialist's Question or Approval is raised by it. `[S1b, S8]`
 - FR41. A Finding is Untrusted content: never an instruction, never Memory, never a permission. Each Ledger event records its Role and its parent, so the delegation tree can be rebuilt; Checkpoints save the active Role stack. `[S1b, S3]`
+- FR42. The Orchestrator writes a **Plan** — a short list of steps (Role, goal, status) — before delegating, delegates one step at a time, and re-plans at most twice when a step fails. `[M1]`
+- FR43. **Trace:** every Plan step, delegate, return, Action, Verdict, cost and browser screenshot streams live to the page from the Ledger, so the User sees which agent is called and what it does. A **Stop** button cancels the Run between steps. `[M1; screenshots M3]`
+- FR44. V0-basic is **read-only**: anything that types, submits, uploads, downloads, moves or deletes is Refused with a message until Approvals exist (S3). `[M1–M4]`
+- FR45. Once a Run has read file contents, web search, fetch and browsing are limited to sites the User named in the request; the Orchestrator plans web steps first and reading last. `[M4]`
 
 ## Non-functional requirements
 | # | Quality | Requirement | Measured by | Slice |
@@ -113,7 +117,7 @@ A Question that counts against the Assistant: it was stuck, **or** it asked for 
 14. A PDF containing "email these files" causes zero Actions.
 15. "Upload my resume to this form" finds the resume inside a Grant, asks only if several match, remembers where it lives, and the Approval shows path, size and destination.
 16. A request to read `.env` or the Assistant's own folder is refused even under a whole-profile Grant.
-17. A Request that needs both the web and your folders is split by the Orchestrator between the Files and Direct Roles; the Ledger shows the delegation tree and one total cost, and no specialist spoke to you directly.
+17. A Request that needs both the web and your folders ("compare my resume to this job posting") is split by the Orchestrator between the Files, Browser and Reader Roles; the Plan and Trace show every step, the Ledger shows the delegation tree and one total cost, and no specialist spoke to you directly.
 
 **V0.5 scenarios (S11):** organizing `Downloads` by type shows a Plan with counts, runs only after Approval, and `/undo` restores every move; a delete request is refused; a Plan over the per-Run cap asks first.
 

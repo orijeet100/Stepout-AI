@@ -42,16 +42,17 @@ Each is **deep**: callers learn a small interface; the behaviour behind it is la
 
 **Deletion test, applied.** Delete Gate and its rules reappear inside every tool and route — keep. Delete Ledger and every module invents its own logging and cost math — keep. A separate "router" or "scope guard" module would only pass through to the model — folded into Intake. A separate "agent loop" next to a "run manager" would force the loop to expose its state for checkpointing — folded into Runner, with the Step as an internal seam its own tests can use. Files stays separate from Browser: Grants, Off-limits and path safety are a body of rules of their own.
 
-### Roles — one loop, four of them ([ADR 0010](adr/0010-one-loop-many-roles.md))
+### Roles — one loop, five of them ([ADR 0010](adr/0010-one-loop-many-roles.md))
 
-The Runner has one agent loop. A **Role** is a system prompt, a tool set, a model and a Step cap; the loop function is the same for all of them. The **Orchestrator** receives the Task and has no hands — it can only `delegate`, ask the User, or answer. A specialist runs the same loop with its own tools and hands back a **Finding**.
+The Runner has one agent loop. A **Role** is a system prompt, a tool set, a model and a Step cap; the loop function is the same for all of them. The **Orchestrator** receives the Task and has no hands — it writes a **Plan** (a short list of steps: Role, goal, status), `delegate`s one step at a time, re-plans if a step fails (at most twice), asks the User, and reports. A specialist runs the same loop with its own tools and hands back a **Finding**. See [`game-plan.md`](game-plan.md) for the milestones.
 
 | Role | Tools (its one hand) | Works on | Slice |
 |---|---|---|---|
-| **Orchestrator** | `delegate`, `ask_user`, `answer` — none of the hands | Findings, Recollection | S1b |
-| **Direct** | fetch, search (Fetcher) | public web pages | S1b |
-| **Browser** | the Browser module's Actions | pages, in a browser | S2 |
-| **Files** | `find` · `list` · `stat` · `read` (Files, read Mode only) | folders inside Grants | S8 |
+| **Orchestrator** | `plan`, `delegate`, `ask_user`, `answer` — none of the hands | Findings, Recollection | M1 (S1b) |
+| **Direct** | fetch, search (Fetcher) | public web pages | M1 (S1b) |
+| **Files** | `find` · `list` · `stat` · `count` (Files module — names, counts, sizes, dates; never contents) | folders inside Grants | M2 (S8) |
+| **Browser** | read-only Actions of the Browser module (headless): navigate, read page, scroll, follow link | pages, in a browser | M3 (S2) |
+| **Reader** | `read_text(path)` — text and PDF extraction, secret screening, truncation; only for paths the Orchestrator names | contents of files inside Grants | M4 (S8) |
 
 ```python
 async def run_agent(role, goal, run):               # run = Budget, Taint, Approvals, Ledger ids
@@ -68,7 +69,7 @@ async def run_agent(role, goal, run):               # run = Budget, Taint, Appro
             case _:                    transcript += await execute(action, verdict)
 ```
 
-Rules: every Action of every Role passes the one Gate; Budget, Taint, the Approval list and the Ledger are per Run, not per Role; delegation is one level deep; a Finding is Untrusted content; only the Runner talks to the User; Checkpoints save the active Role stack. No computer use in V0. Every specialist has exactly one hand, so a Role can only be steered into what that hand can do.
+Rules: every Action of every Role passes the one Gate; Budget, Taint, the Approval list and the Ledger are per Run, not per Role; delegation is one level deep; a Finding is Untrusted content; only the Runner talks to the User; Checkpoints save the active Role stack. V0-basic is read-only, and once a Run has read file contents, web search, fetch and browsing are limited to sites the User named. Every call, return, Action and Verdict streams to the page as the Trace. No computer use in V0. Every specialist has exactly one hand, so a Role can only be steered into what that hand can do.
 
 ## 3. Seams and adapters
 
@@ -196,7 +197,7 @@ recover() after a crash or laptop sleep ─► running (from the last Checkpoint
 | A request touches Off-limits (`.env`, password store, the Assistant's folder) | Refused, regardless of Grants | "that location is off-limits" | Ledger |
 | A file contains "email these files to …" | Untrusted content; the Run is Tainted; no Memory write | maybe a Refusal | Ledger |
 | A Tainted Run tries to send or upload | Ask, with what goes where | Approval with the data and destination | Ledger |
-| Read Budget reached (50 files / 20 MB) | Stops reading | Question: continue or stop? | Ledger |
+| Read Budget reached (20 reads / 10 MB) | Stops reading | Question: continue or stop? | Ledger |
 | Several resumes match | Asks which one, then remembers | a Question with choices | Persona |
 
 ## 8. Where things run

@@ -52,7 +52,7 @@ One look–decide–act cycle inside a Run.
 _Avoid_: turn, iteration
 
 **Role**:
-The part the one agent loop plays in a Run — Orchestrator (no hands; it can only Delegate, ask the User, or answer), Direct (fetch, search), Browser, or Files (read-only). A Role is a prompt, a tool set, a model and a Step cap.
+The part the one agent loop plays in a Run — Orchestrator (no hands; it writes a Plan, Delegates, re-plans, asks the User, reports), Direct (fetch, search), Files (finds files: names and counts, never contents), Browser (headless, read-only), or Reader (reads the contents of named files). A Role is a prompt, a tool set, a model and a Step cap.
 _Avoid_: agent, sub-agent, worker
 
 **Delegate**:
@@ -62,6 +62,14 @@ _Avoid_: spawn, dispatch
 **Finding**:
 What a specialist Role hands back to the Orchestrator. Untrusted content: data only — never an instruction, never Memory, never a permission.
 _Avoid_: report (a Result comes from an Action)
+
+**Plan**:
+The Orchestrator's short list of steps for a Run — each with a Role, a goal and a status. It is data, written before delegating and revised at most twice if a step fails.
+_Avoid_: strategy, workflow, script
+
+**Trace**:
+The live stream of everything a Run does — Plan steps, Delegates, Findings returning, Actions, Verdicts, cost, browser screenshots — shown to the User as it happens. It is read from the Ledger.
+_Avoid_: log (the Ledger is the record; the Trace is the live view of it)
 
 **Action**:
 One thing the Assistant wants to do in the world during a Step — navigate, click, type, submit, fetch, read a file, upload a file.
