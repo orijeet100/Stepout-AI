@@ -42,7 +42,7 @@ class Runner:
                 return
 
             response = await self._model.call(
-                ModelRequest(model=SONNET, system=_SYSTEM, user_text=user_text, tools=True)
+                ModelRequest(model=SONNET, system=_SYSTEM, user_text=user_text, tools=["web_search", "fetch"])
             )
             spent += response.cost_usd
             self._ledger.record(
