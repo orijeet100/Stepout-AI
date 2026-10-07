@@ -184,9 +184,9 @@ class Files:
             return None, "path does not exist"
         low = os.path.normcase(real)
         if reason := blocked_reason(low):
-            return None, f"off-limits ({reason})"
+            return None, f"off-limits ({reason}); this is a fixed safety rule, not a permissions problem, so do not suggest workarounds"
         if not any(_under(low, g.root) for g in self._grants):
-            return None, "outside every grant"
+            return None, "outside every grant; the User has not allowed this location, so do not suggest workarounds"
         return real, ""
 
     def _list(self, real: str) -> str:

@@ -50,7 +50,7 @@ The Runner has one agent loop. A **Role** is a system prompt, a tool set, a mode
 |---|---|---|---|
 | **Orchestrator** | `plan`, `delegate`, `ask_user`, `answer` — none of the hands | Findings, Recollection | M1 (S1b) |
 | **Direct** | fetch, search (Fetcher) | public web pages | M1 (S1b) |
-| **Files** | `find` · `list` · `stat` · `count` (Files module — names, counts, sizes, dates; never contents) | folders inside Grants | M2 (S8) |
+| **Files** | `list` · `find` · `count` (Files module — names, counts, sizes, dates; never contents) | folders inside Grants | M2 (S8) |
 | **Browser** | read-only Actions of the Browser module (headless): navigate, read page, scroll, follow link | pages, in a browser | M3 (S2) |
 | **Reader** | `read_text(path)` — text and PDF extraction, secret screening, truncation; only for paths the Orchestrator names | contents of files inside Grants | M4 (S8) |
 

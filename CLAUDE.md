@@ -3,6 +3,7 @@
 - Tests (offline, scripted model): `./.venv/Scripts/python.exe -m pytest -q`. Run: `python -m stepout.app` (terminal) or `python -m stepout.app web` (chat at http://127.0.0.1:8765; rebuild the page with `cd web && npm run build`).
 - Plan of record: `docs/game-plan.md` (milestones M1–M4). Design: `docs/architecture.md`. Decisions: `docs/adr/`. Language: `CONTEXT-MAP.md`. Docs change in the same commit as behaviour.
 - Never read or print `.env` (it holds the API key).
+- File access for the agents is set by `data/config/grants.toml` (git-ignored; template `grants.example.toml`). Only the User edits it.
 
 ## Engineering skills (in `.claude/skills/`, loaded on demand — don't preload)
 - Changing an interface or module boundary (Channel, Role, Action, Gate) → `api-and-interface-design`.
