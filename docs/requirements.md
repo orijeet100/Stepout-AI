@@ -1,6 +1,6 @@
 # Requirements — V0
 
-Status: draft for sign-off · Date: 2026-10-07 · Supersedes the zero-model-replay requirements ([ADR 0004](adr/0004-drop-zero-model-replay.md)). Intent: `docs/brief.md`; language: [`CONTEXT-MAP.md`](../CONTEXT-MAP.md); design: [`architecture.md`](architecture.md); order of work: [`roadmap.md`](roadmap.md).
+Status: draft for sign-off · Date: 2026-10-07 · Supersedes the zero-model-replay requirements ([ADR 0004](adr/0004-drop-zero-model-replay.md)). Current state: [`STATUS.md`](STATUS.md); language: [`CONTEXT-MAP.md`](../CONTEXT-MAP.md); design: [`architecture.md`](architecture.md); order of work: [`roadmap.md`](roadmap.md).
 
 ## What V0 is
 You send a Request from **Telegram** or a **React web page**. The Assistant does it with fetch/search, a browser, or by looking through folders you have Granted it (from S8). It asks you only when it is blocked, missing information, or about to do something risky — and **resumes** after your reply instead of restarting. It keeps **Memory** (Persona, History, Notes) so it asks less over time. Terms are defined in the glossaries; capitalised words below are glossary terms.

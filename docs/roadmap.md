@@ -8,7 +8,7 @@ S0 ─► S1 ─► S1b ─► S2 ─► S3 ─┬─► S4 (Telegram) ─┬─
 ```
 S4 and S5 don't depend on each other. Everything else is in order. S11 can start once S8 is green; it is V0.5, after V0 is done.
 
-Each slice: a short branch (`slice/NN-name`), interface tests green, a demo that works, a result in `docs/results/`, docs updated in the same commit, tag on merge. Aim for 2–3 days. Don't start a slice until the previous demo works.
+Each slice: a short branch (`slice/NN-name`), interface tests green, a demo that works, a result recorded in `docs/STATUS.md`, docs updated in the same commit, tag on merge. Aim for 2–3 days. Don't start a slice until the previous demo works.
 
 | S | Builds (modules · adapters) | Tested through | You'll learn | Watch out for | Demo |
 |---|---|---|---|---|---|
@@ -28,7 +28,7 @@ Each slice: a short branch (`slice/NN-name`), interface tests green, a demo that
 
 **Web chat pulled forward (2026-10-07):** a minimal chat page (`web/` + `channels/web.py`: send messages, see replies, nothing else; localhost only, WebSocket origin-checked) exists so S1–S1b are easy to try. S9 still delivers the rest — persona view/edit and the full flows — on top of it.
 
-**Current focus — V0-basic ([`game-plan.md`](game-plan.md)):** one flow that works end to end, read-only. M1 = S1b (Roles, Plan, live Trace, Stop), M2 = the Files finder from S8, M3 = S2 (Browser), M4 = the Reader and Taint rules from S8. Approvals (S3), Telegram (S4), Memory (S5), Evaluation (S6–S7, S10) and the rest wait until the flow runs end to end.
+**Current focus — V0-basic ([`game-plan.md`](game-plan.md)); M1–M3 are done, M4 is next ([`STATUS.md`](STATUS.md)):** one flow that works end to end, read-only. M1 = S1b (Roles, Plan, live Trace, Stop), M2 = the Files finder from S8, M3 = S2 (Browser), M4 = the Reader and Taint rules from S8. Approvals (S3), Telegram (S4), Memory (S5), Evaluation (S6–S7, S10) and the rest wait until the flow runs end to end.
 
 **V0 is done** when S1–S9 and S1b are green, all 17 acceptance scenarios in [`requirements.md`](requirements.md) pass, and the S6 Thresholds are met. S10 follows.
 

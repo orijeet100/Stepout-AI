@@ -2,7 +2,7 @@
 
 Status: agreed 2026-10-07 · Design: [`architecture.md`](architecture.md) · Decisions: [ADR 0010](adr/0010-one-loop-many-roles.md) · Older slice order: [`roadmap.md`](roadmap.md)
 
-**Progress.** M1–M3 done 2026-10-07 — [`results/m1.md`](results/m1.md), [`results/m2.md`](results/m2.md), [`results/m3.md`](results/m3.md). Next: M4.
+**Progress.** M1–M3 done 2026-10-07; results, decisions and what's next are in [`STATUS.md`](STATUS.md). Next: M4.
 
 **Goal.** From the web chat, ask for something in plain English. An **Orchestrator** plans it, hands each step to a specialist agent (web, files, browser, file reader), and reports back — while you watch every call and return live. Read-only. $1 per Run.
 
@@ -68,7 +68,7 @@ flowchart LR
 | **M3** — Browser | Playwright with the installed Chrome, headless · network policy on every request (public http(s) only, including page-started requests) · accessibility snapshot plus a screenshot per step · read-only actions · Browser agent · "blocked" report on CAPTCHA or login walls | Demo on a real page; `file://` and `localhost` blocked; screenshots appear in the Trace | S2 |
 | **M4** — Reader | `read_text` for text and PDF (pypdf) · secret screening · truncation · read limits · Taint · rule 7 in the Gate · Reader agent · Plans that put web steps first | Both M4 demos; a poisoned PDF causes zero outbound requests | S8 (rest) |
 
-Every milestone is tested offline with a scripted model, plus one live check whose cost is noted in `docs/results/`.
+Every milestone is tested offline with a scripted model, plus a live check (`tests/test_live.py`); results are summarized in [`STATUS.md`](STATUS.md).
 
 ## Risks and how the plan handles them
 
@@ -94,13 +94,3 @@ No full-drive scans: counts stay capped at 60 s and report partial.
 ## After V0-basic
 
 Approvals (S3) so uploads and form filling become possible; then Memory (S5), Evaluation (S6–S7, S10), Telegram (S4), organizing files (S11).
-
-## M1 first cut — where "how to build it" starts
-
-1. Role table and `run_agent` (refactor `Runner.submit`; scripted-model tests for delegation and the shared Budget).
-2. The Plan (data) and the Orchestrator prompt.
-3. Shared Budget at $1, search cap, cancel flag.
-4. Ledger events with role and parent, published as Trace events over the WebSocket.
-5. Trace panel, plan checklist and Stop in `web/`.
-6. Keep the model's source links in answers.
-7. Live check with the NYC news question.
