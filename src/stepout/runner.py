@@ -15,8 +15,9 @@ from uuid import uuid4
 import httpx
 
 from stepout import gate
-from stepout.domain import Allow, AnswerAction, DelegateAction, Event, FetchAction, PlanAction, PlanStep, Reply, Task
+from stepout.domain import Allow, AnswerAction, DelegateAction, Event, FetchAction, FilesAction, PlanAction, PlanStep, Reply, Task
 from stepout.fetch import BlockedUrl, Fetcher
+from stepout.files import Files
 from stepout.ledger import Ledger
 from stepout.model import Model, ModelRequest
 from stepout.roles import ROLES
@@ -62,6 +63,8 @@ def _summary(action, plan: list[PlanStep]) -> str:
             return f"delegate {i}"
         case FetchAction(url=url):
             return f"fetch {url}"
+        case FilesAction(op=op, path=path, pattern=pattern):
+            return f"files {op} {path}" + (f" {pattern}" if pattern else "")
         case _:
             return action.kind
 
@@ -75,11 +78,13 @@ class Runner:
         notify: Callable[[Reply], Awaitable[None]],
         trace: Callable[[Event], Awaitable[None]] | None = None,
         cancel: asyncio.Event | None = None,
+        files: Files | None = None,
     ) -> None:
         self._model = model
         self._fetcher = fetcher
         self._ledger = ledger
         self._notify = notify
+        self._files = files or Files()  # no Grants = no access
         self._trace = trace
         self._cancel = cancel or asyncio.Event()  # set by the Channel when the User presses Stop
         self._cap = float(os.environ.get("STEPOUT_TASK_CAP_USD", "1.00"))
@@ -151,6 +156,9 @@ class Runner:
                     await self._emit_plan(run)
                     await self._emit(run, "return", plan_step.role, f"{plan_step.status}: {child.text[:200]}", parent=step.id, ok=child.ok)
                     notes.append(f"Finding for step {i} ({plan_step.status}):\n{child.text[:_TEXT_CHARS]}")
+                case FilesAction(op=op, path=path, pattern=pattern):
+                    result = await self._files.run(op, path, pattern, self._cancel.is_set)
+                    notes.append(f"files {op} {path}:\n{result[:_TEXT_CHARS]}")
                 case FetchAction(url=url):
                     try:
                         page = await self._fetcher.get(url)

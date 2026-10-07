@@ -15,7 +15,7 @@ from typing import Protocol
 import anthropic
 from pydantic import BaseModel
 
-from stepout.domain import Action, AnswerAction, DelegateAction, FetchAction, PlanAction
+from stepout.domain import Action, AnswerAction, DelegateAction, FetchAction, FilesAction, PlanAction
 
 HAIKU = "claude-haiku-4-5"
 SONNET = "claude-sonnet-5"
@@ -31,8 +31,8 @@ WEB_SEARCH_COST_PER_USE = 10.00 / 1000
 _WEB_SEARCH = {"type": "web_search_20250305", "name": "web_search"}
 
 
-def _tool(name: str, description: str, **props: dict) -> dict:
-    return {"name": name, "description": description, "input_schema": {"type": "object", "properties": props, "required": list(props)}}
+def _tool(name: str, description: str, required: list[str] | None = None, **props: dict) -> dict:
+    return {"name": name, "description": description, "input_schema": {"type": "object", "properties": props, "required": required or list(props)}}
 
 
 _CLIENT_TOOLS = {
@@ -48,10 +48,20 @@ _CLIENT_TOOLS = {
                 "maxItems": 3,
                 "items": {
                     "type": "object",
-                    "properties": {"role": {"type": "string", "enum": ["direct"]}, "goal": {"type": "string"}},
+                    "properties": {"role": {"type": "string", "enum": ["direct", "files"]}, "goal": {"type": "string"}},
                     "required": ["role", "goal"],
                 },
             },
+        ),
+        _tool(
+            "files",
+            "Look at the user's disk: names, sizes, dates and counts only, never file contents. op 'list' shows one folder; "
+            "'count' totals a whole folder tree by file extension; 'find' searches a folder tree for names containing the pattern "
+            "(or matching a * glob), newest first. Paths are Windows paths such as D:\\Documents.",
+            required=["op", "path"],
+            op={"type": "string", "enum": ["list", "count", "find"]},
+            path={"type": "string"},
+            pattern={"type": "string"},
         ),
         _tool("delegate", "Run one step of your plan by its number (0 is the first). Its Finding comes back next turn.", step={"type": "integer", "minimum": 0}),
         _tool("answer", "Give the final reply to the user.", text={"type": "string"}),
@@ -115,6 +125,8 @@ def _action(content) -> Action:
         match tool.name:
             case "fetch":
                 return FetchAction(url=args["url"])
+            case "files":
+                return FilesAction(**args)
             case "plan":
                 return PlanAction(steps=args["steps"])
             case "delegate":

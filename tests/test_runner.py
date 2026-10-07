@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from stepout.domain import AnswerAction, DelegateAction, FetchAction, PlanAction, PlanStep, Reply, Task
+from stepout.domain import AnswerAction, DelegateAction, FetchAction, FilesAction, PlanAction, PlanStep, Reply, Task
 from stepout.fetch import BlockedUrl, FetchedPage
 from stepout.ledger import Ledger
 from stepout.model import HAIKU, SONNET, ModelResponse
@@ -27,8 +27,8 @@ def say(text, cost=0.001, **kw):
     return ModelResponse(action=AnswerAction(text=text), cost_usd=cost, **kw)
 
 
-def plan(*goals, cost=0.001):
-    return ModelResponse(action=PlanAction(steps=[PlanStep(role="direct", goal=g) for g in goals]), cost_usd=cost)
+def plan(*goals, cost=0.001, role="direct"):
+    return ModelResponse(action=PlanAction(steps=[PlanStep(role=role, goal=g) for g in goals]), cost_usd=cost)
 
 
 def delegate(i, cost=0.001):
@@ -39,14 +39,27 @@ def fetch(url, cost=0.001):
     return ModelResponse(action=FetchAction(url=url), cost_usd=cost)
 
 
+def looks(op, path, pattern=None, cost=0.001):
+    return ModelResponse(action=FilesAction(op=op, path=path, pattern=pattern), cost_usd=cost)
+
+
+class FakeFiles:
+    def __init__(self, result="") -> None:
+        self.result, self.calls = result, []
+
+    async def run(self, op, path, pattern=None, cancelled=lambda: False):
+        self.calls.append((op, path, pattern, cancelled))
+        return self.result
+
+
 class Harness:
-    def __init__(self, tmp_path, responses, fetcher=None, cancel=None):
+    def __init__(self, tmp_path, responses, fetcher=None, cancel=None, files=None):
         self.ledger = Ledger(Store(tmp_path / "t.db"))
         self.model = ScriptedModel(responses)
         self.fetcher = fetcher or FakeFetcher("page text")
         self.replies: list[Reply] = []
         self.traced = []
-        self.runner = Runner(self.model, self.fetcher, self.ledger, self._notify, self._trace, cancel)
+        self.runner = Runner(self.model, self.fetcher, self.ledger, self._notify, self._trace, cancel, files=files)
 
     async def _notify(self, reply):
         self.replies.append(reply)
@@ -185,3 +198,33 @@ async def test_an_agent_that_never_finishes_fails_its_step(tmp_path):
     task = await h.run()
     ret = next(e for e in h.ledger.query(task.id) if e.kind == "return")
     assert ret.data["ok"] is False and "couldn't finish" in ret.data["summary"]
+
+
+async def test_the_files_agent_looks_at_the_disk_and_the_orchestrator_reports(tmp_path):
+    files = FakeFiles("D:\\: 12 files, 3 folders")
+    h = Harness(
+        tmp_path,
+        [plan("count D:", role="files"), delegate(0), looks("count", "D:\\"), say("12 files, 3 folders"), say("You have 12 files.")],
+        files=files,
+    )
+    await h.run("how many files on D?")
+    assert files.calls[0][:3] == ("count", "D:\\", None)
+    assert h.model.requests[2].tools == ["files"] and h.model.requests[2].model == HAIKU
+    assert "12 files, 3 folders" in h.seen_by(3)  # the Files agent saw the result
+    assert "12 files, 3 folders" in h.seen_by(4)  # and the Orchestrator saw its Finding
+    assert h.replies[0].text.startswith("You have 12 files.")
+    h.runner._cancel.set()
+    assert files.calls[0][3]() is True  # the walk polls the same Stop flag
+
+
+async def test_the_files_agent_cannot_fetch_and_the_direct_agent_cannot_look_at_the_disk(tmp_path):
+    h = Harness(tmp_path, [plan("a", role="files"), delegate(0), fetch("https://example.com"), say("ok"), say("done")])
+    task = await h.run()
+    assert h.fetcher.urls == []
+    assert any(e.data["verdict"] == "refuse" and e.role == "files" for e in h.ledger.query(task.id) if e.kind == "step")
+
+    files = FakeFiles("never")
+    h = Harness(tmp_path / "2", [plan("a"), delegate(0), looks("list", "D:\\"), say("ok"), say("done")], files=files)
+    (tmp_path / "2").mkdir(exist_ok=True)
+    await h.run()
+    assert files.calls == []

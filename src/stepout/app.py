@@ -13,6 +13,7 @@ from stepout.channels.cli import CliChannel
 from stepout.channels.web import WebChannel
 from stepout.domain import Reply, Task
 from stepout.fetch import Fetcher
+from stepout.files import Files
 from stepout.intake import CommandReading, DeclinedReading, Intake, NewTask
 from stepout.ledger import Ledger
 from stepout.model import AnthropicModel
@@ -20,6 +21,7 @@ from stepout.runner import Runner
 from stepout.store import Store
 
 DB_PATH = Path("data/stepout.db")
+GRANTS_PATH = Path("data/config/grants.toml")  # only the User edits this
 
 
 async def run(channel, intake: Intake, runner: Runner) -> None:
@@ -51,7 +53,10 @@ async def main() -> None:
     else:
         channel = CliChannel()
     intake = Intake(model, ledger)
-    runner = Runner(model, fetcher, ledger, channel.send, trace=channel.trace, cancel=channel.cancel)
+    if not GRANTS_PATH.exists():
+        print(f"No {GRANTS_PATH}: the Files agent can't see your disk. Copy grants.example.toml there to allow it.")
+    files = Files.from_config(GRANTS_PATH)
+    runner = Runner(model, fetcher, ledger, channel.send, trace=channel.trace, cancel=channel.cancel, files=files)
     await run(channel, intake, runner)
 
 

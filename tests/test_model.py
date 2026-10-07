@@ -1,6 +1,6 @@
 from types import SimpleNamespace as NS
 
-from stepout.domain import AnswerAction, DelegateAction, FetchAction, PlanAction
+from stepout.domain import AnswerAction, DelegateAction, FetchAction, FilesAction, PlanAction
 from stepout.model import HAIKU, AnthropicModel, ModelRequest
 
 
@@ -57,6 +57,8 @@ async def test_tool_calls_become_actions():
         (tool("fetch", url="https://example.com"), FetchAction(url="https://example.com")),
         (tool("plan", steps=steps), PlanAction(steps=steps)),
         (tool("delegate", step=0), DelegateAction(step=0)),
+        (tool("files", op="find", path="D:\\", pattern="pdf"), FilesAction(op="find", path="D:\\", pattern="pdf")),
+        (tool("files", op="count", path="D:\\"), FilesAction(op="count", path="D:\\")),
         (tool("answer", text="done"), AnswerAction(text="done")),
     ]
     for block, expected in cases:
@@ -82,3 +84,10 @@ async def test_searches_are_counted_and_priced():
     response, _ = await ask(searched(), searched(), text("x"))
     assert response.searches == 2
     assert response.cost_usd > 0.02
+
+
+async def test_the_files_tool_needs_only_an_operation_and_a_path():
+    _, kwargs = await ask(tools=["files"])
+    schema = kwargs["tools"][0]["input_schema"]
+    assert schema["required"] == ["op", "path"] and set(schema["properties"]) == {"op", "path", "pattern"}
+    assert schema["properties"]["op"]["enum"] == ["list", "count", "find"]

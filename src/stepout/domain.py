@@ -89,8 +89,17 @@ class AnswerAction(BaseModel):
     text: str
 
 
+class FilesAction(BaseModel):
+    """Look at the User's disk: names, sizes, dates, counts. Never contents."""
+
+    kind: Literal["files"] = "files"
+    op: Literal["list", "find", "count"]
+    path: str
+    pattern: str | None = None
+
+
 class PlanStep(BaseModel):
-    role: Literal["direct"]  # widen as Roles gain hands (files, browser, reader)
+    role: Literal["direct", "files"]  # widen as Roles gain hands (browser, reader)
     goal: str
     status: Literal["pending", "running", "done", "failed"] = "pending"
 
@@ -109,7 +118,7 @@ class DelegateAction(BaseModel):
     step: int
 
 
-Action = FetchAction | SearchAction | AnswerAction | PlanAction | DelegateAction
+Action = FetchAction | SearchAction | AnswerAction | PlanAction | DelegateAction | FilesAction
 
 
 class FetchResult(BaseModel):
