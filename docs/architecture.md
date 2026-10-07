@@ -20,7 +20,7 @@ One Python process on the laptop. Two bounded contexts — **Assistant** (the pr
  Evaluation (tests/eval) drives the Channel as the Simulated user and reads the Ledger.
 ```
 
-The dependency rule: arrows point inward to `Gate` and the domain types. Nothing in the Assistant imports a Channel adapter except `app` (the composition root). Evaluation imports nothing from the Assistant except the Channel interface, the domain types and the Ledger reader.
+The dependency rule: arrows point inward to `Gate` and the domain types. Nothing in the Assistant imports a Channel adapter except `app` (the composition root). Evaluation imports nothing from the Assistant except the Channel interface, the domain types and the Ledger reader. Inside the Runner, one loop runs under several Roles (see *Roles* in §2).
 
 ## 2. Modules
 
@@ -29,7 +29,7 @@ Each is **deep**: callers learn a small interface; the behaviour behind it is la
 | Module | Interface (all a caller learns) | Hides | Depends on |
 |---|---|---|---|
 | **Intake** | `read(message) → Reading` | fast paths (reply-to, buttons, `/commands`), Stale check, scope screening, cheap-model routing and classification | Model, Gate.`screen`, run state, clock |
-| **Runner** | `submit(task)` · `deliver(answer \| approval \| cancel)` · `recover()` | the Run state machine, Steps, the agent loop, tool dispatch, Budgets (including the read Budget), Checkpoints, at-most-once, Taint, Recollection at start, Memory writes at end, browser lifecycle | Model, Gate, Browser, Fetcher, Files, Memory, Ledger, Store, clock, `notify` |
+| **Runner** | `submit(task)` · `deliver(answer \| approval \| cancel)` · `recover()` | the Run state machine, Steps, the agent loop and its Roles (an Orchestrator that Delegates to Direct, Browser and Files agents), tool dispatch, Budgets (including the read Budget), Checkpoints, at-most-once, Taint, Recollection at start, Memory writes at end, browser lifecycle | Model, Gate, Browser, Fetcher, Files, Memory, Ledger, Store, clock, `notify` |
 | **Gate** | `check(action, ctx) → Verdict` · `screen(request) → Screening` | every rule: Risk classes, Forbidden list, navigation rules, Approved sites, Approval matching and expiry, Taint, Grants, Budget checks | nothing — pure functions |
 | **Memory** | `recall(task) → Recollection` · `remember(item) → Remembered \| Rejected` · `forget(what) → count` | Provenance check, secret/PII redaction, Pinned entries, Note expiry, bounded recall, storage format | a store behind an **internal** seam (files now; mem0 in S10) |
 | **Ledger** | `record(event)` · `query(run=None, since=None) → events` | schema, append-only rule, cost totals, references instead of contents | Store |
@@ -41,6 +41,34 @@ Each is **deep**: callers learn a small interface; the behaviour behind it is la
 **Store** is internal, not a module callers see: the one place holding the connection, the migrations and every SQL statement, used by Ledger and Runner. A move to Postgres touches this one file ([ADR 0006](adr/0006-sqlite-for-runs-and-ledger.md)).
 
 **Deletion test, applied.** Delete Gate and its rules reappear inside every tool and route — keep. Delete Ledger and every module invents its own logging and cost math — keep. A separate "router" or "scope guard" module would only pass through to the model — folded into Intake. A separate "agent loop" next to a "run manager" would force the loop to expose its state for checkpointing — folded into Runner, with the Step as an internal seam its own tests can use. Files stays separate from Browser: Grants, Off-limits and path safety are a body of rules of their own.
+
+### Roles — one loop, four of them ([ADR 0010](adr/0010-one-loop-many-roles.md))
+
+The Runner has one agent loop. A **Role** is a system prompt, a tool set, a model and a Step cap; the loop function is the same for all of them. The **Orchestrator** receives the Task and has no hands — it can only `delegate`, ask the User, or answer. A specialist runs the same loop with its own tools and hands back a **Finding**.
+
+| Role | Tools (its one hand) | Works on | Slice |
+|---|---|---|---|
+| **Orchestrator** | `delegate`, `ask_user`, `answer` — none of the hands | Findings, Recollection | S1b |
+| **Direct** | fetch, search (Fetcher) | public web pages | S1b |
+| **Browser** | the Browser module's Actions | pages, in a browser | S2 |
+| **Files** | `find` · `list` · `stat` · `read` (Files, read Mode only) | folders inside Grants | S8 |
+
+```python
+async def run_agent(role, goal, run):               # run = Budget, Taint, Approvals, Ledger ids
+    spec = ROLES[role]
+    transcript = [goal]
+    for _ in range(spec.max_steps):
+        action = (await model.call(spec.model, spec.system, transcript, spec.tools)).action
+        verdict = gate.check(action, run.context)        # the same Gate for every Role
+        ledger.record(role=role, parent=run.agent_id, action=action, verdict=verdict)
+        match action:
+            case Answer(text):         return Finding(text)               # untrusted
+            case Delegate(r, goal2):   transcript += await run_agent(r, goal2, run.child())
+            case AskUser(question):    raise Pause(question)              # the Runner asks, not the specialist
+            case _:                    transcript += await execute(action, verdict)
+```
+
+Rules: every Action of every Role passes the one Gate; Budget, Taint, the Approval list and the Ledger are per Run, not per Role; delegation is one level deep; a Finding is Untrusted content; only the Runner talks to the User; Checkpoints save the active Role stack. No computer use in V0. Every specialist has exactly one hand, so a Role can only be steered into what that hand can do.
 
 ## 3. Seams and adapters
 
@@ -100,7 +128,7 @@ class Files:
 
 - **Actions and Results are plain serializable data** (Pydantic models; no live objects, handles or callbacks), with a round-trip test. This is what lets Browser and Files run elsewhere in V1.
 - **Intake** — Messages from anyone but the User never reach it (the adapter drops them; Intake asserts). Fast paths run before any model call: a reply to a Question is an `AnswerTo`, a button is an `ApprovalGiven`, `/x` is a `Command`. Free text while a Run is paused and unclear → `Unclear` (two buttons: "answer to the current Task" / "new Task"). `screen` runs before money is spent; the model is asked only when `screen` says `Unsure`. Error: model unreachable → the Message waits and is re-read later.
-- **Runner** — one Run executes at a time; others queue. Every Action passes `check` before it happens. A Consequential Action is written as *intended* in the same transaction as the Checkpoint, then *done* after — a crash in between makes the Outcome **Uncertain**, and the Action is never repeated; a unique constraint on (run, step, action) enforces it. Budget (money, Steps, time, files read) is checked before every model call and every file read. Recollection is taken once, at Run start; Memory is written only from the User's Answers and the Run's own Outcome. Reading file contents sets the Run **Tainted**. Errors: Budget reached → Question; Blocker → Blocked; malformed model output → one retry, then Failed; browser crash → resume once from the Checkpoint with a fresh browser, then Failed; no Answer for 24 h → Expired.
+- **Runner** — one Run executes at a time; others queue. Every Action passes `check` before it happens. A Consequential Action is written as *intended* in the same transaction as the Checkpoint, then *done* after — a crash in between makes the Outcome **Uncertain**, and the Action is never repeated; a unique constraint on (run, step, action) enforces it. Budget (money, Steps, time, files read) is checked before every model call and every file read. Recollection is taken once, at Run start; Memory is written only from the User's Answers and the Run's own Outcome. Reading file contents sets the Run **Tainted**. Errors: Budget reached → Question; Blocker → Blocked; malformed model output → one retry, then Failed; browser crash → resume once from the Checkpoint with a fresh browser, then Failed; no Answer for 24 h → Expired. **Roles:** Actions from every Role pass the same `check`; Budget, Taint and Approvals are shared across the Run; a specialist's Question or Approval is raised by the Runner, never sent by the specialist; a Finding is Untrusted content.
 - **Gate** — pure and total: every Action gets a Verdict. Forbidden and Off-limits beat everything. Unknown Risk → Ask. An Approval matches one exact Action (same kind, target, values) and expires after ~15 min. In a Tainted Run every outward Action → Ask, with the exact data and destination. Navigation allowed only to `http(s)` on public hosts.
 - **Memory** — rejects items whose Provenance isn't a User Message or a Run Outcome. Redacts card numbers, national IDs, bank details and passwords before writing. Never overwrites a Pinned entry. Expired Notes are never recalled. Recall is bounded.
 - **Ledger** — append-only. Holds references to Persona facts and files, never their contents. Every model call has tokens and cost; every file opened has a path and size.
@@ -112,7 +140,8 @@ class Files:
 ```
 You: "upload my resume to this job form" ─► Telegram adapter ─► app
 app ─► Intake.read ─► NewTask(route = Browse)                          [cheap model]
-app ─► Runner.submit(task)
+app ─► Runner.submit(task)  ─► the Orchestrator Delegates: the resume lookup to the Files Role, the form to the Browser Role
+                              (each runs the loop below with its own tools and returns a Finding)
   Runner: Memory.recall ─► Recollection (Persona: name, email, resume lives at …\Resume\cv.pdf)
   each Step:
     Model.call(transcript) ─► proposes an Action                       [strong model]
@@ -185,7 +214,7 @@ Grants belong to each User and are enforced on that User's own device; the serve
 ## 9. Threat model
 
 - **Untrusted:** web pages, fetched content, search results, and the contents of files (a PDF someone sent you can carry hostile text). **Trusted:** Messages from the User on an allowlisted Channel; the User's edits to Memory and to `grants.toml`.
-- **Layers:** (1) authority at the Gate, never the model; (2) Consequential Actions need an Approval; entering Persona facts or Documents into a site that isn't an Approved site needs one too; (3) Memory writes only from the User's Messages and Run Outcomes; (4) network policy in the Browser and Fetcher for every request; (5) `screen` reads only the User's text; (6) Grants set only by the User; Off-limits fixed in code, including the Assistant's own folder; Files enforces both itself; (7) reading file contents Taints the Run — outward Actions need an Approval showing what goes where; (8) a read Budget per Run; (9) secrets screened out of file contents before they reach the model; (10) Security cases in Evaluation — zero Actions the User didn't approve, zero Memory from Untrusted content, zero reads outside Grants.
+- **Layers:** (1) authority at the Gate, never the model; (2) Consequential Actions need an Approval; entering Persona facts or Documents into a site that isn't an Approved site needs one too; (3) Memory writes only from the User's Messages and Run Outcomes; (4) network policy in the Browser and Fetcher for every request; (5) `screen` reads only the User's text; (6) Grants set only by the User; Off-limits fixed in code, including the Assistant's own folder; Files enforces both itself; (7) reading file contents Taints the Run — outward Actions need an Approval showing what goes where; (8) a read Budget per Run; (9) secrets screened out of file contents before they reach the model; (10) every Role's Actions pass the same Gate and each specialist holds one hand — a poisoned page that steers the Browser Role cannot read a file — and a Finding is Untrusted content that cannot write Memory; (11) Security cases in Evaluation — zero Actions the User didn't approve, zero Memory from Untrusted content, zero reads outside Grants.
 - **Accepted in V0:** a browser exploit runs with your user's privileges (Chromium sandbox on, Playwright kept current — verify the option in S2); Persona facts, Documents and `read`-Mode file contents reach the model provider (approval-gated or Grant-gated, Egress recorded); a whole-profile Grant widens the blast radius of a successful injection, which taint and Approvals are there to contain.
 
 ## 10. On disk (`data/`, gitignored)
@@ -210,7 +239,7 @@ src/stepout/
   domain.py        Message, Reply, Task, Run, Action, Result, Verdict, Question, Approval, Outcome, Event …
   app.py           composition root
   store.py         the one SQL module; migrations/ holds numbered .sql files
-  intake.py · runner.py · gate.py · memory.py · ledger.py · browser.py · fetch.py · files.py · model.py
+  intake.py · runner.py (loop + Role table) · gate.py · memory.py · ledger.py · browser.py · fetch.py · files.py · model.py
   channels/        cli.py · telegram.py · web.py (serves web/dist)
 tests/
   support/         scripted model, Simulated-web launcher, Simulated-folder builder
@@ -224,7 +253,7 @@ tests/
 - **Gate** — table-driven, pure, hundreds of cases in milliseconds. The most important tests in the repo.
 - **Files** — table-driven path cases against a Simulated folder: `..`, symlinks, junctions, network paths, Off-limits, Mode limits, the read Budget.
 - **Intake** and **Memory** — through their interfaces, with the scripted model and a temp folder.
-- **Runner** — through `submit` / `deliver` / `recover`, with the scripted model, real Chromium, the Simulated web and a temp SQLite file. Kill-and-recover tests live here.
+- **Runner** — through `submit` / `deliver` / `recover`, with the scripted model (delegation, the shared Budget and Taint, and a Finding that can't write Memory are tested here), real Chromium, the Simulated web and a temp SQLite file. Kill-and-recover tests live here.
 - **app** — end to end through the CLI Channel.
 - **Evaluation** — its own context; costs money; `pytest -m eval`.
 - Replace, don't layer: when a module deepens, its old internal tests are deleted in favour of interface tests.
@@ -232,7 +261,7 @@ tests/
 ## 13. Open design questions (each settled in a slice)
 
 1. **Search** — the model provider's built-in web search vs a search API. *S1.*
-2. **Models per role** — a cheap model for Intake, a strong one for the Runner; check current IDs and prices. *S1.*
+2. **Models per Role** — a cheap model for Intake, and for each Runner Role (Orchestrator, Direct, Browser, Files) the cheapest that holds up; check current IDs and prices. *S1, S1b.*
 3. **Page view** — accessibility snapshot, screenshot, or both: token cost vs success on the Simulated web. *S2 spike.*
 4. **Is this click Consequential?** — classify from the element (role, form submit, label) plus the model's stated intent, unknown → Ask; backstop: the Browser holds non-GET requests to other sites unless Approved. *S3, attacked in S7.*
 5. **Exfiltration after a file read** — a Tainted Run could leak through a URL's query string. Leaning: in a Tainted Run, the Browser and Fetcher may reach only Approved sites and domains already visited before the first read. *S8.*
@@ -240,3 +269,4 @@ tests/
 7. **Windows path edge cases** — junctions, 8.3 short names, alternate data streams, `\\?\` and UNC paths; verify the real-path check handles each. *S8.*
 8. **Secret screening** — patterns vs a model check; what to do when it can't tell. *S8.*
 9. **Evaluation size vs Budget** — see the estimate in the roadmap. *S6.*
+10. **What a Delegate carries** — the goal only, or goal plus Recollection; how large a Finding may be; whether the Orchestrator may re-Delegate after a poor Finding. *S1b.*

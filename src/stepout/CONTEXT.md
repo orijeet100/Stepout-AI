@@ -51,6 +51,18 @@ _Avoid_: execution, session, episode
 One look–decide–act cycle inside a Run.
 _Avoid_: turn, iteration
 
+**Role**:
+The part the one agent loop plays in a Run — Orchestrator (no hands; it can only Delegate, ask the User, or answer), Direct (fetch, search), Browser, or Files (read-only). A Role is a prompt, a tool set, a model and a Step cap.
+_Avoid_: agent, sub-agent, worker
+
+**Delegate**:
+The Orchestrator's Action that hands a sub-goal to a specialist Role. One level deep: a specialist cannot Delegate.
+_Avoid_: spawn, dispatch
+
+**Finding**:
+What a specialist Role hands back to the Orchestrator. Untrusted content: data only — never an instruction, never Memory, never a permission.
+_Avoid_: report (a Result comes from an Action)
+
 **Action**:
 One thing the Assistant wants to do in the world during a Step — navigate, click, type, submit, fetch, read a file, upload a file.
 _Avoid_: command, operation, tool call
@@ -186,7 +198,7 @@ The User removing something from Memory.
 ### Record
 
 **Ledger**:
-The append-only record of everything that happened — Messages, Steps, Verdicts, Questions, Approvals, files opened (paths and sizes, never contents), money spent and Egress. It is not Memory and the model never sees it.
+The append-only record of everything that happened — Messages, Steps, Verdicts, Questions, Approvals, files opened (paths and sizes, never contents), money spent, Egress, and the Role and parent of every event. It is not Memory and the model never sees it.
 _Avoid_: log, trace, audit trail
 
 **Egress**:

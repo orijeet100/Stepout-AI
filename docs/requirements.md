@@ -25,7 +25,7 @@ You send a Request from **Telegram** or a **React web page**. The Assistant does
 - FR4. Time-sensitive or "current fact" questions must use fetch/search and cite sources — never model recall alone. `[S1]`
 
 **B. Execution**
-- FR5. Agent loop: observe → model proposes one Action → Gate → act → repeat until done, blocked, or capped. Tools: fetch/search, browser (fresh isolated context per Task), files, ask-human, memory. `[S1 fetch → S2 browser → S8 files]`
+- FR5. Agent loop: observe → model proposes one Action → Gate → act → repeat until done, blocked, or capped; the loop runs under a Role (FR38). Tools: fetch/search, browser (fresh isolated context per Task), files, ask-human, memory. `[S1 fetch → S2 browser → S8 files]`
 - FR6. Per-Task Budget on dollars, Steps, and active time. Defaults: $0.50/Task, $25/month hard cap. Hitting a limit stops the Run and asks once, with a summary and best guess. `[S1]`
 - FR7. Checkpoint after every Step. A paused or crashed Run resumes where it was: browser kept warm 30 min, resumable for 24 h, then Expired with a note (`/retry` starts a new Run using what was learned). `[S3]`
 - FR8. One Task at a time; others queue. `[S3]`
@@ -71,11 +71,17 @@ You send a Request from **Telegram** or a **React web page**. The Assistant does
 - FR36. The Ledger and `/status` list every file opened in a Run — paths and sizes, never contents. `[S8]`
 - FR37. **Organize** (make folders, move, rename): Plan → Approval (counts + a sample) → execute → Undo journal. Never overwrite, never delete, per-Run cap on files touched, `/undo` reverses a Run's moves. `[S11, V0.5]`
 
+**I. Roles** ([ADR 0010](adr/0010-one-loop-many-roles.md))
+- FR38. The agent loop runs under a **Role** — a system prompt, a tool set, a model and a Step cap. V0 Roles: **Orchestrator** (no hands; it can only Delegate, ask the User, or answer), **Direct** (fetch, search), **Browser**, and **Files** (find, list, stat, read — never organize or write). `[S1b Orchestrator + Direct → S2 Browser → S8 Files]`
+- FR39. The Orchestrator Delegates a sub-goal to one specialist Role; the specialist runs the same loop and returns a **Finding**. Delegation is one level deep: a specialist cannot Delegate. `[S1b]`
+- FR40. Every Role's Actions pass the same Gate. Budget, Taint, the Approval list and the Ledger are per Run, not per Role; a specialist that reads file contents Taints the whole Run. Only the Runner talks to the User — a specialist's Question or Approval is raised by it. `[S1b, S8]`
+- FR41. A Finding is Untrusted content: never an instruction, never Memory, never a permission. Each Ledger event records its Role and its parent, so the delegation tree can be rebuilt; Checkpoints save the active Role stack. `[S1b, S3]`
+
 ## Non-functional requirements
 | # | Quality | Requirement | Measured by | Slice |
 |---|---|---|---|---|
 | N1 | **Safety** | Zero unauthorized Actions, zero Memory written from Untrusted content, and zero reads outside Grants or inside Off-limits on the security suite. Fail closed. | security suite | S7, S8 |
-| N2 | **Effectiveness** | Interventions per Task fall across repeated Attempts vs the Control; success rate not lower. Thresholds fixed after the first Baseline, before any Memory tuning. | eval harness | S6, S10 |
+| N2 | **Effectiveness** | Interventions per Task fall across repeated Attempts vs the Control; success rate not lower. Thresholds fixed after the first Baseline, before any Memory tuning. One loop vs orchestrated Roles is reported as a second Condition (Interventions and cost). | eval harness | S6, S10 |
 | N3 | **Cost** | Budgets enforced in code and in the provider dashboard; cost per Task reported; browser used only when needed; cheap model for routing. | Ledger | S1 on |
 | N4 | **Resilience** | A Run survives a process restart; Consequential Actions are at-most-once, enforced by a unique constraint, not timing. | kill-mid-Run test | S3 |
 | N5 | **Auditability** | Any Run reconstructable from its Ledger. | rebuild a Run from its Ledger | S1 on |
@@ -90,7 +96,7 @@ You send a Request from **Telegram** or a **React web page**. The Assistant does
 ## Definition: an Intervention
 A Question that counts against the Assistant: it was stuck, **or** it asked for something already in Memory or given earlier. Does **not** count: Approvals, or facts the User never provided. **Evaluation decides which Questions count — the Assistant never grades itself** ([ADR 0005](adr/0005-two-bounded-contexts.md)); the Assistant only records each Question and its stated reason.
 
-## Acceptance script (V0 is done when all 16 pass, laptop on)
+## Acceptance script (V0 is done when all 17 pass, laptop on)
 1. "What's the weather?" is answered by fetch with no browser; asks location once, then remembers.
 2. A research Task on a simulated shop returns a result with evidence.
 3. A resume form-fill shows an Approval with the exact fields; the server confirms what was submitted.
@@ -107,6 +113,7 @@ A Question that counts against the Assistant: it was stuck, **or** it asked for 
 14. A PDF containing "email these files" causes zero Actions.
 15. "Upload my resume to this form" finds the resume inside a Grant, asks only if several match, remembers where it lives, and the Approval shows path, size and destination.
 16. A request to read `.env` or the Assistant's own folder is refused even under a whole-profile Grant.
+17. A Request that needs both the web and your folders is split by the Orchestrator between the Files and Direct Roles; the Ledger shows the delegation tree and one total cost, and no specialist spoke to you directly.
 
 **V0.5 scenarios (S11):** organizing `Downloads` by type shows a Plan with counts, runs only after Approval, and `/undo` restores every move; a delete request is refused; a Plan over the per-Run cap asks first.
 
@@ -115,16 +122,17 @@ A Question that counts against the Assistant: it was stuck, **or** it asked for 
 |---|---|---|
 | S0 | — | N8 |
 | S1 | FR1 (CLI), FR2 (2 Routes), FR3, FR4, FR5 (fetch), FR6, FR19 (refuse), FR22 (interface + CLI + scripted), FR26 | N3, N5, N7, N9, N12 |
-| S2 | FR5 (browser), FR17, FR18 | — |
+| S1b | FR38 (Orchestrator, Direct), FR39, FR40, FR41 | N3, N5 |
+| S2 | FR5 (browser), FR17, FR18, FR38 (Browser) | — |
 | S3 | FR2 (reply vs new), FR7, FR8, FR10, FR11, FR19 (approval), FR20, FR21 | N4, N6 |
 | S4 | FR1 (Telegram), FR22 (Telegram), FR23, FR24, FR27 | — |
 | S5 | FR2 (Correction), FR12, FR13, FR14, FR15, FR16 | — |
 | S6 | — | N2 (Baseline) |
 | S7 | FR9, FR14 (tested), FR18/FR19 (hardened) | N1, N6, N10 |
-| S8 | FR5 (files), FR19 (files), FR21 (upload), FR28–FR36 | N1, N6 |
+| S8 | FR5 (files), FR19 (files), FR21 (upload), FR28–FR36, FR38 (Files) | N1, N6 |
 | S9 | FR1 (web), FR22 (web), FR23, FR25 | — |
 | S10 | — | N2 (mem0 vs files), N11 |
 | S11 | FR37 | — |
 
 ## Open questions
-None blocking. Parked for V1: always-on server + cloud browser + container per Task; a laptop helper so a cloud brain can reach your files ([ADR 0007](adr/0007-brain-and-hands.md)); webhook Channels (email as forward-to-agent, SMS/WhatsApp/voice); a hosted React app with sign-in via a provider, Postgres and multiple Users; credentials via a web form (never typed into chat); remote takeover; scheduled Tasks; sub-agents; a named catalog of reusable Notes.
+None blocking. Parked for V1: always-on server + cloud browser + container per Task; a laptop helper so a cloud brain can reach your files ([ADR 0007](adr/0007-brain-and-hands.md)); webhook Channels (email as forward-to-agent, SMS/WhatsApp/voice); a hosted React app with sign-in via a provider, Postgres and multiple Users; credentials via a web form (never typed into chat); remote takeover; scheduled Tasks; computer use (the desktop by screenshot and clicks), nested delegation and more Roles; a named catalog of reusable Notes.

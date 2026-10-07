@@ -32,7 +32,7 @@ A scripted stand-in for the User. It sends the Golden task, answers Questions an
 _Avoid_: fake user, bot, mock
 
 **Condition**:
-Whether Memory is on or off for a series of Trials. Memory-off is the Control.
+A setting held fixed for a series of Trials — Memory on or off (off is the Control), or one loop versus orchestrated Roles (one loop is the Control).
 
 **Trial**:
 One Run of a Golden task under a Condition.
