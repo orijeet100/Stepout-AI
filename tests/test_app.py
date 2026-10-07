@@ -42,6 +42,19 @@ async def test_declined_request_end_to_end(ledger):
     assert "pay" in channel.sent[0].text.lower() or "I can" in channel.sent[0].text
 
 
+class BoomModel:
+    async def call(self, request):
+        raise RuntimeError("provider down")
+
+
+async def test_a_failed_request_does_not_end_the_session(ledger):
+    channel = FakeChannel(["what is the capital of France?", "pay this invoice"])
+    runner = Runner(BoomModel(), FakeFetcher(), ledger, channel.send)
+    await run(channel, Intake(ScriptedModel([]), ledger), runner)
+    assert "went wrong" in channel.sent[0].text
+    assert "payments" in channel.sent[1].text  # the next request was still served
+
+
 async def test_answer_request_end_to_end(ledger):
     channel = FakeChannel(["what is the capital of France?"])
     model = ScriptedModel([ModelResponse(action=AnswerAction(text="Paris"), cost_usd=0.002)])

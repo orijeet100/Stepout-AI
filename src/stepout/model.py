@@ -65,13 +65,14 @@ class AnthropicModel:
         self._client = anthropic.AsyncAnthropic()
 
     async def call(self, request: ModelRequest) -> ModelResponse:
-        tools = [_WEB_SEARCH_TOOL, _FETCH_TOOL] if request.tools else None
+        # Omit `tools` entirely when unused: tools=None is sent as null and the API rejects it.
+        extra = {"tools": [_WEB_SEARCH_TOOL, _FETCH_TOOL]} if request.tools else {}
         response = await self._client.messages.create(
             model=request.model,
             max_tokens=4096,
             system=request.system,
-            tools=tools,
             messages=[{"role": "user", "content": request.user_text}],
+            **extra,
         )
         web_searches = sum(
             1 for b in response.content if b.type == "web_search_tool_result"
