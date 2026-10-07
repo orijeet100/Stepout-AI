@@ -13,8 +13,10 @@ from stepout.domain import (
     Action,
     AnswerAction,
     Ask,
+    DelegateAction,
     Decline,
     FetchAction,
+    PlanAction,
     Refuse,
     Allow,
     Route,
@@ -56,9 +58,12 @@ def screen(request: str) -> Screening:
     return Accept(route=Route.ANSWER)
 
 
-def check(action: Action) -> Verdict:
+def check(action: Action, allowed: frozenset[str] | None = None) -> Verdict:
+    """`allowed` = the Action kinds the acting Role may take (None = no Role restriction)."""
+    if allowed is not None and action.kind not in allowed:
+        return Refuse(reason=f"a {action.kind} action is not available to this role")
     match action:
-        case FetchAction() | SearchAction() | AnswerAction():
+        case FetchAction() | SearchAction() | AnswerAction() | PlanAction() | DelegateAction():
             return Allow()
         case _:  # pragma: no cover - Action is a closed union today
             return Ask(reason="unrecognized action")

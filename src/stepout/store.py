@@ -13,8 +13,12 @@ class Store:
         path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(path)
         self._conn.row_factory = sqlite3.Row
-        for migration in sorted(_MIGRATIONS_DIR.glob("*.sql")):
-            self._conn.executescript(migration.read_text())
+        # PRAGMA user_version = how many migrations have run, so ALTERs apply exactly once.
+        applied = self._conn.execute("PRAGMA user_version").fetchone()[0]
+        for n, migration in enumerate(sorted(_MIGRATIONS_DIR.glob("*.sql")), start=1):
+            if n > applied:
+                self._conn.executescript(migration.read_text())
+                self._conn.execute(f"PRAGMA user_version = {n}")
         self._conn.commit()
 
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:

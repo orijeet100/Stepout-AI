@@ -1,5 +1,5 @@
 from stepout import gate
-from stepout.domain import Accept, AnswerAction, Decline, FetchAction, Allow, SearchAction, Unsure
+from stepout.domain import Accept, AnswerAction, Decline, FetchAction, Allow, PlanAction, PlanStep, Refuse, SearchAction, Unsure
 
 FORBIDDEN_CASES = [
     "pay this invoice",
@@ -43,3 +43,10 @@ def test_longer_plain_questions_default_to_answer():
 def test_check_allows_known_actions():
     for action in [FetchAction(url="https://example.com"), SearchAction(query="x", snippets=[]), AnswerAction(text="hi")]:
         assert isinstance(gate.check(action), Allow)
+
+
+def test_a_role_can_only_take_its_own_actions():
+    plan = PlanAction(steps=[PlanStep(role="direct", goal="x")])
+    assert isinstance(gate.check(plan, frozenset({"plan", "answer"})), Allow)
+    assert isinstance(gate.check(plan, frozenset({"fetch", "answer"})), Refuse)
+    assert isinstance(gate.check(FetchAction(url="https://example.com"), frozenset({"plan"})), Refuse)

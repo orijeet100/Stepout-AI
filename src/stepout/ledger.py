@@ -14,12 +14,14 @@ class Ledger:
 
     def record(self, event: Event) -> None:
         self._store.execute(
-            "INSERT INTO events (id, task_id, run_id, kind, data, cost_usd, at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO events (id, task_id, run_id, kind, role, parent, data, cost_usd, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 event.id,
                 event.task_id,
                 event.run_id,
                 event.kind,
+                event.role,
+                event.parent,
                 json.dumps(event.data),
                 event.cost_usd,
                 event.at.isoformat(),
@@ -37,6 +39,8 @@ class Ledger:
                 task_id=r["task_id"],
                 run_id=r["run_id"],
                 kind=r["kind"],
+                role=r["role"],
+                parent=r["parent"],
                 data=json.loads(r["data"]),
                 cost_usd=r["cost_usd"],
                 at=r["at"],

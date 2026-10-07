@@ -89,7 +89,27 @@ class AnswerAction(BaseModel):
     text: str
 
 
-Action = FetchAction | SearchAction | AnswerAction
+class PlanStep(BaseModel):
+    role: Literal["direct"]  # widen as Roles gain hands (files, browser, reader)
+    goal: str
+    status: Literal["pending", "running", "done", "failed"] = "pending"
+
+
+class PlanAction(BaseModel):
+    """The Orchestrator writes (or rewrites) its Plan."""
+
+    kind: Literal["plan"] = "plan"
+    steps: list[PlanStep]
+
+
+class DelegateAction(BaseModel):
+    """The Orchestrator runs one step of its Plan by index; the step's Role does the work."""
+
+    kind: Literal["delegate"] = "delegate"
+    step: int
+
+
+Action = FetchAction | SearchAction | AnswerAction | PlanAction | DelegateAction
 
 
 class FetchResult(BaseModel):
@@ -159,7 +179,9 @@ class Event(BaseModel):
     id: str = Field(default_factory=_id)
     task_id: str | None = None
     run_id: str | None = None
-    kind: str  # "screening" | "model_call" | "action" | "verdict" | "reply"
+    kind: str  # "screening" | "plan" | "step" | "return" | "stop"
+    role: str | None = None  # which Role acted
+    parent: str | None = None  # the Delegate step event that started this Role's work
     data: dict
     cost_usd: float = 0.0
     at: datetime = Field(default_factory=_now)

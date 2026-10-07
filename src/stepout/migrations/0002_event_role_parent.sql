@@ -1,0 +1,2 @@
+ALTER TABLE events ADD COLUMN role TEXT;
+ALTER TABLE events ADD COLUMN parent TEXT;
