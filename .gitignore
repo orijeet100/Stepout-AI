@@ -11,3 +11,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+
+# generated diagrams (archify); regenerate from candidate.json
+.archify/
