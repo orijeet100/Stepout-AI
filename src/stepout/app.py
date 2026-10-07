@@ -51,7 +51,7 @@ async def main() -> None:
     else:
         channel = CliChannel()
     intake = Intake(model, ledger)
-    runner = Runner(model, fetcher, ledger, channel.send)
+    runner = Runner(model, fetcher, ledger, channel.send, trace=channel.trace, cancel=channel.cancel)
     await run(channel, intake, runner)
 
 

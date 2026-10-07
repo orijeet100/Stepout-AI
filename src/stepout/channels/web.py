@@ -9,7 +9,7 @@ from typing import AsyncIterator
 
 from aiohttp import WSMsgType, web
 
-from stepout.domain import Message, Reply
+from stepout.domain import Event, Message, Reply
 
 LOCAL_USER = "local"
 DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
@@ -23,6 +23,7 @@ class WebChannel:
         self._history: list[dict] = []  # replayed on connect, so a refresh keeps the chat (in memory only)
         self._origins: set[str] = set()
         self._runner: web.AppRunner | None = None
+        self.cancel = asyncio.Event()  # set when the User presses Stop; the Runner checks it between steps
 
     async def messages(self) -> AsyncIterator[Message]:
         while True:
@@ -30,6 +31,10 @@ class WebChannel:
 
     async def send(self, reply: Reply) -> None:
         await self._push({"role": "assistant", "text": reply.text})
+
+    async def trace(self, event: Event) -> None:
+        """Live view of the Run: the same events the Ledger records."""
+        await self._push({"type": "trace", **event.model_dump(mode="json", include={"kind", "role", "data", "cost_usd"})})
 
     async def _push(self, item: dict) -> None:
         self._history.append(item)
@@ -55,10 +60,13 @@ class WebChannel:
                 if msg.type != WSMsgType.TEXT:
                     continue
                 try:
-                    text = str(json.loads(msg.data).get("text", "")).strip()
+                    data = json.loads(msg.data)
+                    stop, text = bool(data.get("stop")), str(data.get("text", "")).strip()
                 except (ValueError, AttributeError):
                     continue
-                if text:
+                if stop:
+                    self.cancel.set()
+                elif text:
                     await self._push({"role": "user", "text": text})
                     self._inbox.put_nowait(Message(user_id=LOCAL_USER, text=text))
         finally:
