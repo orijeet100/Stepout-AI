@@ -42,6 +42,31 @@ main {
 .msg.assistant { align-self: flex-start; background: var(--bubble); }
 .msg.working { color: var(--muted); font-style: italic; }
 
+.trace {
+  align-self: stretch;
+  font-size: 13px;
+  color: var(--muted);
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+}
+.trace summary { cursor: pointer; }
+.trace ul, .trace ol { margin: 6px 0; padding-left: 18px; }
+.trace li { margin: 2px 0; }
+.trace b { color: var(--text); font-weight: 600; }
+.trace small { opacity: 0.7; }
+.trace .events li.ret { padding-left: 14px; }
+.plan { list-style: none; padding-left: 0 !important; }
+.plan li::before { display: inline-block; width: 1.4em; }
+.plan li.pending::before { content: '○'; }
+.plan li.running::before { content: '◐'; color: var(--accent); }
+.plan li.done::before { content: '✓'; color: #2ecc71; }
+.plan li.failed::before { content: '✗'; color: #c0392b; }
+.plan li.running { color: var(--text); }
+
+.live { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.live .trace { align-self: stretch; }
+button.stop { background: transparent; color: #c0392b; border: 1px solid #c0392b; padding: 4px 14px; }
+
 form {
   display: flex;
   gap: 8px;
