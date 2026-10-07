@@ -6,9 +6,9 @@ type Chat = { role: 'user' | 'assistant'; text: string }
 type PlanStep = { role: string; goal: string; status: 'pending' | 'running' | 'done' | 'failed' }
 type TraceItem = {
   type: 'trace'
-  kind: 'plan' | 'step' | 'return' | 'stop'
+  kind: 'plan' | 'step' | 'return' | 'stop' | 'shot'
   role: string
-  data: { summary: string; steps?: PlanStep[] }
+  data: { summary: string; steps?: PlanStep[]; shot?: string }
   cost_usd: number
 }
 type Item = Chat | TraceItem
@@ -17,7 +17,8 @@ const isTrace = (i: Item): i is TraceItem => 'type' in i
 
 function Trace({ items, live }: { items: TraceItem[]; live?: boolean }) {
   const steps = items.findLast((i) => i.kind === 'plan')?.data.steps
-  const lines = items.filter((i) => i.kind !== 'plan')
+  const lines = items.filter((i) => i.kind !== 'plan' && i.kind !== 'shot')
+  const shots = items.filter((i) => i.kind === 'shot')
   const cost = items.reduce((sum, i) => sum + i.cost_usd, 0)
   return (
     <details className="trace" open={live}>
@@ -37,6 +38,15 @@ function Trace({ items, live }: { items: TraceItem[]; live?: boolean }) {
           </li>
         ))}
       </ul>
+      {shots.length > 0 && (
+        <div className="shots">
+          {shots.map((e, n) => (
+            <a key={n} href={`/shots/${e.data.shot}`} target="_blank" rel="noreferrer">
+              <img src={`/shots/${e.data.shot}`} alt="page screenshot" />
+            </a>
+          ))}
+        </div>
+      )}
     </details>
   )
 }

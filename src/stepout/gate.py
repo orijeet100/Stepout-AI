@@ -13,6 +13,7 @@ from stepout.domain import (
     Action,
     AnswerAction,
     Ask,
+    BrowseAction,
     DelegateAction,
     Decline,
     FetchAction,
@@ -64,7 +65,7 @@ def check(action: Action, allowed: frozenset[str] | None = None) -> Verdict:
     if allowed is not None and action.kind not in allowed:
         return Refuse(reason=f"a {action.kind} action is not available to this role")
     match action:
-        case FetchAction() | SearchAction() | AnswerAction() | PlanAction() | DelegateAction() | FilesAction():
+        case FetchAction() | SearchAction() | AnswerAction() | PlanAction() | DelegateAction() | FilesAction() | BrowseAction():
             return Allow()
         case _:  # pragma: no cover - Action is a closed union today
             return Ask(reason="unrecognized action")

@@ -15,7 +15,7 @@ from typing import Protocol
 import anthropic
 from pydantic import BaseModel
 
-from stepout.domain import Action, AnswerAction, DelegateAction, FetchAction, FilesAction, PlanAction
+from stepout.domain import Action, AnswerAction, BrowseAction, DelegateAction, FetchAction, FilesAction, PlanAction
 
 HAIKU = "claude-haiku-4-5"
 SONNET = "claude-sonnet-5"
@@ -48,7 +48,7 @@ _CLIENT_TOOLS = {
                 "maxItems": 3,
                 "items": {
                     "type": "object",
-                    "properties": {"role": {"type": "string", "enum": ["direct", "files"]}, "goal": {"type": "string"}},
+                    "properties": {"role": {"type": "string", "enum": ["direct", "files", "browser"]}, "goal": {"type": "string"}},
                     "required": ["role", "goal"],
                 },
             },
@@ -62,6 +62,15 @@ _CLIENT_TOOLS = {
             op={"type": "string", "enum": ["list", "count", "find"]},
             path={"type": "string"},
             pattern={"type": "string"},
+        ),
+        _tool(
+            "browse",
+            "Read web pages in a headless browser, read-only. op 'open' loads a url; 'click' follows a numbered link from "
+            "the page you last opened; 'more' shows the next part of the current page's text.",
+            required=["op"],
+            op={"type": "string", "enum": ["open", "click", "more"]},
+            url={"type": "string"},
+            link={"type": "integer", "minimum": 1},
         ),
         _tool("delegate", "Run one step of your plan by its number (0 is the first). Its Finding comes back next turn.", step={"type": "integer", "minimum": 0}),
         _tool("answer", "Give the final reply to the user.", text={"type": "string"}),
@@ -127,6 +136,8 @@ def _action(content) -> Action:
                 return FetchAction(url=args["url"])
             case "files":
                 return FilesAction(**args)
+            case "browse":
+                return BrowseAction(**args)
             case "plan":
                 return PlanAction(steps=args["steps"])
             case "delegate":

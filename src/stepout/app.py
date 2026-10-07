@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from stepout.channels.cli import CliChannel
 from stepout.channels.web import WebChannel
+from stepout.browser import Browser
 from stepout.domain import Reply, Task
 from stepout.fetch import Fetcher
 from stepout.files import Files
@@ -22,6 +23,7 @@ from stepout.store import Store
 
 DB_PATH = Path("data/stepout.db")
 GRANTS_PATH = Path("data/config/grants.toml")  # only the User edits this
+SHOTS_PATH = Path("data/runs")  # page screenshots, one folder per Run
 
 
 async def run(channel, intake: Intake, runner: Runner) -> None:
@@ -48,7 +50,7 @@ async def main() -> None:
     model = AnthropicModel()
     fetcher = Fetcher()
     if "web" in sys.argv[1:]:
-        channel = WebChannel()
+        channel = WebChannel(shots=SHOTS_PATH)
         print(f"Stepout web chat: http://127.0.0.1:{await channel.start()}  (Ctrl+C to stop)")
     else:
         channel = CliChannel()
@@ -56,8 +58,12 @@ async def main() -> None:
     if not GRANTS_PATH.exists():
         print(f"No {GRANTS_PATH}: the Files agent can't see your disk. Copy grants.example.toml there to allow it.")
     files = Files.from_config(GRANTS_PATH)
-    runner = Runner(model, fetcher, ledger, channel.send, trace=channel.trace, cancel=channel.cancel, files=files)
-    await run(channel, intake, runner)
+    browser = Browser(shots=SHOTS_PATH)
+    runner = Runner(model, fetcher, ledger, channel.send, trace=channel.trace, cancel=channel.cancel, files=files, browser=browser)
+    try:
+        await run(channel, intake, runner)
+    finally:
+        await browser.aclose()
 
 
 if __name__ == "__main__":

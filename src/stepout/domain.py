@@ -98,8 +98,17 @@ class FilesAction(BaseModel):
     pattern: str | None = None
 
 
+class BrowseAction(BaseModel):
+    """Read a web page in the headless browser. Read-only: open a url, follow a numbered link, read on."""
+
+    kind: Literal["browse"] = "browse"
+    op: Literal["open", "click", "more"]
+    url: str | None = None
+    link: int | None = None
+
+
 class PlanStep(BaseModel):
-    role: Literal["direct", "files"]  # widen as Roles gain hands (browser, reader)
+    role: Literal["direct", "files", "browser"]  # widen as Roles gain hands (reader)
     goal: str
     status: Literal["pending", "running", "done", "failed"] = "pending"
 
@@ -118,7 +127,7 @@ class DelegateAction(BaseModel):
     step: int
 
 
-Action = FetchAction | SearchAction | AnswerAction | PlanAction | DelegateAction | FilesAction
+Action = FetchAction | SearchAction | AnswerAction | PlanAction | DelegateAction | FilesAction | BrowseAction
 
 
 class FetchResult(BaseModel):

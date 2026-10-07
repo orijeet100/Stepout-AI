@@ -3,7 +3,7 @@ import asyncio
 import httpx
 import pytest
 
-from stepout.domain import AnswerAction, DelegateAction, FetchAction, FilesAction, PlanAction, PlanStep, Reply, Task
+from stepout.domain import AnswerAction, BrowseAction, DelegateAction, FetchAction, FilesAction, PlanAction, PlanStep, Reply, Task
 from stepout.fetch import BlockedUrl, FetchedPage
 from stepout.ledger import Ledger
 from stepout.model import HAIKU, SONNET, ModelResponse
@@ -22,6 +22,18 @@ class FakeFetcher:
         if self._error:
             raise self._error
         return FetchedPage(url=url, text=self._text)
+
+
+class FakeBrowser:
+    def __init__(self, *pages) -> None:
+        self.pages, self.calls, self.closed = list(pages), [], []
+
+    async def run(self, run_id, op, url=None, link=None):
+        self.calls.append((run_id, op, url, link))
+        return self.pages.pop(0)
+
+    async def close(self, run_id):
+        self.closed.append(run_id)
 
 
 class FakeFiles:
@@ -49,6 +61,10 @@ def fetch(url, cost=0.001):
     return ModelResponse(action=FetchAction(url=url), cost_usd=cost)
 
 
+def browse(op, url=None, link=None, cost=0.001):
+    return ModelResponse(action=BrowseAction(op=op, url=url, link=link), cost_usd=cost)
+
+
 def looks(op, path, pattern=None, cost=0.001):
     return ModelResponse(action=FilesAction(op=op, path=path, pattern=pattern), cost_usd=cost)
 
@@ -56,13 +72,13 @@ def looks(op, path, pattern=None, cost=0.001):
 class Harness:
     """Script order = call order. A plan runs its first step itself, so its Role's calls come right after the plan."""
 
-    def __init__(self, tmp_path, responses, fetcher=None, cancel=None, files=None):
+    def __init__(self, tmp_path, responses, fetcher=None, cancel=None, files=None, browser=None):
         self.ledger = Ledger(Store(tmp_path / "t.db"))
         self.model = ScriptedModel(responses)
         self.fetcher = fetcher or FakeFetcher("page text")
         self.replies: list[Reply] = []
         self.traced = []
-        self.runner = Runner(self.model, self.fetcher, self.ledger, self._notify, self._trace, cancel, files=files)
+        self.runner = Runner(self.model, self.fetcher, self.ledger, self._notify, self._trace, cancel, files=files, browser=browser or FakeBrowser())
 
     async def _notify(self, reply):
         self.replies.append(reply)
@@ -242,3 +258,39 @@ async def test_repeating_an_identical_hand_action_is_not_run_again(tmp_path):
     await h.run()
     assert [c[1] for c in files.calls] == ["D:\\Docs", "D:\\Work"]  # the repeat never reached the disk
     assert "already ran exactly this" in h.seen_by(3)
+
+
+async def test_the_browser_agent_reads_a_page_and_its_screenshot_reaches_the_trace(tmp_path):
+    browser = FakeBrowser(("URL: https://example.com\nTitle: Example\nText: Example Domain", "abc/1.jpg"))
+    h = Harness(tmp_path, [plan("read example.com", role="browser"), browse("open", "https://example.com"), say("The heading is Example Domain"), say("It says Example Domain.")], browser=browser)
+    task = await h.run("what does example.com say?")
+    assert browser.calls[0][1:] == ("open", "https://example.com", None)
+    assert h.model.requests[1].tools == ["browse"] and h.model.requests[1].model == SONNET
+    assert "Example Domain" in h.seen_by(2)  # the Browser agent saw the page
+    assert "Example Domain" in h.seen_by(3)  # and the Orchestrator its Finding
+    shot = next(e for e in h.ledger.query(task.id) if e.kind == "shot")
+    assert shot.data["shot"] == "abc/1.jpg" and shot.role == "browser"
+
+
+async def test_only_the_newest_pages_stay_in_a_roles_notes(tmp_path):
+    pages = [(f"URL: https://x/{i}\nTitle: T{i}\nText: body {i}", None) for i in range(3)]
+    h = Harness(tmp_path, [plan("a", role="browser"), browse("open", "https://x/0"), browse("click", link=1), browse("click", link=1), say("done"), say("ok")], browser=FakeBrowser(*pages))
+    await h.run()
+    last = h.seen_by(4)  # the Browser agent's request after its third page
+    assert "(earlier page) URL: https://x/0" in last and "body 0" not in last
+    assert "body 1" in last and "body 2" in last  # the previous and the current page stay in full
+
+
+async def test_a_runs_browser_session_is_closed_even_when_the_run_fails(tmp_path):
+    browser = FakeBrowser()
+    h = Harness(tmp_path, [], browser=browser)  # no scripted responses: the model call raises
+    with pytest.raises(IndexError):
+        await h.run()
+    assert len(browser.closed) == 1
+
+
+async def test_roles_hold_only_their_own_hand(tmp_path):
+    h = Harness(tmp_path, [plan("a", role="browser"), fetch("https://example.com"), say("ok"), say("done")])
+    task = await h.run()
+    assert h.fetcher.urls == []  # the Browser agent cannot use the Fetcher
+    assert any(e.data["verdict"] == "refuse" and e.role == "browser" for e in h.ledger.query(task.id) if e.kind == "step")

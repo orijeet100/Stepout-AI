@@ -1,6 +1,6 @@
 from types import SimpleNamespace as NS
 
-from stepout.domain import AnswerAction, DelegateAction, FetchAction, FilesAction, PlanAction
+from stepout.domain import AnswerAction, BrowseAction, DelegateAction, FetchAction, FilesAction, PlanAction
 from stepout.model import HAIKU, AnthropicModel, ModelRequest
 
 
@@ -59,6 +59,8 @@ async def test_tool_calls_become_actions():
         (tool("delegate", step=0), DelegateAction(step=0)),
         (tool("files", op="find", path="D:\\", pattern="pdf"), FilesAction(op="find", path="D:\\", pattern="pdf")),
         (tool("files", op="count", path="D:\\"), FilesAction(op="count", path="D:\\")),
+        (tool("browse", op="open", url="https://example.com"), BrowseAction(op="open", url="https://example.com")),
+        (tool("browse", op="click", link=2), BrowseAction(op="click", link=2)),
         (tool("answer", text="done"), AnswerAction(text="done")),
     ]
     for block, expected in cases:
@@ -91,3 +93,10 @@ async def test_the_files_tool_needs_only_an_operation_and_a_path():
     schema = kwargs["tools"][0]["input_schema"]
     assert schema["required"] == ["op", "path"] and set(schema["properties"]) == {"op", "path", "pattern"}
     assert schema["properties"]["op"]["enum"] == ["list", "count", "find"]
+
+
+async def test_the_browse_tool_and_the_browser_role_in_a_plan():
+    _, kwargs = await ask(tools=["browse", "plan"])
+    by_name = {t["name"]: t["input_schema"] for t in kwargs["tools"]}
+    assert by_name["browse"]["required"] == ["op"] and by_name["browse"]["properties"]["op"]["enum"] == ["open", "click", "more"]
+    assert "browser" in by_name["plan"]["properties"]["steps"]["items"]["properties"]["role"]["enum"]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from pathlib import Path
 from typing import AsyncIterator
 
@@ -16,8 +17,8 @@ DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
 
 
 class WebChannel:
-    def __init__(self, host: str = "127.0.0.1", port: int = 8765) -> None:
-        self._host, self._port = host, port
+    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path = Path("data/runs")) -> None:
+        self._host, self._port, self._shots = host, port, shots
         self._inbox: asyncio.Queue[Message] = asyncio.Queue()
         self._sockets: set[web.WebSocketResponse] = set()
         self._history: list[dict] = []  # replayed on connect, so a refresh keeps the chat (in memory only)
@@ -73,6 +74,13 @@ class WebChannel:
             self._sockets.discard(ws)
         return ws
 
+    async def _shot(self, request: web.Request) -> web.StreamResponse:
+        run, name = request.match_info["run"], request.match_info["name"]
+        path = self._shots / run / name
+        if not (re.fullmatch(r"[0-9a-f]{32}", run) and re.fullmatch(r"\d+\.jpg", name) and path.is_file()):
+            raise web.HTTPNotFound()  # only files this Assistant wrote: no traversal, no guessing
+        return web.FileResponse(path)
+
     async def _index(self, request: web.Request) -> web.StreamResponse:
         index = DIST / "index.html"
         if not index.exists():
@@ -84,6 +92,7 @@ class WebChannel:
         app = web.Application()
         app.router.add_get("/", self._index)
         app.router.add_get("/ws", self._ws)
+        app.router.add_get("/shots/{run}/{name}", self._shot)
         if DIST.is_dir():
             app.router.add_static("/", DIST)
         self._runner = web.AppRunner(app)

@@ -15,7 +15,8 @@ from uuid import uuid4
 import httpx
 
 from stepout import gate
-from stepout.domain import Allow, AnswerAction, DelegateAction, Event, FetchAction, FilesAction, PlanAction, PlanStep, Reply, Task
+from stepout.domain import Allow, AnswerAction, BrowseAction, DelegateAction, Event, FetchAction, FilesAction, PlanAction, PlanStep, Reply, Task
+from stepout.browser import Browser
 from stepout.fetch import BlockedUrl, Fetcher
 from stepout.files import Files
 from stepout.ledger import Ledger
@@ -53,6 +54,13 @@ def _state(goal: str, plan: list[PlanStep], notes: list[str]) -> str:
     return "\n\n".join(parts + notes)
 
 
+def _shrink_old_pages(notes: list[str], keep: int = 2) -> None:
+    """Page views are big and a Role re-reads its notes every step: all but the newest two shrink to their first lines."""
+    pages = [i for i, n in enumerate(notes) if n.startswith("browse ")]
+    for i in pages[:-keep]:
+        notes[i] = "(earlier page) " + " ".join(notes[i].splitlines()[1:3])[:200]
+
+
 def _summary(action, plan: list[PlanStep]) -> str:
     match action:
         case PlanAction(steps=steps):
@@ -65,6 +73,8 @@ def _summary(action, plan: list[PlanStep]) -> str:
             return f"fetch {url}"
         case FilesAction(op=op, path=path, pattern=pattern):
             return f"files {op} {path}" + (f" {pattern}" if pattern else "")
+        case BrowseAction(op=op, url=url, link=link):
+            return f"browse {op} {url or link or ''}".strip()
         case _:
             return action.kind
 
@@ -79,12 +89,14 @@ class Runner:
         trace: Callable[[Event], Awaitable[None]] | None = None,
         cancel: asyncio.Event | None = None,
         files: Files | None = None,
+        browser: Browser | None = None,
     ) -> None:
         self._model = model
         self._fetcher = fetcher
         self._ledger = ledger
         self._notify = notify
         self._files = files or Files()  # no Grants = no access
+        self._browser = browser or Browser()  # starts Chrome only when a page is first opened
         self._trace = trace
         self._cancel = cancel or asyncio.Event()  # set by the Channel when the User presses Stop
         self._cap = float(os.environ.get("STEPOUT_TASK_CAP_USD", "1.00"))
@@ -92,7 +104,10 @@ class Runner:
     async def submit(self, task: Task) -> None:
         self._cancel.clear()
         run = _Run(task_id=task.id, cap=self._cap)
-        finding = await self._agent("orchestrator", task.request, run, parent=None)
+        try:
+            finding = await self._agent("orchestrator", task.request, run, parent=None)
+        finally:
+            await self._browser.close(run.id)  # its pages are this Run's alone
         await self._notify(Reply(text=f"{finding.text}\n\n(cost: ${run.spent:.4f})"))
 
     async def _emit(self, run: _Run, kind: str, role: str, summary: str, *, parent=None, cost=0.0, **data) -> Event:
@@ -169,6 +184,12 @@ class Runner:
                     ran.add(key)
                     result = await self._files.run(op, path, pattern, self._cancel.is_set)
                     notes.append(f"files {op} {path}:\n{result[:_TEXT_CHARS]}")
+                case BrowseAction(op=op, url=url, link=link):
+                    view, shot = await self._browser.run(run.id, op, url, link)
+                    notes.append(f"browse {op}:\n{view}")
+                    _shrink_old_pages(notes)
+                    if shot:
+                        await self._emit(run, "shot", role_name, "page screenshot", parent=step.id, shot=shot)
                 case FetchAction(url=url):
                     ran.add(key)
                     try:

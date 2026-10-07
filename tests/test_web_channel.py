@@ -8,8 +8,8 @@ from stepout.domain import Event, Reply
 
 
 @pytest.fixture
-async def served():
-    channel = WebChannel(port=0)
+async def served(tmp_path):
+    channel = WebChannel(port=0, shots=tmp_path)
     port = await channel.start()
     yield channel, f"http://127.0.0.1:{port}"
     await channel.stop()
@@ -66,3 +66,16 @@ async def test_blank_and_malformed_messages_are_ignored(served):
         await ws.send_json({"text": "real"})
         assert await ws.receive_json() == {"role": "user", "text": "real"}
         assert (await asyncio.wait_for(anext(channel.messages()), 2)).text == "real"
+
+
+async def test_screenshots_are_served_only_for_files_the_assistant_wrote(served, tmp_path):
+    _, base = served
+    run = "0123456789abcdef0123456789abcdef"
+    (tmp_path / run).mkdir()
+    (tmp_path / run / "1.jpg").write_bytes(b"\xff\xd8jpeg")
+    (tmp_path / "secret.txt").write_text("nope")
+    async with aiohttp.ClientSession() as session:
+        ok = await session.get(f"{base}/shots/{run}/1.jpg")
+        assert ok.status == 200 and await ok.read() == b"\xff\xd8jpeg"
+        for bad in (f"{run}/2.jpg", f"{run}/1.png", "../secret.txt", f"{run}/..%2Fsecret.txt", "nothex/1.jpg", f"{run}/1.jpg/x"):
+            assert (await session.get(f"{base}/shots/{bad}")).status == 404, bad
