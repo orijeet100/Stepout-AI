@@ -14,3 +14,8 @@ __pycache__/
 
 # generated diagrams (archify); regenerate from candidate.json
 .archify/
+
+# graphify: generated graph output, and its skill (regenerate with `graphify install --project`)
+graphify-out/
+.claude/skills/graphify/
+.claude/settings.local.json
