@@ -12,7 +12,7 @@ STEP 0, before anything else:
  b. Make this worktree's own venv and install into it:
       python -m venv .venv
       .venv/Scripts/python.exe -m pip install -e ".[dev]"
- c. Run the baseline: .venv/Scripts/python.exe -m pytest -q   (expect: 135 passed, 6 deselected). Report the result.
+ c. Run the baseline: .venv/Scripts/python.exe -m pytest -q   (expect: all tests pass; the live ones are deselected). Report the result.
  d. Report your branch name (git branch --show-current): the merge agent needs it.
 Then read, in order: CLAUDE.md, docs/STATUS.md, docs/plan/README.md, docs/plan/main-worktree.md,
 docs/ui-contract.md, docs/log/README.md, then the log entries for your lane
