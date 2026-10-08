@@ -47,6 +47,9 @@ export const hasBrowserStep = (run: Run) => run.events.some((e) => e.kind === 's
 /** The address of a saved screenshot, or null if the path is not the `<run>/<n>.jpg` the backend writes: never built from anything else. */
 export const shotSrc = (path: string): string | null => (/^[0-9a-f]{32}\/\d+\.jpg$/.test(path) ? `/shots/${path}` : null)
 
+/** The live stream of a Run, or null if the id is not the 32 hex characters the backend makes. */
+export const liveSrc = (runId: string): string | null => (/^[0-9a-f]{32}$/.test(runId) ? `/live/${runId}` : null)
+
 /** A page's address as a link target: http(s) only. A model-driven page can say anything in a `url`; only a real web address becomes a link. */
 export function safeHref(url: string | null): string | null {
   try {

@@ -1,6 +1,7 @@
 import Icon from './Icon'
 import type { Trace, Verdict } from './protocol'
-import { elapsedMs, elapsedText, money, plainLine, planOf, planProgress, spent, stepCost, stepCount } from './runview'
+import { elapsedMs, elapsedText, hasBrowserStep, money, plainLine, planOf, planProgress, shotsOf, spent, stepCost, stepCount } from './runview'
+import { BrowserPanel } from './Shots'
 import type { Run, RunState } from './store'
 
 const VERDICT: Record<Verdict, { label: string; icon: 'check' | 'ban' | 'ask' }> = {
@@ -43,15 +44,16 @@ function Line({ e }: { e: Trace }) {
   )
 }
 
-type Props = { run: Run; state: RunState; cap: number | null; now: number; onStop: () => void }
+type Props = { run: Run; state: RunState; cap: number | null; now: number; onStop: () => void; onOpenShot?: (index: number) => void }
 
-export default function RunBlock({ run, state, cap, now, onStop }: Props) {
+export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: Props) {
   const running = state === 'running'
   const plan = planOf(run)
   const { done, total } = planProgress(plan)
   const cost = spent(run)
   const time = elapsedText(elapsedMs(run, running, now))
   const steps = stepCount(run)
+  const shots = shotsOf(run)
   const lines = run.events.filter((e) => e.kind === 'step' || e.kind === 'return' || e.kind === 'stop')
   const summary = running
     ? ['Working…', total ? stepsOf(done, total) : '', time].filter(Boolean).join(' · ')
@@ -75,6 +77,7 @@ export default function RunBlock({ run, state, cap, now, onStop }: Props) {
             <Icon name="stop" size={14} /> Stop
           </button>
         )}
+        <BrowserPanel runId={run.id} live={running && hasBrowserStep(run)} shots={shots} onOpen={onOpenShot} />
         {plan.length > 0 && (
           <ol className="plan" aria-label="Plan">
             {plan.map((s, i) => (

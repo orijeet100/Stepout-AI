@@ -20,6 +20,15 @@ const paths = {
       <path d="M9.5 9.2a2.7 2.7 0 0 1 5.2 1c0 1.8-2.7 2.3-2.7 2.3M12 16.5h.01" />
     </>
   ),
+  image: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+    </>
+  ),
+  left: <path d="m15 18-6-6 6-6" />,
+  right: <path d="m9 18 6-6-6-6" />,
   clock: (
     <>
       <circle cx="12" cy="12" r="9" />

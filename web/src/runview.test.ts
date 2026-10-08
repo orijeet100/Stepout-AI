@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { elapsedMs, elapsedText, hasBrowserStep, money, plainLine, planProgress, safeHref, shotSrc, shotsOf, stepCost } from './runview'
+import { elapsedMs, elapsedText, hasBrowserStep, liveSrc, money, plainLine, planProgress, safeHref, shotSrc, shotsOf, stepCost } from './runview'
 import type { Run } from './store'
 
 const ev = (at: string) => ({ id: at, conversation_id: 'c', run_id: 'r', parent: null, kind: 'step', role: 'x', data: {}, cost_usd: 0, at })
@@ -60,6 +60,11 @@ describe("the browser's pages", () => {
     for (const bad of ['', '../secret.txt', `${RUN}/../x.jpg`, `${RUN}/3.png`, `${RUN}/3.jpg?x=1`, `${RUN.toUpperCase()}/3.jpg`, `${RUN}/3.jpg/extra`, 'https://evil.example/a.jpg', `//${RUN}/3.jpg`, `${RUN}%2f3.jpg`]) {
       expect(shotSrc(bad), bad).toBeNull()
     }
+  })
+
+  it('the live address is built only from a 32-hex run id', () => {
+    expect(liveSrc(RUN)).toBe(`/live/${RUN}`)
+    for (const bad of ['', 'nope', '../x', RUN.toUpperCase(), RUN + '0', `${RUN}?x=1`, `${RUN}/../..`]) expect(liveSrc(bad), bad).toBeNull()
   })
 
   it('a page address becomes a link only if it is http or https', () => {
