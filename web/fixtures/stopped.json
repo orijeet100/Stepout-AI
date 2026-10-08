@@ -1,0 +1,188 @@
+[
+ {
+  "type": "message",
+  "id": "893ace4e44afbe64c1842d69a4407bf8",
+  "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+  "role": "user",
+  "text": "Summarise the three most recent posts on the Example Engineering blog.",
+  "run_id": null,
+  "cost_usd": null,
+  "at": "2026-09-30T14:20:00.000Z"
+ },
+ {
+  "type": "status",
+  "state": "running",
+  "active": {
+   "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+   "run_id": "b617329283bea49463ba30655fa8a766",
+   "cap_usd": 1.0
+  },
+  "queued": [],
+  "at": "2026-09-30T14:20:00.300Z"
+ },
+ {
+  "type": "trace",
+  "id": "edc449fd0ed3843755b0189fbcba30a8",
+  "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+  "run_id": "b617329283bea49463ba30655fa8a766",
+  "parent": null,
+  "kind": "step",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan: browser: Open the engineering blog and read the three newest posts",
+   "action": {
+    "kind": "plan",
+    "steps": [
+     {
+      "role": "browser",
+      "goal": "Open the engineering blog and read the three newest posts",
+      "status": "pending"
+     }
+    ]
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0119,
+  "at": "2026-09-30T14:20:02.500Z"
+ },
+ {
+  "type": "trace",
+  "id": "5759b20199250187a84455804c8088f6",
+  "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+  "run_id": "b617329283bea49463ba30655fa8a766",
+  "parent": null,
+  "kind": "plan",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan updated",
+   "steps": [
+    {
+     "role": "browser",
+     "goal": "Open the engineering blog and read the three newest posts",
+     "status": "running"
+    }
+   ]
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-30T14:20:02.550Z"
+ },
+ {
+  "type": "trace",
+  "id": "faa406331ea428e0ccc3d4e296005084",
+  "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+  "run_id": "b617329283bea49463ba30655fa8a766",
+  "parent": "edc449fd0ed3843755b0189fbcba30a8",
+  "kind": "step",
+  "role": "browser",
+  "data": {
+   "summary": "browse open https://blog.example/engineering",
+   "action": {
+    "kind": "browse",
+    "op": "open",
+    "url": "https://blog.example/engineering",
+    "link": null
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0131,
+  "at": "2026-09-30T14:20:05.650Z"
+ },
+ {
+  "type": "trace",
+  "id": "224303ca1eba054137c5a14dd1b39d6a",
+  "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+  "run_id": "b617329283bea49463ba30655fa8a766",
+  "parent": "faa406331ea428e0ccc3d4e296005084",
+  "kind": "shot",
+  "role": "browser",
+  "data": {
+   "summary": "page screenshot",
+   "shot": "b617329283bea49463ba30655fa8a766/1.jpg",
+   "url": "https://blog.example/engineering",
+   "title": "Engineering · Example Blog"
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-30T14:20:06.950Z"
+ },
+ {
+  "type": "trace",
+  "id": "b62e985ef464d052c325c6dad94fec92",
+  "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+  "run_id": "b617329283bea49463ba30655fa8a766",
+  "parent": "edc449fd0ed3843755b0189fbcba30a8",
+  "kind": "stop",
+  "role": "browser",
+  "data": {
+   "summary": "Stopped by you."
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-30T14:20:10.950Z"
+ },
+ {
+  "type": "trace",
+  "id": "14238ed7b63553a2cc9c0083f3206c44",
+  "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+  "run_id": "b617329283bea49463ba30655fa8a766",
+  "parent": null,
+  "kind": "plan",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan updated",
+   "steps": [
+    {
+     "role": "browser",
+     "goal": "Open the engineering blog and read the three newest posts",
+     "status": "failed"
+    }
+   ]
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-30T14:20:11.000Z"
+ },
+ {
+  "type": "trace",
+  "id": "d72a11041707d903633bca7b1e8635ea",
+  "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+  "run_id": "b617329283bea49463ba30655fa8a766",
+  "parent": "edc449fd0ed3843755b0189fbcba30a8",
+  "kind": "return",
+  "role": "browser",
+  "data": {
+   "summary": "failed: Stopped by you.",
+   "ok": false
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-30T14:20:11.050Z"
+ },
+ {
+  "type": "trace",
+  "id": "d62835258e3c43f6eb34faea6481214b",
+  "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+  "run_id": "b617329283bea49463ba30655fa8a766",
+  "parent": null,
+  "kind": "stop",
+  "role": "orchestrator",
+  "data": {
+   "summary": "Stopped by you."
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-30T14:20:11.150Z"
+ },
+ {
+  "type": "message",
+  "id": "e04863d08884cfbd804989f592b28b94",
+  "conversation_id": "3cb1a321ed069ad67aec1ea9a83f47c6",
+  "role": "assistant",
+  "text": "Stopped by you.",
+  "run_id": "b617329283bea49463ba30655fa8a766",
+  "cost_usd": 0.025,
+  "at": "2026-09-30T14:20:11.250Z"
+ },
+ {
+  "type": "status",
+  "state": "idle",
+  "active": null,
+  "queued": [],
+  "at": "2026-09-30T14:20:11.250Z"
+ }
+]

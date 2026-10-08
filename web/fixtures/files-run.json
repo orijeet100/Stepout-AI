@@ -1,0 +1,181 @@
+[
+ {
+  "type": "message",
+  "id": "3819904750d024bcd7d6254b3d30ea82",
+  "conversation_id": "12b7b90f40cd9d84c8ad68b7ae89baa1",
+  "role": "user",
+  "text": "How many PDFs are in my Projects folder?",
+  "run_id": null,
+  "cost_usd": null,
+  "at": "2026-10-01T08:30:00.000Z"
+ },
+ {
+  "type": "status",
+  "state": "running",
+  "active": {
+   "conversation_id": "12b7b90f40cd9d84c8ad68b7ae89baa1",
+   "run_id": "6d48346cd636252679d0ccc13622dcd6",
+   "cap_usd": 1.0
+  },
+  "queued": [],
+  "at": "2026-10-01T08:30:00.300Z"
+ },
+ {
+  "type": "trace",
+  "id": "f6f2bc0572640bb5a8b896806b0f0242",
+  "conversation_id": "12b7b90f40cd9d84c8ad68b7ae89baa1",
+  "run_id": "6d48346cd636252679d0ccc13622dcd6",
+  "parent": null,
+  "kind": "step",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan: files: Count the PDF files under D:\\Example\\Projects",
+   "action": {
+    "kind": "plan",
+    "steps": [
+     {
+      "role": "files",
+      "goal": "Count the PDF files under D:\\Example\\Projects",
+      "status": "pending"
+     }
+    ]
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0098,
+  "at": "2026-10-01T08:30:02.200Z"
+ },
+ {
+  "type": "trace",
+  "id": "e71175551b97665bc373a77116c75e5a",
+  "conversation_id": "12b7b90f40cd9d84c8ad68b7ae89baa1",
+  "run_id": "6d48346cd636252679d0ccc13622dcd6",
+  "parent": null,
+  "kind": "plan",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan updated",
+   "steps": [
+    {
+     "role": "files",
+     "goal": "Count the PDF files under D:\\Example\\Projects",
+     "status": "running"
+    }
+   ]
+  },
+  "cost_usd": 0.0,
+  "at": "2026-10-01T08:30:02.250Z"
+ },
+ {
+  "type": "trace",
+  "id": "2452ee6a0c234de0c1fbcb7059c6b92a",
+  "conversation_id": "12b7b90f40cd9d84c8ad68b7ae89baa1",
+  "run_id": "6d48346cd636252679d0ccc13622dcd6",
+  "parent": "f6f2bc0572640bb5a8b896806b0f0242",
+  "kind": "step",
+  "role": "files",
+  "data": {
+   "summary": "files count D:\\Example\\Projects *.pdf",
+   "action": {
+    "kind": "files",
+    "op": "count",
+    "path": "D:\\Example\\Projects",
+    "pattern": "*.pdf"
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0071,
+  "at": "2026-10-01T08:30:04.650Z"
+ },
+ {
+  "type": "trace",
+  "id": "6c8538410b2c7739d6db885f6c3fe764",
+  "conversation_id": "12b7b90f40cd9d84c8ad68b7ae89baa1",
+  "run_id": "6d48346cd636252679d0ccc13622dcd6",
+  "parent": "f6f2bc0572640bb5a8b896806b0f0242",
+  "kind": "step",
+  "role": "files",
+  "data": {
+   "summary": "answer",
+   "action": {
+    "kind": "answer",
+    "text": "42 PDF files, in 9 folders."
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0048,
+  "at": "2026-10-01T08:30:07.750Z"
+ },
+ {
+  "type": "trace",
+  "id": "5477410d232dabaaea085378832292c1",
+  "conversation_id": "12b7b90f40cd9d84c8ad68b7ae89baa1",
+  "run_id": "6d48346cd636252679d0ccc13622dcd6",
+  "parent": null,
+  "kind": "plan",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan updated",
+   "steps": [
+    {
+     "role": "files",
+     "goal": "Count the PDF files under D:\\Example\\Projects",
+     "status": "done"
+    }
+   ]
+  },
+  "cost_usd": 0.0,
+  "at": "2026-10-01T08:30:07.800Z"
+ },
+ {
+  "type": "trace",
+  "id": "05404b72956ee2f3ba5aa32754d567a7",
+  "conversation_id": "12b7b90f40cd9d84c8ad68b7ae89baa1",
+  "run_id": "6d48346cd636252679d0ccc13622dcd6",
+  "parent": "f6f2bc0572640bb5a8b896806b0f0242",
+  "kind": "return",
+  "role": "files",
+  "data": {
+   "summary": "done: 42 PDF files, in 9 folders.",
+   "ok": true
+  },
+  "cost_usd": 0.0,
+  "at": "2026-10-01T08:30:07.850Z"
+ },
+ {
+  "type": "trace",
+  "id": "1b646bcbbc993159481eb502a42c412c",
+  "conversation_id": "12b7b90f40cd9d84c8ad68b7ae89baa1",
+  "run_id": "6d48346cd636252679d0ccc13622dcd6",
+  "parent": null,
+  "kind": "step",
+  "role": "orchestrator",
+  "data": {
+   "summary": "answer",
+   "action": {
+    "kind": "answer",
+    "text": "There are **42** PDF files under `D:\\Example\\Projects`, spread over 9 folders."
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0213,
+  "at": "2026-10-01T08:30:10.050Z"
+ },
+ {
+  "type": "message",
+  "id": "6266c58a67c8c83f920e6851f6650ffb",
+  "conversation_id": "12b7b90f40cd9d84c8ad68b7ae89baa1",
+  "role": "assistant",
+  "text": "There are **42** PDF files under `D:\\Example\\Projects`, spread over 9 folders.",
+  "run_id": "6d48346cd636252679d0ccc13622dcd6",
+  "cost_usd": 0.043,
+  "at": "2026-10-01T08:30:10.350Z"
+ },
+ {
+  "type": "status",
+  "state": "idle",
+  "active": null,
+  "queued": [],
+  "at": "2026-10-01T08:30:10.350Z"
+ }
+]

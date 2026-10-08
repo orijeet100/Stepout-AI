@@ -1,0 +1,217 @@
+[
+ {
+  "type": "message",
+  "id": "d793c326fcf48233753f5a724e98229f",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "role": "user",
+  "text": "What's the weather in Lisbon next week?",
+  "run_id": null,
+  "cost_usd": null,
+  "at": "2026-09-30T18:05:00.000Z"
+ },
+ {
+  "type": "status",
+  "state": "running",
+  "active": {
+   "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+   "run_id": "862114de94609deae6741dd6c82e8fa1",
+   "cap_usd": 1.0
+  },
+  "queued": [],
+  "at": "2026-09-30T18:05:00.300Z"
+ },
+ {
+  "type": "trace",
+  "id": "93308944da5a4fb630afa5a68251217a",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "run_id": "862114de94609deae6741dd6c82e8fa1",
+  "parent": null,
+  "kind": "step",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan: browser: Open a forecast page for Lisbon and read next week",
+   "action": {
+    "kind": "plan",
+    "steps": [
+     {
+      "role": "browser",
+      "goal": "Open a forecast page for Lisbon and read next week",
+      "status": "pending"
+     }
+    ]
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0102,
+  "at": "2026-09-30T18:05:02.300Z"
+ },
+ {
+  "type": "trace",
+  "id": "ef255bb14df2765e17b33d0d9ea4303e",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "run_id": "862114de94609deae6741dd6c82e8fa1",
+  "parent": null,
+  "kind": "plan",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan updated",
+   "steps": [
+    {
+     "role": "browser",
+     "goal": "Open a forecast page for Lisbon and read next week",
+     "status": "running"
+    }
+   ]
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-30T18:05:02.350Z"
+ },
+ {
+  "type": "trace",
+  "id": "8b4a025f9523bb7df84e5dd5332fa1a5",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "run_id": "862114de94609deae6741dd6c82e8fa1",
+  "parent": "93308944da5a4fb630afa5a68251217a",
+  "kind": "step",
+  "role": "browser",
+  "data": {
+   "summary": "refused fetch: a fetch action is not available to this role",
+   "action": {
+    "kind": "fetch",
+    "url": "https://forecast.example/lisbon"
+   },
+   "verdict": "refuse"
+  },
+  "cost_usd": 0.0067,
+  "at": "2026-09-30T18:05:04.850Z"
+ },
+ {
+  "type": "trace",
+  "id": "099342e8e5638b8e7e0075b42ca12870",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "run_id": "862114de94609deae6741dd6c82e8fa1",
+  "parent": "93308944da5a4fb630afa5a68251217a",
+  "kind": "step",
+  "role": "browser",
+  "data": {
+   "summary": "browse open https://forecast.example/lisbon",
+   "action": {
+    "kind": "browse",
+    "op": "open",
+    "url": "https://forecast.example/lisbon",
+    "link": null
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0119,
+  "at": "2026-09-30T18:05:07.750Z"
+ },
+ {
+  "type": "trace",
+  "id": "207bd637a9fdaf7a0a900a301e7dfb01",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "run_id": "862114de94609deae6741dd6c82e8fa1",
+  "parent": "099342e8e5638b8e7e0075b42ca12870",
+  "kind": "shot",
+  "role": "browser",
+  "data": {
+   "summary": "page screenshot",
+   "shot": "862114de94609deae6741dd6c82e8fa1/1.jpg",
+   "url": "https://forecast.example/lisbon",
+   "title": "Lisbon, 7-day forecast · Example Weather"
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-30T18:05:09.250Z"
+ },
+ {
+  "type": "trace",
+  "id": "ddbfb16f543c3bfe8a4ee72f14d7ccc2",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "run_id": "862114de94609deae6741dd6c82e8fa1",
+  "parent": "93308944da5a4fb630afa5a68251217a",
+  "kind": "step",
+  "role": "browser",
+  "data": {
+   "summary": "answer",
+   "action": {
+    "kind": "answer",
+    "text": "Mostly sunny, 22–25 °C; rain on Thursday."
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0151,
+  "at": "2026-09-30T18:05:11.950Z"
+ },
+ {
+  "type": "trace",
+  "id": "02ddc48fab934c1ddfa640202085b4ca",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "run_id": "862114de94609deae6741dd6c82e8fa1",
+  "parent": null,
+  "kind": "plan",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan updated",
+   "steps": [
+    {
+     "role": "browser",
+     "goal": "Open a forecast page for Lisbon and read next week",
+     "status": "done"
+    }
+   ]
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-30T18:05:12.000Z"
+ },
+ {
+  "type": "trace",
+  "id": "3c3def7c802258696d38ba5d8f263d8d",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "run_id": "862114de94609deae6741dd6c82e8fa1",
+  "parent": "93308944da5a4fb630afa5a68251217a",
+  "kind": "return",
+  "role": "browser",
+  "data": {
+   "summary": "done: Mostly sunny, 22–25 °C; rain on Thursday.",
+   "ok": true
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-30T18:05:12.050Z"
+ },
+ {
+  "type": "trace",
+  "id": "8f09b4297ae1e08942c627930d7ddc2e",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "run_id": "862114de94609deae6741dd6c82e8fa1",
+  "parent": null,
+  "kind": "step",
+  "role": "orchestrator",
+  "data": {
+   "summary": "answer",
+   "action": {
+    "kind": "answer",
+    "text": "Lisbon next week is **mostly sunny**, 22–25 °C, with one rainy day on **Thursday**."
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0176,
+  "at": "2026-09-30T18:05:14.450Z"
+ },
+ {
+  "type": "message",
+  "id": "5e306acd15455cbf36d6b874e07bee72",
+  "conversation_id": "bc662feb15da89d9aab88666bc343d99",
+  "role": "assistant",
+  "text": "Lisbon next week is **mostly sunny**, 22–25 °C, with one rainy day on **Thursday**.",
+  "run_id": "862114de94609deae6741dd6c82e8fa1",
+  "cost_usd": 0.0615,
+  "at": "2026-09-30T18:05:14.750Z"
+ },
+ {
+  "type": "status",
+  "state": "idle",
+  "active": null,
+  "queued": [],
+  "at": "2026-09-30T18:05:14.750Z"
+ }
+]
