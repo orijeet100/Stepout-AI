@@ -83,6 +83,10 @@ async def test_a_conversation_through_the_app_is_saved_and_survives_a_restart(tm
         ("assistant", "That's payments and transfers, which I won't do. I can look things up, fetch public pages, and answer questions — just not that."),
     ]  # a decline is saved too
     assert [head(m) for m in b["messages"]] == [("user", "what is the capital of Spain?"), ("assistant", "Madrid")]
+    answer = a["messages"][1]  # an answer remembers the Run that made it and what it cost; a decline had no Run
+    (row,) = reopened.query("SELECT id, cost_usd FROM runs WHERE task_id IN (SELECT id FROM tasks WHERE conversation_id = 'a')")
+    assert (answer["run_id"], answer["cost_usd"]) == (row["id"], row["cost_usd"]) and answer["cost_usd"] > 0
+    assert "run_id" not in a["messages"][3] and "run_id" not in a["messages"][0]
     assert (a["title"], b["title"]) == ("what is the capital of France?", "what is the capital of Spain?")
     assert reopened.query("SELECT COUNT(*) FROM events WHERE conversation_id IS NULL")[0][0] == 0  # every event belongs to a chat
     assert {r["kind"] for r in reopened.query("SELECT kind FROM events WHERE conversation_id = 'b'")} == {"message", "screening", "step"}

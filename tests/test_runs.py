@@ -6,7 +6,7 @@ import pytest
 
 from stepout.store import Store
 from tests.support.scripted_model import ScriptedModel
-from tests.test_runner import Harness, plan, say
+from tests.test_runner import FakeBrowser, Harness, browse, plan, say
 
 
 def runs(tmp_path):
@@ -57,3 +57,22 @@ async def test_a_crash_still_closes_the_run_row_as_failed(tmp_path):
         await Harness(tmp_path, []).run()
     (run,) = runs(tmp_path)
     assert run["outcome"] == "failed" and run["ended_at"] is not None
+
+
+async def shots(tmp_path, view):
+    browser = FakeBrowser((view, "abc/1.jpg"))
+    h = Harness(tmp_path, [plan("read it", role="browser"), browse("open", "https://example.com"), say("ok"), say("done")], browser=browser)
+    task = await h.run()
+    return [e.data for e in h.ledger.query(task.id) if e.kind == "shot"]
+
+
+async def test_a_screenshot_event_says_which_page_it_shows(tmp_path):
+    (shot,) = await shots(tmp_path, "URL: https://example.com/a?b=1\nTitle: Example: a page\nText (chars 0-5 of 5):\nhello")
+    assert (shot["shot"], shot["url"], shot["title"]) == ("abc/1.jpg", "https://example.com/a?b=1", "Example: a page")
+
+
+async def test_a_screenshot_of_an_untitled_or_unreadable_view_adds_no_made_up_caption(tmp_path):
+    (untitled,) = await shots(tmp_path, "URL: https://example.com\nTitle: \nText: x")
+    assert (untitled["url"], untitled["title"]) == ("https://example.com", "")
+    (odd,) = await shots(tmp_path / "2", "something else entirely")
+    assert "url" not in odd and "title" not in odd

@@ -105,7 +105,8 @@ class Runner:
         finally:
             self._ledger.end_run(run.id, outcome, run.spent)
             await self._browser.close(run.id)  # its pages are this Run's alone
-        await self._notify(Reply(text=f"{finding.text}\n\n(cost: ${run.spent:.4f})", conversation_id=task.conversation_id))
+        reply = f"{finding.text}\n\n(cost: ${run.spent:.4f})"  # the footer goes once the page reads cost_usd (X2)
+        await self._notify(Reply(text=reply, conversation_id=task.conversation_id, run_id=run.id, cost_usd=run.spent))
 
     async def _emit(self, run: _Run, kind: str, role: str, summary: str, *, parent=None, cost=0.0, **data) -> Event:
         event = Event(task_id=run.task_id, run_id=run.id, conversation_id=run.conversation_id, kind=kind, role=role, parent=parent, cost_usd=cost, data={"summary": summary, **data})

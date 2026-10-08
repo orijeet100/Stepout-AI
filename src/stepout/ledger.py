@@ -47,9 +47,10 @@ class Ledger:
             (outcome.value, cost_usd, datetime.now(timezone.utc).isoformat(), run_id),
         )
 
-    def save_message(self, conversation_id: str, role: str, text: str) -> None:
+    def save_message(self, conversation_id: str, role: str, text: str, run_id: str | None = None, cost_usd: float | None = None) -> None:
         """Save one chat message (role "user" or "assistant"). A chat is created by its first message and titled by it."""
-        event = Event(kind="message", conversation_id=conversation_id, data={"role": role, "text": text})
+        extra = {k: v for k, v in (("run_id", run_id), ("cost_usd", cost_usd)) if v is not None}  # an assistant message that came from a Run
+        event = Event(kind="message", conversation_id=conversation_id, data={"role": role, "text": text, **extra})
         at = event.at.isoformat()
         self._store.execute("INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)", (conversation_id, text[:60], at, at))
         self._store.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (at, conversation_id))

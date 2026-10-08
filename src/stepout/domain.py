@@ -59,6 +59,8 @@ class Message(BaseModel):
 class Reply(BaseModel):
     text: str
     conversation_id: str = DEFAULT_CONVERSATION
+    run_id: str | None = None  # the Run that produced it, if one did
+    cost_usd: float | None = None  # that Run's cost
 
 
 class Task(BaseModel):
