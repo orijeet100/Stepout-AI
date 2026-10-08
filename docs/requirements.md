@@ -79,7 +79,7 @@ You send a Request from **Telegram** or a **React web page**. The Assistant does
 - FR42. The Orchestrator writes a **Plan** — a short list of steps (Role, goal, status) — before delegating, delegates one step at a time, and re-plans at most twice when a step fails. `[M1]`
 - FR43. **Trace:** every Plan step, delegate, return, Action, Verdict, cost and browser screenshot streams live to the page from the Ledger, so the User sees which agent is called and what it does. A **Stop** button cancels the Run between steps. `[M1; screenshots M3]`
 - FR44. V0-basic is **read-only**: anything that types, submits, uploads, downloads, moves or deletes is Refused with a message until Approvals exist (S3). `[M1–M4]`
-- FR45. Once a Run has read file contents, web search, fetch and browsing are limited to sites the User named in the request; the Orchestrator plans web steps first and reading last. `[M4]`
+- FR45. Once a Run has read file contents, web search, fetch and browsing are closed for the rest of that Run and for any later Run in the chat that builds on it (V0 is strict; limiting them to sites the User named in the request is a later relaxation); the Orchestrator plans web steps first and reading last. `[M4]`
 
 ## Non-functional requirements
 | # | Quality | Requirement | Measured by | Slice |

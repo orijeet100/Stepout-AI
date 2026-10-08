@@ -84,8 +84,11 @@ def exchanges(store: Store, conversation_id: str, last: int = 10) -> list[Exchan
         return []
     replies = {m.run_id: m.text for m in chat.messages if m.role == "assistant" and m.run_id}
     answered = [r for r in chat.runs if r.run_id in replies]  # a Run that never replied (a crash) is not an Exchange
+    tainted = {
+        r["id"] for r in store.query("SELECT runs.id FROM runs JOIN tasks ON tasks.id = runs.task_id WHERE tasks.conversation_id = ? AND runs.tainted IS NOT NULL", (conversation_id,))
+    }
     return [
-        Exchange(id=n, request=r.request, reply=_COST_FOOTER.sub("", replies[r.run_id]), did=_did(store, r.run_id), run_id=r.run_id)
+        Exchange(id=n, request=r.request, reply=_COST_FOOTER.sub("", replies[r.run_id]), did=_did(store, r.run_id), tainted=r.run_id in tainted, run_id=r.run_id)
         for n, r in enumerate(answered, start=1)
         if n > len(answered) - last
     ]
