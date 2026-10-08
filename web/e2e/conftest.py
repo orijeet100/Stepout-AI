@@ -7,6 +7,7 @@ screenshots go to pytest's tmp dir, never into git.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import socket
@@ -37,6 +38,17 @@ def wait_for(url: str, seconds: float = 30) -> None:
         except OSError:
             time.sleep(0.2)
     raise RuntimeError(f"{url} did not come up")
+
+
+def wait_until_idle(mock_url: str, seconds: float = 90) -> None:
+    """The mock is shared by every flow and keeps replaying a Run a flow walked away from: start each flow on an idle one."""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        with urllib.request.urlopen(f"{mock_url}/api/conversations", timeout=2) as r:
+            if all(chat["state"] == "idle" for chat in json.loads(r.read())):
+                return
+        time.sleep(0.25)
+    raise RuntimeError("the mock did not go idle")
 
 
 def stop(proc: subprocess.Popen) -> None:
@@ -76,13 +88,16 @@ def browser():
 
 @pytest.fixture
 def page(browser, stack):
+    wait_until_idle(stack[1])
     ctx = browser.new_context(viewport={"width": 1100, "height": 760})
     page = ctx.new_page()
     page.console_errors = []
+    page.bad_responses = []  # every HTTP answer of 400 or more: a flow that provokes one on purpose removes it itself
     page.on("console", lambda m: page.console_errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: page.console_errors.append(str(e)))
+    page.on("response", lambda r: page.bad_responses.append(f"{r.status} {r.request.method} {r.url}") if r.status >= 400 else None)
     page.goto(stack[0])
     page.wait_for_selector(".chat")  # the chat list has loaded: the socket is up
     yield page
-    assert page.console_errors == [], page.console_errors
+    assert not page.console_errors and not page.bad_responses, f"console errors {page.console_errors}; requests that failed and the flow did not provoke {page.bad_responses}"
     ctx.close()

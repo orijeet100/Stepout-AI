@@ -95,6 +95,67 @@ describe('App', () => {
     expect(ws.sent.every((f) => !f.includes(C))).toBe(true) // nothing was sent to the old chat
   })
 
+  describe('asking for a Run\'s events', () => {
+    // Asking for the events of a Run that has none yet is a 404, and Chrome logs every 404 as a console error.
+    const withRun = (extra: object) => {
+      const calls: string[] = []
+      const detail = { ...(API[`/api/conversations/${C}`] as { runs: object[] }) }
+      detail.runs = [...detail.runs, extra]
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string, init?: RequestInit) => {
+          calls.push(url)
+          if (init?.method === 'POST') return Response.json({ id: NEW }, { status: 201 })
+          if (url === `/api/conversations/${C}`) return Response.json(detail)
+          if (url === `/api/runs/${R2}/events`) return Response.json([{ ...events[0], id: 'x1', run_id: R2 }])
+          return url in API ? Response.json(API[url]) : new Response('', { status: 404 })
+        }),
+      )
+      return calls
+    }
+
+    it('does not ask for the events of a Run that has just started: it has none yet, and they arrive live', async () => {
+      const calls = withRun({ run_id: R2, state: 'running', cost_usd: 0, cap_usd: 1, steps: 0, started_at: t(9), ended_at: null })
+      await connected()
+      expect(calls).toContain(`/api/runs/${R}/events`) // a finished Run's events are read
+      expect(calls.filter((u) => u.includes(R2))).toEqual([]) // the one that has just started is not asked for
+    })
+
+    it('does ask for a running Run that already has events (the page was opened mid-run)', async () => {
+      const calls = withRun({ run_id: R2, state: 'running', cost_usd: 0.01, cap_usd: 1, steps: 2, started_at: t(9), ended_at: null })
+      await connected()
+      expect(calls).toContain(`/api/runs/${R2}/events`)
+    })
+  })
+
+  it('two messages sent at once from a draft go to the same new chat: it is made once', async () => {
+    const posts = vi.fn()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posts()
+          await new Promise((r) => setTimeout(r, 30)) // the backend takes a moment to make the chat
+          return Response.json({ id: NEW }, { status: 201 })
+        }
+        return url in API ? Response.json(API[url]) : new Response('', { status: 404 })
+      }),
+    )
+    const ws = await connected()
+    fireEvent.click(screen.getByRole('button', { name: 'New chat' }))
+    const box = screen.getByLabelText('Message')
+    fireEvent.change(box, { target: { value: 'first' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    fireEvent.change(box, { target: { value: 'second' } })
+    fireEvent.keyDown(box, { key: 'Enter' }) // before the first message's chat exists
+    await waitFor(() => expect(ws.sent).toHaveLength(2))
+    expect(posts).toHaveBeenCalledTimes(1) // one chat, not two
+    expect(ws.sent.map((f) => JSON.parse(f))).toEqual([
+      { type: 'send', conversation_id: NEW, text: 'first' },
+      { type: 'send', conversation_id: NEW, text: 'second' }, // in order, in the same chat
+    ])
+  })
+
   it('sends a message as a v1 `send` frame for the open chat', async () => {
     const ws = await connected()
     const box = screen.getByLabelText('Message')

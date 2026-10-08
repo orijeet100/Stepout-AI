@@ -52,6 +52,7 @@ def test_if_the_stream_is_not_there_the_page_shows_the_last_screenshot_not_a_bro
     page.wait_for_function(DECODED, arg=".run:last-of-type .browser img", timeout=10000)
     # Chrome reports the 404 itself as a console error; the page handled it, so that one is expected here
     page.console_errors[:] = [e for e in page.console_errors if "404" not in e]
+    page.bad_responses[:] = [r for r in page.bad_responses if "/live/" not in r]  # the 404s this test asked for
 
 
 def test_a_run_with_no_browser_step_has_no_live_view(page):

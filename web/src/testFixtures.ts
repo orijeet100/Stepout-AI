@@ -21,7 +21,7 @@ type Options = {
 export function stateOf(name: string, { upTo, active, hint, cap, extra = [] }: Options = {}): State {
   const actions: Action[] = frames(name, upTo).map((frame) => ({ type: 'frame', frame }))
   const run = runOf(name)
-  if (run && (hint || cap)) actions.push({ type: 'detail', id: chatOf(name), title: '', messages: [], runs: [{ run_id: run, state: hint ?? 'done', cost_usd: 0, cap_usd: cap ?? 0, started_at: '' }] })
+  if (run && (hint || cap)) actions.push({ type: 'detail', id: chatOf(name), title: '', messages: [], runs: [{ run_id: run, state: hint ?? 'done', cost_usd: 0, cap_usd: cap ?? 0, steps: null, started_at: '' }] })
   if (run && active !== undefined) {
     actions.push({ type: 'frame', frame: { type: 'status', state: 'running', active: { conversation_id: chatOf(name), run_id: run, cap_usd: active }, queued: [] } })
   }
