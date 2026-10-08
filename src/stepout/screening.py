@@ -53,13 +53,6 @@ class Screener(Protocol):
         ...
 
 
-class ProceedScreener:
-    """Lets everything through and links nothing, at no cost: the test double, and a way to run without a front door."""
-
-    async def screen(self, text: str, recent: Sequence[Exchange]) -> tuple[Screening | None, float]:
-        return Proceed(), 0.0
-
-
 def _index(recent: Sequence[Exchange]) -> str:
     """One line per Exchange, the numbers the model answers with: `#7 "list Luma tech events" -> listed 14 events from luma.com/tech`."""
     if not recent:

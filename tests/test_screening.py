@@ -7,7 +7,7 @@ import pytest
 from stepout import capabilities
 from stepout.domain import AnswerAction, ChatReply, Decline, Exchange, Proceed
 from stepout.model import HAIKU, AnthropicModel, ModelRequest, ModelResponse, ToolCall
-from stepout.screening import _SCREEN_TOOL, _SYSTEM, HaikuScreener, ProceedScreener
+from stepout.screening import _SCREEN_TOOL, _SYSTEM, HaikuScreener
 from tests.support.screening_eval import load_rows
 from tests.support.scripted_model import ScriptedModel
 
@@ -84,10 +84,6 @@ async def test_a_decline_without_an_alternative_still_declines_and_says_what_the
 async def test_an_unusable_answer_is_none_and_its_cost_is_still_reported(response):
     (result, cost), _ = await screen(response)
     assert result is None and cost == pytest.approx(0.0007)
-
-
-async def test_the_proceed_screener_lets_everything_through_for_free():
-    assert await ProceedScreener().screen("pay my rent", [X1]) == (Proceed(related=[]), 0.0)
 
 
 # --- the model adapter: a one-off tool needs no change to model.py ---------------------------------------------------------

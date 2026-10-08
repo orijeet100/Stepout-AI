@@ -7,6 +7,10 @@
 from __future__ import annotations
 
 
+# What the User reads when something fails that no one planned for (a bug, not a Failure): the same words wherever it is caught.
+UNEXPECTED = "I hit an unexpected problem and had to stop this task. Nothing on your computer was changed. Try again; if it repeats, the details are in the terminal."
+
+
 class Failure(Exception):
     def __init__(self, kind: str, message: str, status: int | None = None) -> None:
         super().__init__(message)

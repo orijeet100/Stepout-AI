@@ -1,9 +1,9 @@
 from stepout import gate
-from stepout.domain import AnswerAction, FetchAction, Allow, PlanAction, PlanStep, Refuse, SearchAction
+from stepout.domain import AnswerAction, FetchAction, Allow, PlanAction, PlanStep, Refuse
 
 
 def test_check_allows_known_actions():
-    for action in [FetchAction(url="https://example.com"), SearchAction(query="x", snippets=[]), AnswerAction(text="hi")]:
+    for action in [FetchAction(url="https://example.com"), AnswerAction(text="hi")]:
         assert isinstance(gate.check(action), Allow)
 
 
