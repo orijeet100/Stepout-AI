@@ -76,7 +76,7 @@ async def test_a_decline_costs_one_haiku_call_and_no_orchestrator_call(tmp_path)
 
 
 async def test_a_chat_reply_costs_one_haiku_call_and_no_orchestrator_call(tmp_path):
-    model, channel, store = await converse(tmp_path, [ask("c1", "hi!")], [screened(decision="chat", reply="Hello! I can search the web and read pages.")])
+    model, channel, store = await converse(tmp_path, [ask("c1", "hi!")], [screened(decision="chat", chat_kind="greeting", reply="Hello! I can search the web and read pages.", related=[])])
     assert [r.model for r in model.requests] == [HAIKU]
     assert [(r.text, r.cost_usd) for r in channel.sent] == [("Hello! I can search the web and read pages.", SCREEN_COST)]
     assert store.query("SELECT COUNT(*) FROM runs")[0][0] == 0
@@ -147,3 +147,20 @@ def test_route_is_gone_from_the_source():
     src = Path(__file__).resolve().parents[1] / "src"
     hits = [f"{p.relative_to(src)}:{n}" for p in src.rglob("*") if p.suffix in (".py", ".md") for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1) if re.search(r"\bRoute\b", line)]
     assert hits == []
+
+
+async def test_a_question_the_front_door_tried_to_answer_itself_still_reaches_the_orchestrator(tmp_path):
+    tried = screened(decision="chat", reply="51", related=[])  # no chat_kind: this is not a greeting, thanks or a question about the assistant
+    model, channel, store = await converse(tmp_path, [ask("c1", "What is 17 times 3?")], [tried, answer("51")])
+    assert [r.model for r in model.requests] == [HAIKU, SONNET]  # the Orchestrator answered, not the front door
+    assert channel.sent[0].text == "51" and channel.sent[0].run_id and store.query("SELECT COUNT(*) FROM runs")[0][0] == 1
+    assert store.query("SELECT COUNT(*) FROM events WHERE kind = 'screening_fallback'")[0][0] == 0  # a downgrade is not a failure
+
+
+async def test_a_follow_up_the_front_door_tried_to_answer_from_its_index_gets_its_history(tmp_path):
+    tried = screened(decision="chat", chat_kind="about_assistant", reply="Those events are free.", related=[1])  # it pointed at exchange 1
+    script = [proceed(), answer("Listed 14 events from luma.com/tech."), tried, answer("Six of them are free.")]
+    model, channel, _ = await converse(tmp_path, [ask("c1", "list Luma tech events"), ask("c1", "which of those events are free?")], script)
+    second = [r for r in model.requests if r.model == SONNET][1].user_text
+    assert "#1\nrequest: list Luma tech events\nreply: Listed 14 events from luma.com/tech." in second  # the real Orchestrator sees the real history
+    assert channel.sent[-1].text == "Six of them are free."
