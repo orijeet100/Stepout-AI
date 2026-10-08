@@ -174,7 +174,11 @@ class Browser:
             pass
 
     async def _allowed(self, s: _Session, url: str) -> None:
-        host = f"{urlparse(url).scheme}://{urlparse(url).netloc}"  # host AND port: the policy may differ per port
+        try:
+            parts = urlparse(url)
+            host = f"{parts.scheme}://{parts.netloc}"  # host AND port: the policy may differ per port
+        except ValueError as exc:  # a bracket that is not an address
+            raise BlockedUrl("not a valid address") from exc
         if host not in s.verdicts:
             try:
                 await asyncio.to_thread(self._policy, url)  # DNS lookup: off the event loop
