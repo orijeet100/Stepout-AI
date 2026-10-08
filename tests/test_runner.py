@@ -87,7 +87,7 @@ class Harness:
         self.traced.append(event)
 
     async def run(self, request="do it") -> Task:
-        task = Task(user_id="u", request=request, route="answer")
+        task = Task(user_id="u", request=request)
         await self.runner.submit(task)
         return task
 

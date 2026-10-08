@@ -28,11 +28,6 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Route(StrEnum):
-    ANSWER = "answer"  # no tools
-    LOOKUP = "lookup"  # fetch or search
-
-
 class Outcome(StrEnum):
     DONE = "done"
     BLOCKED = "blocked"
@@ -69,7 +64,6 @@ class Task(BaseModel):
     id: str = Field(default_factory=_id)
     user_id: str
     request: str
-    route: Route
     conversation_id: str = DEFAULT_CONVERSATION
     created_at: datetime = Field(default_factory=_now)
 
@@ -159,11 +153,6 @@ Result = FetchResult | SearchResult | AnswerResult
 # --- Gate ------------------------------------------------------------------
 
 
-class Accept(BaseModel):
-    kind: Literal["accept"] = "accept"
-    route: Route
-
-
 class Decline(BaseModel):
     kind: Literal["decline"] = "decline"
     reason: str
@@ -184,11 +173,8 @@ class Proceed(BaseModel):
     related: list[int] = []
 
 
-class Unsure(BaseModel):
-    kind: Literal["unsure"] = "unsure"
-
-
-Screening = Accept | Decline | Unsure
+# What the front door decides (stepout/screening.py).
+Screening = Decline | ChatReply | Proceed
 
 
 class Allow(BaseModel):

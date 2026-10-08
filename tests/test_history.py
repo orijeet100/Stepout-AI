@@ -8,12 +8,14 @@ from pydantic import TypeAdapter
 from stepout import history
 from stepout.app import SavedChannel, run
 from stepout.contract import ConversationDetail, TraceFrame
-from stepout.domain import AnswerAction, Message, Reply, Task
+from stepout.domain import AnswerAction, Decline, Message, Proceed, Reply, Task
 from stepout.intake import Intake
 from stepout.ledger import Ledger
 from stepout.model import ModelResponse
 from stepout.runner import Runner
+from stepout.screening import ProceedScreener
 from stepout.store import _MIGRATIONS_DIR, Store
+from tests.support.screeners import FixedScreener
 from tests.support.scripted_model import ScriptedModel
 from tests.test_runner import FakeBrowser, browse, plan, say
 
@@ -72,18 +74,22 @@ def ask(cid, text):
     return Message(user_id="u", text=text, conversation_id=cid)
 
 
-async def serve(tmp_path, messages, responses, **runner_kwargs):
-    """The real app loop over a fake channel and the scripted model, on a database file."""
-    ledger = Ledger(Store(tmp_path / "t.db"))
+async def serve(tmp_path, messages, responses, screener=None, **runner_kwargs):
+    """The real app loop over a fake channel and the scripted model, on a database file. The front door lets everything through unless `screener` says otherwise."""
+    store = Store(tmp_path / "t.db")
+    ledger = Ledger(store)
     model = ScriptedModel(responses)
     saved = SavedChannel(FakeChannel(*messages), ledger)
-    await run(saved, Intake(model, ledger), Runner(model, NoFetcher(), ledger, saved.send, **runner_kwargs))
+    intake = Intake(screener or ProceedScreener(), ledger, lambda cid: history.exchanges(store, cid))
+    await run(saved, intake, Runner(model, NoFetcher(), ledger, saved.send, **runner_kwargs))
     return Store(tmp_path / "t.db")  # as after a restart
 
 
 async def test_a_conversation_through_the_app_is_saved_and_survives_a_restart(tmp_path):
     answers = [ModelResponse(action=AnswerAction(text=t), cost_usd=0.001) for t in ("Paris", "Madrid")]
-    reopened = await serve(tmp_path, [ask("a", "what is the capital of France?"), ask("b", "what is the capital of Spain?"), ask("a", "pay this invoice")], answers)
+    decline = Decline(reason="That means paying someone.", alternative="I can look things up.")
+    screener = FixedScreener((Proceed(), 0.0), (Proceed(), 0.0), (decline, 0.0))
+    reopened = await serve(tmp_path, [ask("a", "what is the capital of France?"), ask("b", "what is the capital of Spain?"), ask("a", "pay this invoice")], answers, screener)
 
     a, b = (history.get_conversation(reopened, c) for c in "ab")
     head = lambda m: (m.role, m.text.splitlines()[0])  # an answer ends with a cost footer; compare its first line
@@ -91,12 +97,12 @@ async def test_a_conversation_through_the_app_is_saved_and_survives_a_restart(tm
         ("user", "what is the capital of France?"),
         ("assistant", "Paris"),
         ("user", "pay this invoice"),
-        ("assistant", "That's payments and transfers, which I won't do. I can look things up, fetch public pages, and answer questions — just not that."),
+        ("assistant", "That means paying someone. I can look things up."),
     ]  # a decline is saved too, and each reply went back to its own chat
     assert [head(m) for m in b.messages] == [("user", "what is the capital of Spain?"), ("assistant", "Madrid")]
-    answer, decline = a.messages[1], a.messages[3]  # an answer remembers the Run that made it and what it cost; a decline had no Run
+    answer, declined = a.messages[1], a.messages[3]  # an answer remembers the Run that made it and what it cost; a decline had no Run, only the front door's cost
     assert (answer.run_id, answer.cost_usd) == (a.runs[0].run_id, a.runs[0].cost_usd) and answer.cost_usd > 0
-    assert (decline.run_id, decline.cost_usd) == (None, None)
+    assert (declined.run_id, declined.cost_usd) == (None, 0.0)
     assert (a.title, b.title) == ("what is the capital of France?", "what is the capital of Spain?")
     assert reopened.query("SELECT COUNT(*) FROM events WHERE conversation_id IS NULL")[0][0] == 0  # every event belongs to a chat
 
@@ -139,7 +145,7 @@ async def test_a_stopped_run_reads_as_stopped(tmp_path, monkeypatch):
 async def test_a_run_that_has_not_ended_reads_as_running(tmp_path):
     ledger = Ledger(Store(tmp_path / "t.db"))
     ledger.save_message("c1", "user", "slow one")
-    ledger.start_run(Task(user_id="u", request="slow one", route="answer", conversation_id="c1"), "run1", 1.0)  # started, never ended
+    ledger.start_run(Task(user_id="u", request="slow one", conversation_id="c1"), "run1", 1.0)  # started, never ended
     reopened = Store(tmp_path / "t.db")
     assert history.list_conversations(reopened)[0].state == "running"
     assert history.get_conversation(reopened, "c1").runs[0].state == "running"

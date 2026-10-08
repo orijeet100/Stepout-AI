@@ -33,8 +33,8 @@ class Ledger:
     def start_run(self, task: Task, run_id: str, cap_usd: float) -> None:
         """Save the Task (once) and open a Run row. A Run with no outcome yet is running."""
         self._store.execute(
-            "INSERT OR IGNORE INTO tasks (id, user_id, request, route, conversation_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (task.id, task.user_id, task.request, task.route.value, task.conversation_id, task.created_at.isoformat()),
+            "INSERT OR IGNORE INTO tasks (id, user_id, request, conversation_id, created_at) VALUES (?, ?, ?, ?, ?)",
+            (task.id, task.user_id, task.request, task.conversation_id, task.created_at.isoformat()),
         )
         self._store.execute(
             "INSERT INTO runs (id, task_id, cap_usd, started_at) VALUES (?, ?, ?, ?)",

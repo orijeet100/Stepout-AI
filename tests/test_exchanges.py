@@ -45,7 +45,7 @@ def test_the_block_shows_each_exchange_in_full_and_leaves_out_an_empty_did():
 
 
 async def follow_up(h, previous, **kwargs):
-    await h.runner.submit(Task(user_id="u", request="and again please", route="answer"), previous=previous, **kwargs)
+    await h.runner.submit(Task(user_id="u", request="and again please"), previous=previous, **kwargs)
 
 
 async def test_linked_exchanges_reach_the_orchestrator_in_full_and_only_it(tmp_path):

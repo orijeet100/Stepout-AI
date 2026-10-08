@@ -10,10 +10,8 @@ from typing import Protocol, Sequence
 
 from stepout import capabilities
 from stepout.capabilities.base import tool_schema
-from stepout.domain import ChatReply, Decline, Exchange, Proceed
+from stepout.domain import ChatReply, Decline, Exchange, Proceed, Screening
 from stepout.model import HAIKU, Model, ModelRequest, ToolCall
-
-Screened = Decline | ChatReply | Proceed
 
 # Used when the model declines without saying what it can do instead.
 _ALTERNATIVE = "I can search the web, read pages, and look at the names and counts of your files, read-only."
@@ -43,7 +41,7 @@ _SCREEN_TOOL = tool_schema(
 
 
 class Screener(Protocol):
-    async def screen(self, text: str, recent: Sequence[Exchange]) -> tuple[Screened | None, float]:
+    async def screen(self, text: str, recent: Sequence[Exchange]) -> tuple[Screening | None, float]:
         """The decision (None if the answer was unusable) and what the call cost."""
         ...
 
@@ -51,7 +49,7 @@ class Screener(Protocol):
 class ProceedScreener:
     """Lets everything through and links nothing, at no cost: the test double, and a way to run without a front door."""
 
-    async def screen(self, text: str, recent: Sequence[Exchange]) -> tuple[Screened | None, float]:
+    async def screen(self, text: str, recent: Sequence[Exchange]) -> tuple[Screening | None, float]:
         return Proceed(), 0.0
 
 
@@ -69,7 +67,7 @@ def _text(args: dict, key: str) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
-def _decision(call, known: set[int]) -> Screened | None:
+def _decision(call, known: set[int]) -> Screening | None:
     """What the model's `screen` call says, or None if it is not a usable answer (the caller then falls back)."""
     if not isinstance(call, ToolCall) or call.name != "screen":
         return None
@@ -92,7 +90,7 @@ class HaikuScreener:
     def __init__(self, model: Model) -> None:
         self._model = model
 
-    async def screen(self, text: str, recent: Sequence[Exchange]) -> tuple[Screened | None, float]:
+    async def screen(self, text: str, recent: Sequence[Exchange]) -> tuple[Screening | None, float]:
         listed = "\n".join(f"- {name}: {blurb}" for name, blurb in capabilities.blurbs().items())
         response = await self._model.call(
             ModelRequest(
