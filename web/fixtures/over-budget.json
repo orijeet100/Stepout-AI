@@ -1,0 +1,310 @@
+[
+ {
+  "type": "message",
+  "id": "df00dd51b44859853b8198c71ffd3d4b",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "role": "user",
+  "text": "Compare the price of every 14-inch laptop on all the big shop sites.",
+  "run_id": null,
+  "cost_usd": null,
+  "at": "2026-09-29T16:40:00.000Z"
+ },
+ {
+  "type": "status",
+  "state": "running",
+  "active": {
+   "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+   "run_id": "959612fc4799adfc1594ee439ebc5832",
+   "cap_usd": 1.0
+  },
+  "queued": [],
+  "at": "2026-09-29T16:40:00.300Z"
+ },
+ {
+  "type": "trace",
+  "id": "baaab6a4e539914cc6792f61fe85a9d2",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": null,
+  "kind": "step",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan: browser: Compare prices for 12 laptop models across the shops",
+   "action": {
+    "kind": "plan",
+    "steps": [
+     {
+      "role": "browser",
+      "goal": "Compare prices for 12 laptop models across the shops",
+      "status": "pending"
+     }
+    ]
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0188,
+  "at": "2026-09-29T16:40:02.700Z"
+ },
+ {
+  "type": "trace",
+  "id": "45fc342448d26777a597014a5aa0f33d",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": null,
+  "kind": "plan",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan updated",
+   "steps": [
+    {
+     "role": "browser",
+     "goal": "Compare prices for 12 laptop models across the shops",
+     "status": "running"
+    }
+   ]
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-29T16:40:02.750Z"
+ },
+ {
+  "type": "trace",
+  "id": "0b75f7701b9d3d9d5d3b2410f5159011",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": "baaab6a4e539914cc6792f61fe85a9d2",
+  "kind": "step",
+  "role": "browser",
+  "data": {
+   "summary": "browse open https://shop-a.example/laptops?size=14",
+   "action": {
+    "kind": "browse",
+    "op": "open",
+    "url": "https://shop-a.example/laptops?size=14",
+    "link": null
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.164,
+  "at": "2026-09-29T16:40:06.350Z"
+ },
+ {
+  "type": "trace",
+  "id": "971805ff39a9f5a1372c32251dd51dc6",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": "0b75f7701b9d3d9d5d3b2410f5159011",
+  "kind": "shot",
+  "role": "browser",
+  "data": {
+   "summary": "page screenshot",
+   "shot": "959612fc4799adfc1594ee439ebc5832/1.jpg",
+   "url": "https://shop-a.example/laptops?size=14",
+   "title": "14-inch laptops · shop-a.example"
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-29T16:40:08.150Z"
+ },
+ {
+  "type": "trace",
+  "id": "ea384baffd60030005e74101782c127d",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": "baaab6a4e539914cc6792f61fe85a9d2",
+  "kind": "step",
+  "role": "browser",
+  "data": {
+   "summary": "browse open https://shop-b.example/laptops?size=14",
+   "action": {
+    "kind": "browse",
+    "op": "open",
+    "url": "https://shop-b.example/laptops?size=14",
+    "link": null
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.164,
+  "at": "2026-09-29T16:40:11.750Z"
+ },
+ {
+  "type": "trace",
+  "id": "18b03dba1efc8654cc20d38c9c68ba51",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": "baaab6a4e539914cc6792f61fe85a9d2",
+  "kind": "step",
+  "role": "browser",
+  "data": {
+   "summary": "browse open https://shop-c.example/laptops?size=14",
+   "action": {
+    "kind": "browse",
+    "op": "open",
+    "url": "https://shop-c.example/laptops?size=14",
+    "link": null
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.164,
+  "at": "2026-09-29T16:40:15.350Z"
+ },
+ {
+  "type": "trace",
+  "id": "242076d91bd248fdd072801c77e2053e",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": "18b03dba1efc8654cc20d38c9c68ba51",
+  "kind": "shot",
+  "role": "browser",
+  "data": {
+   "summary": "page screenshot",
+   "shot": "959612fc4799adfc1594ee439ebc5832/2.jpg",
+   "url": "https://shop-c.example/laptops?size=14",
+   "title": "14-inch laptops · shop-c.example"
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-29T16:40:17.150Z"
+ },
+ {
+  "type": "trace",
+  "id": "8cb926eaa16406751576a732a67f77d2",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": "baaab6a4e539914cc6792f61fe85a9d2",
+  "kind": "step",
+  "role": "browser",
+  "data": {
+   "summary": "browse open https://shop-d.example/laptops?size=14",
+   "action": {
+    "kind": "browse",
+    "op": "open",
+    "url": "https://shop-d.example/laptops?size=14",
+    "link": null
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.164,
+  "at": "2026-09-29T16:40:20.750Z"
+ },
+ {
+  "type": "trace",
+  "id": "a41eaa7ec1d23ea7775d85374d110714",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": "baaab6a4e539914cc6792f61fe85a9d2",
+  "kind": "step",
+  "role": "browser",
+  "data": {
+   "summary": "browse open https://shop-e.example/laptops?size=14",
+   "action": {
+    "kind": "browse",
+    "op": "open",
+    "url": "https://shop-e.example/laptops?size=14",
+    "link": null
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.164,
+  "at": "2026-09-29T16:40:24.350Z"
+ },
+ {
+  "type": "trace",
+  "id": "a0bd533a9de2b22a8ba9f4077c475507",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": "baaab6a4e539914cc6792f61fe85a9d2",
+  "kind": "step",
+  "role": "browser",
+  "data": {
+   "summary": "browse open https://shop-f.example/laptops?size=14",
+   "action": {
+    "kind": "browse",
+    "op": "open",
+    "url": "https://shop-f.example/laptops?size=14",
+    "link": null
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.164,
+  "at": "2026-09-29T16:40:27.950Z"
+ },
+ {
+  "type": "trace",
+  "id": "83acf4d12702da7a033b129bee811fdf",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": "baaab6a4e539914cc6792f61fe85a9d2",
+  "kind": "stop",
+  "role": "browser",
+  "data": {
+   "summary": "Stopped: the $1.00 budget for this run is used up."
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-29T16:40:28.950Z"
+ },
+ {
+  "type": "trace",
+  "id": "ecb6dd38c5fb28356b8712c3a2a00a4b",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": null,
+  "kind": "plan",
+  "role": "orchestrator",
+  "data": {
+   "summary": "plan updated",
+   "steps": [
+    {
+     "role": "browser",
+     "goal": "Compare prices for 12 laptop models across the shops",
+     "status": "failed"
+    }
+   ]
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-29T16:40:29.000Z"
+ },
+ {
+  "type": "trace",
+  "id": "1e0e5318f13f770c9c74a48ebcb4e0db",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": "baaab6a4e539914cc6792f61fe85a9d2",
+  "kind": "return",
+  "role": "browser",
+  "data": {
+   "summary": "failed: Stopped: the $1.00 budget for this run is used up.",
+   "ok": false
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-29T16:40:29.050Z"
+ },
+ {
+  "type": "trace",
+  "id": "936bad3d16cc15fa37489a7ce6df4161",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "parent": null,
+  "kind": "stop",
+  "role": "orchestrator",
+  "data": {
+   "summary": "Stopped: the $1.00 budget for this run is used up."
+  },
+  "cost_usd": 0.0,
+  "at": "2026-09-29T16:40:29.150Z"
+ },
+ {
+  "type": "message",
+  "id": "315a1e702fc9cf398dbb24e81f56ab6a",
+  "conversation_id": "0fa74170825306509a5fb101bc4eae1c",
+  "role": "assistant",
+  "text": "Stopped: the $1.00 budget for this run is used up.",
+  "run_id": "959612fc4799adfc1594ee439ebc5832",
+  "cost_usd": 1.0028,
+  "at": "2026-09-29T16:40:29.250Z"
+ },
+ {
+  "type": "status",
+  "state": "idle",
+  "active": null,
+  "queued": [],
+  "at": "2026-09-29T16:40:29.250Z"
+ }
+]

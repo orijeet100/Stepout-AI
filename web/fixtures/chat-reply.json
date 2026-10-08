@@ -1,0 +1,59 @@
+[
+ {
+  "type": "message",
+  "id": "49a1a82a83741ba4fc429277fe930fa3",
+  "conversation_id": "432d61ad81b9c0eb86203434cb95786c",
+  "role": "user",
+  "text": "What is 2 + 3?",
+  "run_id": null,
+  "cost_usd": null,
+  "at": "2026-09-28T20:15:00.000Z"
+ },
+ {
+  "type": "status",
+  "state": "running",
+  "active": {
+   "conversation_id": "432d61ad81b9c0eb86203434cb95786c",
+   "run_id": "f823c91dfd014ad5d06d515eb4035fd4",
+   "cap_usd": 1.0
+  },
+  "queued": [],
+  "at": "2026-09-28T20:15:00.300Z"
+ },
+ {
+  "type": "trace",
+  "id": "ddb0d2580743426cb0f99212a50a52f0",
+  "conversation_id": "432d61ad81b9c0eb86203434cb95786c",
+  "run_id": "f823c91dfd014ad5d06d515eb4035fd4",
+  "parent": null,
+  "kind": "step",
+  "role": "orchestrator",
+  "data": {
+   "summary": "answer",
+   "action": {
+    "kind": "answer",
+    "text": "5"
+   },
+   "verdict": "allow"
+  },
+  "cost_usd": 0.0182,
+  "at": "2026-09-28T20:15:02.100Z"
+ },
+ {
+  "type": "message",
+  "id": "f56a8fc4bedd348185e2ce968dd73a7b",
+  "conversation_id": "432d61ad81b9c0eb86203434cb95786c",
+  "role": "assistant",
+  "text": "5",
+  "run_id": "f823c91dfd014ad5d06d515eb4035fd4",
+  "cost_usd": 0.0182,
+  "at": "2026-09-28T20:15:02.400Z"
+ },
+ {
+  "type": "status",
+  "state": "idle",
+  "active": null,
+  "queued": [],
+  "at": "2026-09-28T20:15:02.400Z"
+ }
+]

@@ -1,0 +1,22 @@
+[
+ {
+  "type": "message",
+  "id": "9acaf8393325ab08d4f034607495c68a",
+  "conversation_id": "651bcf400aeabcd083885bee50664b5f",
+  "role": "user",
+  "text": "Pay my electricity invoice from my bank account.",
+  "run_id": null,
+  "cost_usd": null,
+  "at": "2026-09-29T11:00:00.000Z"
+ },
+ {
+  "type": "message",
+  "id": "9e55f1b02f4db98d2ec7b5be38ec9901",
+  "conversation_id": "651bcf400aeabcd083885bee50664b5f",
+  "role": "assistant",
+  "text": "That's payments and transfers, which I won't do. I can look things up, fetch public pages, and answer questions — just not that.",
+  "run_id": null,
+  "cost_usd": null,
+  "at": "2026-09-29T11:00:01.200Z"
+ }
+]
