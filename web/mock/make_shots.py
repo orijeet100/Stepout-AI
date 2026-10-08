@@ -50,6 +50,8 @@ def main() -> None:
             tab.set_content(page(url, title))
             path.write_bytes(tab.screenshot(type="jpeg", quality=50))
             print(rel, path.stat().st_size, "bytes")
+        tab.set_content("<body style='margin:0;background:#fff'></body>")  # what a page looks like before it has painted: the mock's live view starts with it
+        (FIXTURES / "blank.jpg").write_bytes(tab.screenshot(type="jpeg", quality=50))
         browser.close()
 
 

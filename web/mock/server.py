@@ -7,6 +7,10 @@ events with the recorded gaps (times scaled by --speed, each gap capped at 4 s),
 would stream them. `stop` ends the replay at the next event. One run at a time; messages sent meanwhile are queued.
 The security rules are the real channel's (Host check, Origin and JSON content type on POST, 32-hex ids, no CORS), so
 the dev proxy is tested against them. Replays live in memory only: restart the mock and they are gone.
+
+Live view: `GET /live/{run_id}` runs the channel's own `LiveView` (so the page is built against the real streaming
+code). While a replayed Run has a Browser step it feeds that view about four frames a second: a blank page at first, then
+the fixture screenshot of the page the Browser has "opened" (the `shot` events' images), as the real Browser will.
 """
 
 from __future__ import annotations
@@ -15,13 +19,18 @@ import argparse
 import asyncio
 import json
 import re
+import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from aiohttp import WSMsgType, web
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from stepout.channels.web import LiveView  # noqa: E402
+
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+FRAME_EVERY = 0.25  # seconds: the real Browser sends at most four a second
 HEX32 = re.compile(r"[0-9a-f]{32}")
 WORKER = web.AppKey("worker", asyncio.Task)
 MAX_GAP = 4.0  # seconds, before --speed
@@ -60,6 +69,8 @@ class Mock:
         self.pending: list[tuple[str, str]] = []  # (conversation id, text) waiting for the active run
         self.active: dict | None = None  # {"conversation_id", "run_id", "cancel": asyncio.Event}
         self.wake = asyncio.Event()
+        self.live = LiveView(lambda run_id: self.active is not None and self.active["run_id"] == run_id)
+        self.page = b""  # the frame the replayed Browser is showing now
         for path in sorted(FIXTURES.glob("*.json")):
             frames = json.loads(path.read_text(encoding="utf-8"))
             chat = self.chats.setdefault(frames[0]["conversation_id"], {"messages": [], "events": []})
@@ -115,20 +126,37 @@ class Mock:
         await self.broadcast(self.status())
         ids: dict[str, str] = {}
         spent, last = 0.0, frames[0]["at"]
-        for f in frames:
-            if await self.sleep(min(secs(last, f["at"]), MAX_GAP), cancel):
-                role = "orchestrator"
-                await self.emit(conv, self.trace(conv, run, None, "stop", role, {"summary": "Stopped by you."}, 0.0))
-                await self.emit(conv, self.message(conv, "assistant", "Stopped by you.", run, spent))
-                break
-            last = f["at"]
-            ids[f["id"]] = uuid.uuid4().hex
-            if f["type"] == "trace":
-                spent += f["cost_usd"]
-                await self.emit(conv, {**f, "id": ids[f["id"]], "conversation_id": conv, "run_id": run, "parent": ids.get(f["parent"]), "at": now()})
-            else:
-                await self.emit(conv, {**f, "id": ids[f["id"]], "conversation_id": conv, "run_id": run, "cost_usd": round(spent, 4), "at": now()})
-        self.active = None
+        pump: asyncio.Task | None = None
+        try:
+            for f in frames:
+                if await self.sleep(min(secs(last, f["at"]), MAX_GAP), cancel):
+                    role = "orchestrator"
+                    await self.emit(conv, self.trace(conv, run, None, "stop", role, {"summary": "Stopped by you."}, 0.0))
+                    await self.emit(conv, self.message(conv, "assistant", "Stopped by you.", run, spent))
+                    break
+                last = f["at"]
+                ids[f["id"]] = uuid.uuid4().hex
+                if f["type"] == "trace":
+                    spent += f["cost_usd"]
+                    await self.emit(conv, {**f, "id": ids[f["id"]], "conversation_id": conv, "run_id": run, "parent": ids.get(f["parent"]), "at": now()})
+                    if f["kind"] == "step" and f["data"].get("action", {}).get("kind") == "browse" and pump is None:
+                        self.page = (FIXTURES / "blank.jpg").read_bytes()  # the Browser has opened a page: it has not painted yet
+                        pump = asyncio.create_task(self.pump(run))
+                    if f["kind"] == "shot":
+                        self.page = (FIXTURES / "shots" / f["data"]["shot"]).read_bytes()  # ... and now it has
+                else:
+                    await self.emit(conv, {**f, "id": ids[f["id"]], "conversation_id": conv, "run_id": run, "cost_usd": round(spent, 4), "at": now()})
+        finally:
+            if pump:
+                pump.cancel()
+            self.active = None
+            self.live.end(run)  # the Run is over: its streams finish
+
+    async def pump(self, run: str) -> None:
+        """The Browser's on_frame, replayed: the current page, about four times a second, while the Run runs."""
+        while True:
+            self.live.feed(run, self.page)
+            await asyncio.sleep(FRAME_EVERY)
 
     async def sleep(self, seconds: float, cancel: asyncio.Event | None = None) -> bool:
         """Wait (scaled by --speed); True if Stop was pressed meanwhile."""
@@ -226,6 +254,9 @@ class Mock:
             raise web.HTTPNotFound()
         return web.FileResponse(path)
 
+    async def live_stream(self, request: web.Request) -> web.StreamResponse:
+        return await self.live.stream(request, request.match_info["run"])
+
     # ---- WebSocket -------------------------------------------------------------------------------------------
 
     async def ws(self, request: web.Request) -> web.WebSocketResponse:
@@ -277,6 +308,7 @@ def make_app(speed: float = 1.0) -> web.Application:
             web.get("/api/conversations/{id}", mock.conversation),
             web.get("/api/runs/{run}/events", mock.run_events),
             web.get("/shots/{run}/{name}", mock.shot),
+            web.get("/live/{run}", mock.live_stream),
             web.get("/ws", mock.ws),
         ]
     )

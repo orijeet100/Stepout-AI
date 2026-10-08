@@ -3,7 +3,7 @@
 Live frames (hello, message, trace, status) go over /ws; history is read over /api/* from `history`. Everything sent is
 built from the models of contract.py, so the channel cannot drift from the contract. The channel is also the inbox: a
 message sent while a Run is busy waits in `_waiting` (shown as `queued`) and is handed to the app loop one at a time.
-Security rules (docs/ui-contract.md): Host must be ours (DNS rebinding), a present Origin must be ours, a POST needs
+The Browser agent's page, live and view-only, is `GET /live/{run_id}` (LiveView). Security rules (docs/ui-contract.md): Host must be ours (DNS rebinding), a present Origin must be ours, a POST needs
 Origin and JSON, ids are checked before any lookup, and no CORS header is ever sent.
 """
 
@@ -17,7 +17,7 @@ import uuid
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncIterator, Protocol
+from typing import AsyncIterator, Callable, Protocol
 
 from aiohttp import WSMsgType, web
 from pydantic import BaseModel, TypeAdapter, ValidationError
@@ -31,7 +31,6 @@ from stepout.store import Store
 
 LOCAL_USER = "local"
 DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
-DEFAULT_DB = Path("data/stepout.db")  # ponytail: the same path app.py opens; app.py should pass `history=` and this default can go
 HEX32 = re.compile(r"[0-9a-f]{32}")
 MAX_TEXT = 20_000  # characters in one message (a frame is capped at 64 KB)
 _CLIENT_FRAME = TypeAdapter(ClientFrame)
@@ -74,8 +73,79 @@ def _json(model: BaseModel | list[BaseModel], status: int = 200) -> web.Response
     return web.json_response(body, status=status)
 
 
+MAX_FRAME = 1_000_000  # bytes: a 1000 by 700 JPEG is far smaller; anything bigger is not from our Browser
+
+
+def _part(jpeg: bytes) -> bytes:
+    return b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n"
+
+
+class LiveView:
+    """The Assistant's headless browser, live, view-only: the newest JPEG frame of each active Run, streamed as
+    multipart/x-mixed-replace (an <img src="/live/<run_id>"> shows it natively). It keeps one frame per active Run and
+    nothing else: no history, no files. `is_active(run_id)` says whether a Run is running; a stream ends when it is not."""
+
+    def __init__(self, is_active: Callable[[str], bool]) -> None:
+        self._is_active = is_active
+        self._frames: dict[str, bytes] = {}  # run id -> newest frame
+        self._watchers: dict[str, set[asyncio.Event]] = {}  # run id -> one wake-up per open stream
+        self._closed = False
+
+    def close(self) -> None:
+        """The server is stopping: finish every open stream now."""
+        self._closed = True
+        for run_id in list(self._watchers):
+            self._wake(run_id)
+
+    def feed(self, run_id: str, jpeg: bytes) -> None:
+        """The newest frame of a Run. Synchronous and quick (the Browser calls it up to four times a second).
+        Ignores anything that is not a JPEG of sane size, or is for a Run that is not active."""
+        if isinstance(jpeg, bytes) and 2 < len(jpeg) <= MAX_FRAME and jpeg[:2] == b"\xff\xd8" and self._is_active(run_id):
+            self._frames[run_id] = jpeg
+            self._wake(run_id)
+
+    def end(self, run_id: str) -> None:
+        """The Run is over: forget its frame and let its streams finish."""
+        self._frames.pop(run_id, None)
+        self._wake(run_id)
+
+    def _wake(self, run_id: str) -> None:
+        for event in self._watchers.get(run_id, ()):
+            event.set()
+
+    async def stream(self, request: web.Request, run_id: str) -> web.StreamResponse:
+        if not (HEX32.fullmatch(run_id) and self._is_active(run_id)):
+            raise web.HTTPNotFound()
+        response = web.StreamResponse(headers={"Content-Type": "multipart/x-mixed-replace; boundary=frame", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+        await response.prepare(request)
+        woken = asyncio.Event()
+        self._watchers.setdefault(run_id, set()).add(woken)
+        sent = None
+        try:
+            while not self._closed and self._is_active(run_id):
+                frame = self._frames.get(run_id)
+                if frame is not None and frame is not sent:  # the newest first, then each new one; a slow client skips what it missed
+                    await response.write(_part(frame))
+                    sent = frame
+                    continue
+                woken.clear()
+                try:
+                    await asyncio.wait_for(woken.wait(), timeout=1)
+                except asyncio.TimeoutError:  # nothing new for a second: is the client still there? (a handler is not cancelled when it leaves)
+                    if request.transport is None or request.transport.is_closing():
+                        break
+            await response.write(b"--frame--\r\n")  # the closing boundary: the Run ended
+        except ConnectionError:
+            pass  # the client left mid-stream
+        finally:
+            self._watchers[run_id].discard(woken)
+            if not self._watchers[run_id]:
+                del self._watchers[run_id]
+        return response
+
+
 class WebChannel:
-    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path = Path("data/runs"), history: HistoryReader | None = None) -> None:
+    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path = Path("data/runs"), *, history: HistoryReader) -> None:
         self._host, self._port, self._shots, self._history = host, port, shots, history
         self._sockets: set[web.WebSocketResponse] = set()
         self._waiting: deque[Message] = deque()  # sent while a Run is busy, in order
@@ -83,6 +153,7 @@ class WebChannel:
         self._busy: Message | None = None  # the message the app loop is working on
         self._run: tuple[str, str] | None = None  # (chat id, run id), known from the Run's first event
         self._cap = 0.0
+        self._live = LiveView(lambda run_id: self._run is not None and self._run[1] == run_id)
         self._issued: set[str] = set()  # chat ids made by POST /api/conversations and not saved yet
         self._hosts: set[str] = set()
         self._origins: set[str] = set()
@@ -97,26 +168,15 @@ class WebChannel:
                 self._wake.clear()
                 await self._wake.wait()
             message = self._busy = self._waiting.popleft()
-            self._run = None
+            self._set_run(None)
             await self._push(self._status())
             yield message
             await self._finish()  # the app loop wants the next one: this one is over, reply or not
 
     async def send(self, reply: Reply) -> None:
-        saved = self._saved_copy(reply)  # SavedChannel saved it first: use that id and time, so the live frame and history are one message
-        await self._push(MessageFrame(id=saved.id if saved else uuid.uuid4().hex, conversation_id=reply.conversation_id, role="assistant", text=reply.text, run_id=reply.run_id, cost_usd=reply.cost_usd, at=saved.at if saved else _now()))
+        # reply.id and reply.at are the saved copy's too (SavedChannel), so the live frame and history are one message
+        await self._push(MessageFrame(id=reply.id, conversation_id=reply.conversation_id, role="assistant", text=reply.text, run_id=reply.run_id, cost_usd=reply.cost_usd, at=reply.at))
         await self._finish()
-
-    def _saved_copy(self, reply: Reply) -> MessageFrame | None:
-        # ponytail: reads the whole chat to find its newest message; a `latest message` query in history.py would be cheaper
-        # (and `Ledger.save_message` returning the saved event would make this lookup unnecessary: see the contract entry).
-        try:
-            detail = self._reader().get_conversation(reply.conversation_id)
-            last = detail.messages[-1] if detail and detail.messages else None
-            return last if last and last.role == "assistant" and last.run_id == reply.run_id and last.text == reply.text else None
-        except Exception:
-            logging.exception("could not look up the saved reply")
-            return None
 
     async def trace(self, event: Event) -> None:
         """Live view of the Run: the same events the Ledger records. Never raises into the Runner."""
@@ -124,13 +184,23 @@ class WebChannel:
             return
         try:
             if self._busy is not None and (self._run is None or self._run[1] != event.run_id):
-                self._run, self._cap = (event.conversation_id, event.run_id), self._cap_of(event.conversation_id, event.run_id)
+                self._set_run((event.conversation_id, event.run_id))
+                self._cap = self._cap_of(event.conversation_id, event.run_id)
                 await self._push(self._status())
             await self._push(TraceFrame(id=event.id, conversation_id=event.conversation_id, run_id=event.run_id, parent=event.parent, kind=event.kind, role=event.role, data=event.data, cost_usd=event.cost_usd, at=event.at))
         except Exception:  # a broken page or a bad row must not stop a Run
             logging.exception("trace frame not sent")
 
     # ---- live state ------------------------------------------------------------------------------------------
+
+    def _set_run(self, run: tuple[str, str] | None) -> None:
+        old, self._run = self._run, run
+        if old is not None and old != run:
+            self._live.end(old[1])  # the Run is over: its live frame goes, and its streams finish
+
+    def live_frame(self, run_id: str, jpeg: bytes) -> None:
+        """The Browser's `on_frame`: the newest frame of a Run's page, for GET /live/{run_id}. Synchronous and quick; keeps nothing but that frame."""
+        self._live.feed(run_id, jpeg)
 
     def _status(self) -> StatusFrame:
         active = Active(conversation_id=self._run[0], run_id=self._run[1], cap_usd=self._cap) if self._run else None
@@ -139,7 +209,8 @@ class WebChannel:
 
     async def _finish(self) -> None:
         if self._busy is not None:
-            self._busy = self._run = None
+            self._busy = None
+            self._set_run(None)
             if not self._waiting:  # otherwise the next message's status follows at once
                 await self._push(self._status())
 
@@ -151,13 +222,8 @@ class WebChannel:
             except (ConnectionError, RuntimeError):
                 self._sockets.discard(ws)
 
-    def _reader(self) -> HistoryReader:
-        if self._history is None:
-            self._history = StoreHistory(Store(DEFAULT_DB))
-        return self._history
-
     def _cap_of(self, conversation_id: str, run_id: str) -> float:
-        detail = self._reader().get_conversation(conversation_id)
+        detail = self._history.get_conversation(conversation_id)
         return next((r.cap_usd for r in (detail.runs if detail else []) if r.run_id == run_id), 0.0)
 
     def _chat_state(self, conversation_id: str) -> str:
@@ -166,7 +232,7 @@ class WebChannel:
         return "queued" if any(m.conversation_id == conversation_id for m in self._waiting) else "idle"
 
     def _known(self, conversation_id: str) -> bool:
-        return _valid_id(conversation_id) and (conversation_id in self._issued or conversation_id == DEFAULT_CONVERSATION or self._reader().get_conversation(conversation_id) is not None)
+        return _valid_id(conversation_id) and (conversation_id in self._issued or conversation_id == DEFAULT_CONVERSATION or self._history.get_conversation(conversation_id) is not None)
 
     # ---- security: one gate in front of every route ------------------------------------------------------------
 
@@ -187,7 +253,7 @@ class WebChannel:
     # ---- HTTP ------------------------------------------------------------------------------------------------
 
     async def _conversations(self, request: web.Request) -> web.Response:
-        rows = {c.id: c for c in self._reader().list_conversations()}
+        rows = {c.id: c for c in self._history.list_conversations()}
         for m in self._waiting:  # a chat whose first message is still queued is not saved yet
             rows.setdefault(m.conversation_id, ConversationSummary(id=m.conversation_id, title=m.text[:60], updated_at=m.at, preview=m.text[:80], state="queued"))
         out = [c.model_copy(update={"state": self._chat_state(c.id)}) for c in rows.values()]
@@ -202,7 +268,7 @@ class WebChannel:
         cid = request.match_info["id"]
         if not _valid_id(cid):
             raise web.HTTPNotFound()
-        detail = self._reader().get_conversation(cid)
+        detail = self._history.get_conversation(cid)
         waiting = [m for m in self._waiting if m.conversation_id == cid]  # queued messages are not saved until their turn
         if detail is None and not waiting and cid not in self._issued:
             raise web.HTTPNotFound()
@@ -218,7 +284,7 @@ class WebChannel:
 
     async def _run_events(self, request: web.Request) -> web.Response:
         run = request.match_info["run"]
-        events = self._reader().run_events(run) if HEX32.fullmatch(run) else []
+        events = self._history.run_events(run) if HEX32.fullmatch(run) else []
         if not events:
             raise web.HTTPNotFound()
         return _json(events)
@@ -229,6 +295,9 @@ class WebChannel:
         if not (HEX32.fullmatch(run) and re.fullmatch(r"\d+\.jpg", name) and path.is_file()):
             raise web.HTTPNotFound()  # only files this Assistant wrote: no traversal, no guessing
         return web.FileResponse(path)
+
+    async def _live_stream(self, request: web.Request) -> web.StreamResponse:
+        return await self._live.stream(request, request.match_info["run"])
 
     async def _index(self, request: web.Request) -> web.StreamResponse:
         index = DIST / "index.html"
@@ -291,6 +360,7 @@ class WebChannel:
                 web.get("/api/conversations/{id}", self._conversation),
                 web.get("/api/runs/{run}/events", self._run_events),
                 web.get("/shots/{run}/{name}", self._shot),
+                web.get("/live/{run}", self._live_stream),
             ]
         )
         if DIST.is_dir():
@@ -304,6 +374,7 @@ class WebChannel:
         return self._port
 
     async def stop(self) -> None:
+        self._live.close()  # open live streams end now: shutting down must not wait for a Run
         for ws in list(self._sockets):
             await ws.close()
         if self._runner:

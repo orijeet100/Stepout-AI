@@ -26,18 +26,23 @@ export function useBackend(): Backend {
   const [state, dispatch] = useReducer(reducer, initial)
   const socket = useRef<WebSocket | null>(null)
   const selected = useRef<string | null>(null)
+  const haveEvents = useRef<Set<string>>(new Set()) // runs whose events are already in state
   const reconnect = useRef<() => void>(() => {})
   useEffect(() => {
     selected.current = state.selected
+    haveEvents.current = new Set(Object.values(state.runs).filter((r) => r.events.length > 0).map((r) => r.id))
   })
 
-  const loadChat = useCallback(async (id: string) => {
+  // `all`: read every run's events again (after a reconnect, frames may have been missed). Otherwise only runs we have none of.
+  const loadChat = useCallback(async (id: string, all = false) => {
     try {
       const d = parseDetail(await getJSON(`/api/conversations/${encodeURIComponent(id)}`))
       if (!d) return
       dispatch({ type: 'detail', id, title: d.title, messages: d.messages, runs: d.runs })
       await Promise.all(
-        d.runs.map(async (r) => dispatch({ type: 'events', runId: r.run_id, events: parseEvents(await getJSON(`/api/runs/${encodeURIComponent(r.run_id)}/events`)) })),
+        d.runs
+          .filter((r) => all || !haveEvents.current.has(r.run_id))
+          .map(async (r) => dispatch({ type: 'events', runId: r.run_id, events: parseEvents(await getJSON(`/api/runs/${encodeURIComponent(r.run_id)}/events`)) })),
       )
     } catch {
       dispatch({ type: 'error', error: 'Could not load this chat.' })
@@ -67,7 +72,7 @@ export function useBackend(): Backend {
         attempt = 0
         dispatch({ type: 'conn', conn: 'open', attempt: 0 })
         void loadChats().then(() => {
-          if (selected.current) return loadChat(selected.current)
+          if (selected.current) return loadChat(selected.current, true)
         })
       }
       ws.onmessage = (e) => {
@@ -100,6 +105,15 @@ export function useBackend(): Backend {
   useEffect(() => {
     if (state.selected) void loadChat(state.selected)
   }, [state.selected, loadChat])
+
+  // When a Run ends, read its chat again: the API then knows how it ended (failed, stopped) and its budget.
+  const wasActive = useRef<{ conversation_id: string; run_id: string } | null>(null)
+  const active = state.status.active
+  useEffect(() => {
+    const before = wasActive.current
+    if (before && before.run_id !== active?.run_id) void loadChat(before.conversation_id)
+    wasActive.current = active
+  }, [active, loadChat])
 
   const createChat = useCallback(async (): Promise<string | null> => {
     try {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Frame, Message, Trace } from './protocol'
-import { chatList, initial, plain, reducer, runState, timeline, type Action, type State } from './store'
+import { chatList, initial, plain, reducer, runCap, runState, timeline, type Action, type State } from './store'
 
 const C = 'c'.repeat(32)
 const t = (s: number) => `2026-10-01T09:00:${String(s).padStart(2, '0')}.000Z`
@@ -56,6 +56,37 @@ describe('what each chat is doing', () => {
   })
 })
 
+describe('run state and cap', () => {
+  const live = (run: string, cap: number): Action => ({ type: 'frame', frame: { type: 'status', state: 'running', active: { conversation_id: C, run_id: run, cap_usd: cap }, queued: [] } })
+  const detail = (state: 'running' | 'done' | 'stopped' | 'failed', cap: number): Action => ({ type: 'detail', id: C, title: '', messages: [], runs: [{ run_id: 'r1', state, cost_usd: 0, cap_usd: cap, started_at: t(1) }] })
+
+  it('the two stop texts of the Runner: by you, or the budget used up', () => {
+    const stopped = (text: string) => run(initial, ...frames(trace('e1', 'r1', 'stop', 3, { summary: text })))
+    const byYou = stopped('Stopped by you.')
+    const budget = stopped('Stopped: the $1.00 budget for this run is used up.')
+    expect(runState(byYou, byYou.runs.r1)).toBe('stopped')
+    expect(runState(budget, budget.runs.r1)).toBe('overbudget')
+  })
+
+  it('failed and stopped come from the API when the events do not say', () => {
+    const failed = run(initial, ...frames(trace('e1', 'r1', 'step', 2)), detail('failed', 1))
+    expect(runState(failed, failed.runs.r1)).toBe('failed')
+    const stopped = run(initial, ...frames(trace('e1', 'r1', 'step', 2)), detail('stopped', 1))
+    expect(runState(stopped, stopped.runs.r1)).toBe('stopped')
+  })
+
+  it('the cap is the status frame while the Run runs, the API after, and null when there is none (never a guess)', () => {
+    const s = run(initial, ...frames(trace('e1', 'r1', 'step', 2)))
+    expect(runCap(s, s.runs.r1)).toBeNull()
+    const running = run(s, live('r1', 1))
+    expect(runCap(running, running.runs.r1)).toBe(1)
+    const ended = run(s, detail('done', 2.5))
+    expect(runCap(ended, ended.runs.r1)).toBe(2.5)
+    const noBudget = run(s, detail('done', 0)) // a cap of 0 is "no budget": nothing to draw a meter against
+    expect(runCap(noBudget, noBudget.runs.r1)).toBeNull()
+  })
+})
+
 describe('timeline', () => {
   it('reads your message, its run, then the reply', () => {
     const s = run(initial, ...frames(msg('u1', 'user', 'q', 1), trace('e1', 'r1', 'plan', 2), trace('e2', 'r1', 'step', 3), msg('a1', 'assistant', 'answer', 4, 'r1')))
@@ -103,11 +134,11 @@ describe('api responses', () => {
     expect(fresh.selected).toBe(C)
   })
 
-  it('a message that arrived live is not shown twice once history has its saved copy (different id)', () => {
-    const live = run(initial, ...frames(msg('live-id', 'user', 'hello', 5), msg('live-reply', 'assistant', 'hi', 7)))
+  it('a message that arrived live and is then read back from history is one message (they share an id)', () => {
+    const live = run(initial, ...frames(msg('m1', 'user', 'hello', 5), msg('m2', 'assistant', 'hi', 7)))
     const saved = (id: string, role: Message['role'], text: string, s: number): Message => ({ id, conversation_id: C, role, text, run_id: null, cost_usd: null, at: t(s) })
-    const loaded = reducer(live, { type: 'detail', id: C, title: 'T', messages: [saved('db-1', 'user', 'hello', 6), saved('db-2', 'assistant', 'hi', 8)], runs: [] })
-    expect(loaded.messages[C].map((m) => m.id)).toEqual(['db-1', 'db-2'])
+    const loaded = reducer(live, { type: 'detail', id: C, title: 'T', messages: [saved('m1', 'user', 'hello', 5), saved('m2', 'assistant', 'hi', 7)], runs: [] })
+    expect(loaded.messages[C].map((m) => m.id)).toEqual(['m1', 'm2'])
   })
 
   it('loading a chat merges with what arrived live instead of replacing it', () => {

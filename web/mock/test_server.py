@@ -8,6 +8,7 @@ import re
 import sys
 from pathlib import Path
 
+import aiohttp
 import pytest
 from aiohttp import WSServerHandshakeError
 from aiohttp.test_utils import TestClient, TestServer
@@ -232,3 +233,55 @@ def test_a_message_sent_during_a_run_is_queued():
         await ws.close()
 
     drive(0.02, scenario)
+
+
+# ---- the live view -----------------------------------------------------------------------------------------------
+
+
+def test_a_replayed_browser_run_streams_live_frames_and_the_stream_ends_with_the_run():
+    pages = {p.read_bytes() for p in (FIXTURES / "shots").glob("*/*.jpg")} | {(FIXTURES / "blank.jpg").read_bytes()}
+
+    async def scenario(c):
+        cid = await new_chat(c)
+        ws = await c.ws_connect("/ws", headers=origin(c))
+        await frames_until(ws, lambda s: len(s) == 2)
+        await ws.send_json({"type": "send", "conversation_id": cid, "text": "events this weekend"})
+        got = await frames_until(ws, lambda s: any(f["type"] == "trace" and f["kind"] == "step" and f["data"].get("action", {}).get("kind") == "browse" for f in s))
+        run = next(f for f in got if f["type"] == "status" and f["active"])["active"]["run_id"]
+
+        assert (await c.get("/live/" + "0" * 32)).status == 404  # no such Run
+        assert (await c.get("/live/not-an-id")).status == 404
+        assert (await c.get(f"/live/{run}", headers={"Host": "evil.example"})).status == 403  # the same guard as every route
+
+        resp = await c.get(f"/live/{run}")
+        assert resp.status == 200 and resp.headers["Content-Type"].startswith("multipart/x-mixed-replace")
+        reader = aiohttp.MultipartReader.from_response(resp)
+        seen = []
+        async with asyncio.timeout(20):
+            while (part := await reader.next()) is not None:  # ends by itself when the replayed Run ends
+                seen.append(bytes(await part.read()))
+        assert len(seen) >= 2 and all(f[:2] == b"\xff\xd8" for f in seen)  # JPEGs, one after another
+        assert all(f in pages for f in seen)  # the blank page and the fixture screenshots, nothing invented
+        assert any(f != seen[0] for f in seen)  # the page changed while we watched (blank, then a screenshot)
+
+        assert (await c.get(f"/live/{run}")).status == 404  # the Run is over
+        await ws.close()
+
+    drive(0.1, scenario)
+
+
+def test_a_run_without_a_browser_step_has_nothing_to_stream_until_it_ends():
+    async def scenario(c):
+        cid = await new_chat(c)
+        ws = await c.ws_connect("/ws", headers=origin(c))
+        await frames_until(ws, lambda s: len(s) == 2)
+        await ws.send_json({"type": "send", "conversation_id": cid, "text": "What is 2 + 3?"})
+        got = await frames_until(ws, lambda s: any(f["type"] == "status" and f["active"] for f in s))
+        run = next(f for f in got if f["type"] == "status" and f["active"])["active"]["run_id"]
+        resp = await c.get(f"/live/{run}")
+        reader = aiohttp.MultipartReader.from_response(resp)
+        async with asyncio.timeout(10):
+            assert await reader.next() is None  # no Browser step, so no frame: the stream just ends with the Run
+        await ws.close()
+
+    drive(0.05, scenario)
