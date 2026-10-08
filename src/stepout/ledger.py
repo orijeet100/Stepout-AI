@@ -14,11 +14,12 @@ class Ledger:
 
     def record(self, event: Event) -> None:
         self._store.execute(
-            "INSERT INTO events (id, task_id, run_id, kind, role, parent, data, cost_usd, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO events (id, task_id, run_id, conversation_id, kind, role, parent, data, cost_usd, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 event.id,
                 event.task_id,
                 event.run_id,
+                event.conversation_id,
                 event.kind,
                 event.role,
                 event.parent,
@@ -27,6 +28,14 @@ class Ledger:
                 event.at.isoformat(),
             ),
         )
+
+    def save_message(self, conversation_id: str, role: str, text: str) -> None:
+        """Save one chat message (role "user" or "assistant"). A chat is created by its first message and titled by it."""
+        event = Event(kind="message", conversation_id=conversation_id, data={"role": role, "text": text})
+        at = event.at.isoformat()
+        self._store.execute("INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)", (conversation_id, text[:60], at, at))
+        self._store.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (at, conversation_id))
+        self.record(event)
 
     def query(self, task_id: str | None = None) -> list[Event]:
         if task_id is not None:
@@ -38,6 +47,7 @@ class Ledger:
                 id=r["id"],
                 task_id=r["task_id"],
                 run_id=r["run_id"],
+                conversation_id=r["conversation_id"],
                 kind=r["kind"],
                 role=r["role"],
                 parent=r["parent"],

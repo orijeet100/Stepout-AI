@@ -37,6 +37,7 @@ class _Run:
     """Everything the Roles of one Run share."""
 
     task_id: str
+    conversation_id: str
     cap: float  # $ for the whole Run
     searches: int = 3  # web searches left
     spent: float = 0.0
@@ -94,15 +95,15 @@ class Runner:
 
     async def submit(self, task: Task) -> None:
         self._cancel.clear()
-        run = _Run(task_id=task.id, cap=self._cap)
+        run = _Run(task_id=task.id, conversation_id=task.conversation_id, cap=self._cap)
         try:
             finding = await self._agent("orchestrator", task.request, run, parent=None)
         finally:
             await self._browser.close(run.id)  # its pages are this Run's alone
-        await self._notify(Reply(text=f"{finding.text}\n\n(cost: ${run.spent:.4f})"))
+        await self._notify(Reply(text=f"{finding.text}\n\n(cost: ${run.spent:.4f})", conversation_id=task.conversation_id))
 
     async def _emit(self, run: _Run, kind: str, role: str, summary: str, *, parent=None, cost=0.0, **data) -> Event:
-        event = Event(task_id=run.task_id, run_id=run.id, kind=kind, role=role, parent=parent, cost_usd=cost, data={"summary": summary, **data})
+        event = Event(task_id=run.task_id, run_id=run.id, conversation_id=run.conversation_id, kind=kind, role=role, parent=parent, cost_usd=cost, data={"summary": summary, **data})
         self._ledger.record(event)
         if self._trace:
             await self._trace(event)
