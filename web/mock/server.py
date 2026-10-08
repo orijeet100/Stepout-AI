@@ -124,6 +124,7 @@ class Mock:
         cancel = asyncio.Event()
         self.active = {"conversation_id": conv, "run_id": run, "cancel": cancel}
         await self.broadcast(self.status())
+        await self.sleep(1.0)  # the first model call: like the real backend, the Run exists (and is listed) a moment before its first event
         ids: dict[str, str] = {}
         spent, last = 0.0, frames[0]["at"]
         pump: asyncio.Task | None = None
@@ -238,6 +239,9 @@ class Mock:
                     "ended_at": None if state == "running" else events[-1]["at"],
                 }
             )
+        if self.active and self.active["conversation_id"] == cid and not any(r["run_id"] == self.active["run_id"] for r in runs):
+            asked = [m for m in chat["messages"] if m["role"] == "user"]  # a Run that has just started: listed, with no events yet (history.py does the same)
+            runs.append({"run_id": self.active["run_id"], "request": asked[-1]["text"] if asked else "", "state": "running", "cost_usd": 0.0, "cap_usd": CAP, "steps": 0, "started_at": now(), "ended_at": None})
         return web.json_response({"id": cid, "title": self.title(chat), "messages": chat["messages"], "runs": runs})
 
     async def run_events(self, request: web.Request) -> web.Response:

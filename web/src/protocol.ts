@@ -56,6 +56,7 @@ export type RunInfo = {
   state: 'running' | 'done' | 'stopped' | 'failed'
   cost_usd: number
   cap_usd: number
+  steps: number | null // `step` events so far; 0 for a Run that has just started and has no events at all (null: the backend did not say)
   started_at: string
 }
 export type Detail = { id: string; title: string; messages: Message[]; runs: RunInfo[] }
@@ -182,6 +183,7 @@ export function parseDetail(v: unknown): Detail | null {
         state: r.state === 'running' || r.state === 'stopped' || r.state === 'failed' ? r.state : 'done',
         cost_usd: isNum(r.cost_usd) ? r.cost_usd : 0,
         cap_usd: isNum(r.cap_usd) ? r.cap_usd : 0,
+        steps: isNum(r.steps) ? r.steps : null,
         started_at: optStr(r.started_at) ?? '',
       })),
   }

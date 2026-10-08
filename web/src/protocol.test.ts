@@ -55,7 +55,7 @@ describe('parseDetail', () => {
       runs: [{ run_id: 'r1', state: 'stopped', cost_usd: 0.1, cap_usd: 1, started_at: base.at }, { state: 'done' }],
     })
     expect(d?.messages).toHaveLength(1)
-    expect(d?.runs).toEqual([{ run_id: 'r1', state: 'stopped', cost_usd: 0.1, cap_usd: 1, started_at: base.at }])
+    expect(d?.runs).toEqual([{ run_id: 'r1', state: 'stopped', cost_usd: 0.1, cap_usd: 1, steps: null, started_at: base.at }])
     expect(parseDetail({ title: 'no id' })).toBeNull()
   })
 })

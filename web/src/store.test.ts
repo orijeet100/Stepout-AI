@@ -58,7 +58,7 @@ describe('what each chat is doing', () => {
 
 describe('run state and cap', () => {
   const live = (run: string, cap: number): Action => ({ type: 'frame', frame: { type: 'status', state: 'running', active: { conversation_id: C, run_id: run, cap_usd: cap }, queued: [] } })
-  const detail = (state: 'running' | 'done' | 'stopped' | 'failed', cap: number): Action => ({ type: 'detail', id: C, title: '', messages: [], runs: [{ run_id: 'r1', state, cost_usd: 0, cap_usd: cap, started_at: t(1) }] })
+  const detail = (state: 'running' | 'done' | 'stopped' | 'failed', cap: number): Action => ({ type: 'detail', id: C, title: '', messages: [], runs: [{ run_id: 'r1', state, cost_usd: 0, cap_usd: cap, steps: null, started_at: t(1) }] })
 
   it('the two stop texts of the Runner: by you, or the budget used up', () => {
     const stopped = (text: string) => run(initial, ...frames(trace('e1', 'r1', 'stop', 3, { summary: text })))

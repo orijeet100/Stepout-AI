@@ -1,0 +1,17 @@
+---
+date: 2026-10-08
+kind: change
+lane: ui
+status: accepted
+title: "C3a: no failed request and no lost message; every Chrome flow fails on either"
+tags: [c3,console,race,e2e]
+refs: [web/src/useBackend.ts, web/src/protocol.ts, web/e2e/conftest.py, web/e2e/test_clean_requests.py, web/mock/server.py]
+---
+
+**What.** (1) **No console errors (item 3 of `docs/plan/v0-finish.md`).** `GET /api/runs/<id>/events` answers 404 for a Run with no events yet (by contract), and Chrome logs every 404 as a console error. The page asked for it whenever it re-read a chat that contained a Run that had just started (the Run is listed by the backend a moment before its first event): when a Run ended and the next queued message began at once, when a chat was opened or the page reloaded in that moment. It no longer asks: the chat's Run list carries `steps` (the number of `step` events so far), and a Run that is `running` with `steps` 0 is not asked for; its events arrive live, and the chat is re-read when it ends. A running Run that already has events (the page opened mid-run) is still read. (2) **Every Playwright flow now fails on any console error or any HTTP answer of 400 or more that the flow did not provoke on purpose** (the two flows that do, a forced `404` on the live stream and aborted screenshot requests, remove their own). (3) **A lost message, found by the new flow.** From a draft chat, two messages sent in quick succession each started their own chat creation (the first `POST` had not come back, so no chat was selected yet): the second message went to a *different, new chat*. Chat creation is now shared: a message sent while a chat is being made waits for that chat, and the new chat's id is known the moment the backend answers, not after the next render. (4) The mock now behaves like the backend at the start of a Run: the Run is listed as soon as it is active, and the first event follows about a second later (the first model call). Without that the mock could not show (1). Each flow starts on an idle mock (the mock is shared and keeps replaying a Run a flow walked away from, which made the next flow's messages wait).
+
+**Why.** The merge agent's finding, and the plan's item "no console errors". A guard that fails the build beats a one-off fix: the next request that asks for something not there yet fails a test at once.
+
+**Alternatives.** Swallowing the 404 (Chrome logs it regardless of the page's handling). Asking the backend to answer `200 []` instead of 404 (a contract change for the Main lane; the page can just not ask). A same-origin check on `/api` against redirected Fetcher requests (the Main lane fixed the root cause; per the merge agent a second layer here is not needed).
+
+**Evidence.** Three new flows in `web/e2e/test_clean_requests.py` (a second message in the same chat starting at once; a reload the moment a Run has started; switching chats during a Run) failed with 404 console errors before the fix and pass after. `App.test.tsx`: no events request for a just-started Run but one for a running Run with events; two messages sent at once from a draft go to one new chat, in order, with one `POST` (each fails when its line is removed). `npm test` 103 passed; `python -m pytest web/e2e` 12 passed; `web/mock` 12 passed (run as two commands: Playwright's sync session keeps an event loop alive, so the mock's `asyncio.run` tests must not run after it in one process). Build and lint clean.

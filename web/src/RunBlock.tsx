@@ -59,43 +59,46 @@ export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: P
     ? ['Working…', total ? stepsOf(done, total) : '', time].filter(Boolean).join(' · ')
     : [STATE_LABEL[state], `${steps} step${steps === 1 ? '' : 's'}`, money(cost), time].filter(Boolean).join(' · ')
   return (
-    <details className={`run run--${state}`} open={running}>
-      <summary>
-        <span className={`dot dot--${state}`} aria-hidden="true" />
-        <span className="run__sum">{summary}</span>
-        <span className="run__chev"><Icon name="down" /></span>
-      </summary>
-      <div className="run__body">
-        {(total > 0 || cap) && (
-          <div className="progress">
-            {total > 0 && <Meter label="Plan" now={done} max={total} text={stepsOf(done, total)} />}
-            {cap && <Meter label="Budget" now={cost} max={cap} text={`${money(cost)} of ${money(cap)}`} tone={cost >= cap ? 'full' : cost >= cap * 0.8 ? 'warn' : undefined} />}
-          </div>
-        )}
-        {running && (
-          <button className="btn btn--stop" type="button" onClick={onStop}>
-            <Icon name="stop" size={14} /> Stop
-          </button>
-        )}
-        <BrowserPanel runId={run.id} live={running && hasBrowserStep(run)} shots={shots} onOpen={onOpenShot} />
-        {plan.length > 0 && (
-          <ol className="plan" aria-label="Plan">
-            {plan.map((s, i) => (
-              <li key={i} className={`plan__${s.status}`}>
-                <span className={`glyph glyph--${s.status}`} role="img" aria-label={s.status}>
-                  {s.status === 'done' && <Icon name="check" size={12} />}
-                  {s.status === 'failed' && <Icon name="x" size={12} />}
-                </span>
-                <span className="chip">{s.role}</span> {s.goal}
-              </li>
-            ))}
-          </ol>
-        )}
-        <ul className="steps" aria-label="Steps">
-          {lines.map((e) => <Line key={e.id} e={e} />)}
-        </ul>
-        {onOpenShot && <ThumbStrip shots={shots} onOpen={onOpenShot} />}
-      </div>
-    </details>
+    <div className="runblock">
+      <details className={`run run--${state}`} open={running}>
+        <summary>
+          <span className={`dot dot--${state}`} aria-hidden="true" />
+          <span className="run__sum">{summary}</span>
+          <span className="run__chev"><Icon name="down" /></span>
+        </summary>
+        <div className="run__body">
+          {(total > 0 || cap) && (
+            <div className="progress">
+              {total > 0 && <Meter label="Plan" now={done} max={total} text={stepsOf(done, total)} />}
+              {cap && <Meter label="Budget" now={cost} max={cap} text={`${money(cost)} of ${money(cap)}`} tone={cost >= cap ? 'full' : cost >= cap * 0.8 ? 'warn' : undefined} />}
+            </div>
+          )}
+          {running && (
+            <button className="btn btn--stop" type="button" onClick={onStop}>
+              <Icon name="stop" size={14} /> Stop
+            </button>
+          )}
+          <BrowserPanel runId={run.id} live={running && hasBrowserStep(run)} shots={shots} onOpen={onOpenShot} />
+          {plan.length > 0 && (
+            <ol className="plan" aria-label="Plan">
+              {plan.map((s, i) => (
+                <li key={i} className={`plan__${s.status}`}>
+                  <span className={`glyph glyph--${s.status}`} role="img" aria-label={s.status}>
+                    {s.status === 'done' && <Icon name="check" size={12} />}
+                    {s.status === 'failed' && <Icon name="x" size={12} />}
+                  </span>
+                  <span className="chip">{s.role}</span> {s.goal}
+                </li>
+              ))}
+            </ol>
+          )}
+          <ul className="steps" aria-label="Steps">
+            {lines.map((e) => <Line key={e.id} e={e} />)}
+          </ul>
+        </div>
+      </details>
+      {/* under the card, not in it: a finished run's pages are reachable without opening the summary */}
+      {onOpenShot && <ThumbStrip shots={shots} onOpen={onOpenShot} />}
+    </div>
   )
 }

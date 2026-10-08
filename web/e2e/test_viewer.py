@@ -12,16 +12,14 @@ ACTIVE = "(() => { const a = document.activeElement; return { cls: a.className, 
 
 
 def finished_run(page):
-    """A fresh chat, a Browser run, waited out; returns its block with the run expanded by the keyboard."""
+    """A fresh chat, a Browser run, waited out; returns its block. The summary stays closed: the pages are under it."""
     page.get_by_label("New chat", exact=True).click()
     page.get_by_label("Message").fill("What are the top events this weekend?")
     page.get_by_label("Message").press("Enter")
-    run = page.locator(".run").last
-    expect(run.locator(".run__sum")).to_have_text(FINISHED, timeout=40000)
-    run.locator("summary").focus()
-    page.keyboard.press("Enter")  # a <details> opens from the keyboard
-    assert run.evaluate("el => el.open") is True
-    return run
+    block = page.locator(".runblock").last
+    expect(block.locator(".run__sum")).to_have_text(FINISHED, timeout=40000)
+    assert block.locator("details").evaluate("el => el.open") is False  # not opened: the thumbnails are there without it
+    return block
 
 
 def tab_to_a_thumbnail(page) -> str:
@@ -35,7 +33,7 @@ def tab_to_a_thumbnail(page) -> str:
 
 def test_the_viewer_works_with_the_keyboard_alone(page, tmp_path):
     finished_run(page)
-    opener = tab_to_a_thumbnail(page)  # the thumbnails are in the tab order
+    opener = tab_to_a_thumbnail(page)  # the thumbnails are in the tab order, with the run still closed
     assert opener.startswith("Open screenshot 1 of 2")
 
     page.keyboard.press("Enter")  # open the viewer from the thumbnail

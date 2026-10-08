@@ -52,6 +52,7 @@ def test_if_the_stream_is_not_there_the_page_shows_the_last_screenshot_not_a_bro
     page.wait_for_function(DECODED, arg=".run:last-of-type .browser img", timeout=10000)
     # Chrome reports the 404 itself as a console error; the page handled it, so that one is expected here
     page.console_errors[:] = [e for e in page.console_errors if "404" not in e]
+    page.bad_responses[:] = [r for r in page.bad_responses if "/live/" not in r]  # the 404s this test asked for
 
 
 def test_a_run_with_no_browser_step_has_no_live_view(page):
@@ -59,3 +60,33 @@ def test_a_run_with_no_browser_step_has_no_live_view(page):
     expect(run.locator(".run__sum")).to_have_text(re.compile(r"^1 step"), timeout=20000)  # it ran and finished
     assert run.locator(".browser").count() == 0
     assert page.locator(LIVE).count() == 0
+
+
+def test_the_live_view_never_shows_a_bare_blank_frame_while_the_first_page_opens(page):
+    run = ask(page, "What are the top events this weekend?")
+    expect(run.locator(LIVE)).to_be_attached(timeout=15000)
+    # Sampled every 40 ms until the first page is saved: whenever the live frame is there and no page has been saved,
+    # the loading cover must be there too (the Browser's first frame is a blank white page).
+    seen = page.evaluate(
+        """async () => {
+          const out = { bare: 0, covered: 0, lifted: false }
+          const t0 = performance.now()
+          while (performance.now() - t0 < 15000) {
+            const run = [...document.querySelectorAll('.run')].at(-1)
+            const view = run && run.querySelector('.browser')
+            if (view) {
+              const title = view.querySelector('.browser__title')?.textContent ?? ''
+              const live = !!view.querySelector('img.browser__live')
+              const cover = !!view.querySelector('.browser__loading')
+              if (live && !title && !cover) out.bare++
+              if (live && !title && cover) out.covered++
+              if (title) { out.lifted = !cover; break }
+            }
+            await new Promise((r) => setTimeout(r, 40))
+          }
+          return out
+        }"""
+    )
+    assert seen["bare"] == 0, seen  # never a blank frame without its cover
+    assert seen["covered"] > 0, seen  # the cover really was shown while the page opened
+    assert seen["lifted"] is True, seen  # and it lifted when the first page was saved

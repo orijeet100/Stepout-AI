@@ -28,6 +28,7 @@ export function useBackend(): Backend {
   const selected = useRef<string | null>(null)
   const haveEvents = useRef<Set<string>>(new Set()) // runs whose events are already in state
   const reconnect = useRef<() => void>(() => {})
+  const creating = useRef<Promise<string | null> | null>(null) // a chat being made: messages sent meanwhile wait for it instead of making their own
   useEffect(() => {
     selected.current = state.selected
     haveEvents.current = new Set(Object.values(state.runs).filter((r) => r.events.length > 0).map((r) => r.id))
@@ -42,6 +43,7 @@ export function useBackend(): Backend {
       await Promise.all(
         d.runs
           .filter((r) => all || !haveEvents.current.has(r.run_id))
+          .filter((r) => !(r.state === 'running' && r.steps === 0)) // just started: it has no events to read yet (asking is a 404, which Chrome logs as an error); they arrive live
           .map(async (r) => dispatch({ type: 'events', runId: r.run_id, events: parseEvents(await getJSON(`/api/runs/${encodeURIComponent(r.run_id)}/events`)) })),
       )
     } catch {
@@ -121,6 +123,7 @@ export function useBackend(): Backend {
       if (!r.ok) throw new Error(String(r.status))
       const { id } = (await r.json()) as { id: string }
       dispatch({ type: 'created', id, at: new Date().toISOString() })
+      selected.current = id // at once: the next message must not wait for a render to learn which chat it is in
       return id
     } catch {
       dispatch({ type: 'error', error: 'Could not start a new chat.' })
@@ -131,7 +134,7 @@ export function useBackend(): Backend {
   const send = useCallback(
     (text: string) => {
       void (async () => {
-        const id = selected.current ?? (await createChat())
+        const id = selected.current ?? (await (creating.current ??= createChat().finally(() => (creating.current = null))))
         if (id) socket.current?.send(JSON.stringify({ type: 'send', conversation_id: id, text }))
       })()
     },
