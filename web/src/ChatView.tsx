@@ -5,11 +5,11 @@ import { money } from './runview'
 import type { Item, Run, RunState } from './store'
 import { useNow } from './useNow'
 
-type Props = { items: Item[]; runState: (run: Run) => RunState; runCap: (run: Run) => number | null; onStop: () => void; onOpenShot?: (runId: string, index: number) => void }
+type Props = { items: Item[]; empty?: 'new' | 'loading' | 'failed'; runState: (run: Run) => RunState; runCap: (run: Run) => number | null; onStop: () => void; onOpenShot?: (runId: string, index: number) => void }
 
 const NEAR_END = 48 // px from the end that still counts as "reading the end"
 
-export default function ChatView({ items, runState, runCap, onStop, onOpenShot }: Props) {
+export default function ChatView({ items, empty = 'new', runState, runCap, onStop, onOpenShot }: Props) {
   const box = useRef<HTMLDivElement>(null)
   const thread = useRef<HTMLDivElement>(null)
   const atEnd = useRef(true)
@@ -40,7 +40,13 @@ export default function ChatView({ items, runState, runCap, onStop, onOpenShot }
   if (!hasItems) {
     return (
       <div className="scroll">
-        <p className="empty">Ask something. It plans the steps, shows each one as it happens, and tells you what it cost.</p>
+        {empty === 'loading' ? (
+          <p className="empty">Loading…</p>
+        ) : empty === 'failed' ? (
+          <p className="empty">Nothing to show yet. Use “Retry now” above.</p>
+        ) : (
+          <p className="empty">Ask something. It plans the steps, shows each one as it happens, and tells you what it cost.</p>
+        )}
       </div>
     )
   }

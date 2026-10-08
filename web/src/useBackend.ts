@@ -38,7 +38,7 @@ export function useBackend(): Backend {
   const loadChat = useCallback(async (id: string, all = false) => {
     try {
       const d = parseDetail(await getJSON(`/api/conversations/${encodeURIComponent(id)}`))
-      if (!d) return
+      if (!d) return void dispatch({ type: 'detail', id, title: '', messages: [], runs: [] }) // the backend has nothing stored for it: an empty chat, now known to be
       dispatch({ type: 'detail', id, title: d.title, messages: d.messages, runs: d.runs })
       await Promise.all(
         d.runs
@@ -147,6 +147,10 @@ export function useBackend(): Backend {
     stop: () => socket.current?.send(JSON.stringify({ type: 'stop' })),
     newChat: () => dispatch({ type: 'select', id: null }), // instant: the chat is made when its first message is sent, so typing at once cannot land in the old chat
     select: (id) => dispatch({ type: 'select', id }),
-    retry: () => (state.error ? void loadChats() : reconnect.current()),
+    retry: () => {
+      if (!state.error) return reconnect.current()
+      void loadChats()
+      if (selected.current) void loadChat(selected.current, true) // the open chat too: its own error is the one that may be showing
+    },
   }
 }

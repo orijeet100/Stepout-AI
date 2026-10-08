@@ -3,9 +3,9 @@ import Icon from './Icon'
 import type { Chat } from './protocol'
 import { plain, type ChatState } from './store'
 
-type Props = { chats: (Chat & { state: ChatState })[]; selected: string | null; onSelect: (id: string) => void; onNew: () => void; inert?: boolean; ref?: Ref<HTMLElement> }
+type Props = { chats: (Chat & { state: ChatState })[]; listed: boolean; failed: boolean; selected: string | null; onSelect: (id: string) => void; onNew: () => void; inert?: boolean; ref?: Ref<HTMLElement> }
 
-export default function Sidebar({ chats, selected, onSelect, onNew, inert, ref }: Props) {
+export default function Sidebar({ chats, listed, failed, selected, onSelect, onNew, inert, ref }: Props) {
   return (
     <aside id="chats" ref={ref} className="side" aria-label="Chats" inert={inert}>
       <div className="brand">
@@ -16,7 +16,7 @@ export default function Sidebar({ chats, selected, onSelect, onNew, inert, ref }
       </div>
       <nav>
         {chats.length === 0 ? (
-          <p className="muted side__empty">No chats yet.</p>
+          <p className="muted side__empty">{listed ? 'No chats yet.' : failed ? 'Your chats could not be loaded.' : 'Loading chats…'}</p>
         ) : (
           <ul className="chats">
             {chats.map((c) => (
