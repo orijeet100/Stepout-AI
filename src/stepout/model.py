@@ -57,6 +57,7 @@ class ModelRequest(BaseModel):
     user_text: str
     tools: list[str] = []  # "web_search" or a client tool name; none = a plain completion
     tool_defs: list[dict] = []  # one-off tools, sent as they are; a call to one comes back as a ToolCall (the front door's `screen`)
+    temperature: float | None = None  # None = the API default (1.0). Models released after Opus 4.6 reject any other value with a 400: of ours only HAIKU (4.5) accepts one, SONNET (5) does not
     max_searches: int = 3  # web searches this Run may still use
 
 
@@ -137,6 +138,8 @@ class AnthropicModel:
         # Omit `tools` entirely when unused: tools=None is sent as null and the API rejects it.
         defs = _tool_defs(request)
         extra = {"tools": defs} if defs else {}
+        if request.temperature is not None:  # never send null: only set it when asked
+            extra["temperature"] = request.temperature
         response = await self._client.messages.create(
             model=request.model,
             max_tokens=4096,

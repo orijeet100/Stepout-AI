@@ -169,3 +169,41 @@ async def test_the_screener_keeps_the_models_raw_answer_for_the_eval_to_show():
     words = HaikuScreener(ScriptedModel([ModelResponse(action=AnswerAction(text="Sure, go ahead"), cost_usd=0.0)]))
     await words.screen("again", [X1])
     assert words.last_answer == {"no tool call": "Sure, go ahead"}
+
+
+# --- stability: temperature 0, and what the live runs showed ---------------------------------------------------------------
+
+
+async def test_the_screening_call_asks_for_temperature_zero_and_is_the_only_one_that_does():
+    _, request = await screen(decided(decision="proceed", related=[]))
+    assert request.temperature == 0.0
+    assert ModelRequest(model=HAIKU, system="s", user_text="u").temperature is None  # every other call keeps the API default
+
+
+def test_tripwire_temperature_is_only_allowed_on_models_released_before_opus_4_6():
+    # Official reference: "Models released after Claude Opus 4.6 do not support setting temperature. A value of 1.0 will be accepted ...,
+    # all other values will be rejected with a 400 error." The screening call sets 0, so the day HAIKU moves to a newer model, every screening
+    # would fail (and fall back, fail open, unnoticed). If this test fails, read that note and drop `temperature=0.0` or keep the old model.
+    assert HAIKU == "claude-haiku-4-5"
+
+
+async def test_temperature_is_sent_only_when_asked_for_and_never_as_null():
+    seen = []
+
+    class FakeMessages:
+        async def create(self, **kwargs):
+            seen.append(kwargs)
+            return NS(content=[NS(type="text", text="ok", citations=None)], usage=NS(input_tokens=1, output_tokens=1))
+
+    model = AnthropicModel()
+    model._client = NS(messages=FakeMessages())
+    await model.call(ModelRequest(model=HAIKU, system="s", user_text="u"))
+    await model.call(ModelRequest(model=HAIKU, system="s", user_text="u", temperature=0.0))
+    assert "temperature" not in seen[0] and seen[1]["temperature"] == 0.0
+
+
+def test_a_message_that_only_lacks_something_is_not_a_decline_and_scripts_count_as_software():
+    # Live runs 2 and 3: "delete the duplicate lines from this list" and "summarize this article about ..." (nothing attached) were declined
+    # ("I need you to provide the list first") or answered in words; "write me a python script" went on in both runs.
+    assert "A request that only lacks something" in _SYSTEM and "is NOT a decline" in _SYSTEM
+    assert "scripts, apps, websites" in _SYSTEM
