@@ -12,19 +12,18 @@ from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 from uuid import uuid4
 
-import httpx
-
-from stepout import gate
-from stepout.domain import Allow, AnswerAction, BrowseAction, DelegateAction, Event, FetchAction, FilesAction, PlanAction, PlanStep, Reply, Task
+from stepout import capabilities, gate
+from stepout.capabilities.base import TEXT_CHARS, RunContext
+from stepout.domain import Allow, AnswerAction, DelegateAction, Event, Outcome, PlanAction, PlanStep, Reply, Task
 from stepout.browser import Browser
-from stepout.fetch import BlockedUrl, Fetcher
+from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.ledger import Ledger
 from stepout.model import Model, ModelRequest
 from stepout.roles import ROLES
 
 _MAX_PLANS = 3  # the first plan plus two re-plans
-_TEXT_CHARS = 4000  # how much of a page or Finding a Role sees
+_REPEATED = "You already ran exactly this and the result will not change. Try something different, or answer."
 
 
 @dataclass
@@ -38,11 +37,13 @@ class _Run:
     """Everything the Roles of one Run share."""
 
     task_id: str
+    conversation_id: str
     cap: float  # $ for the whole Run
     searches: int = 3  # web searches left
     spent: float = 0.0
     plan: list[PlanStep] = field(default_factory=list)
     plans: int = 0
+    stopped: bool = False  # the User pressed Stop, or the budget ran out
     id: str = field(default_factory=lambda: uuid4().hex)
 
 
@@ -57,13 +58,6 @@ def _state(goal: str, plan: list[PlanStep], notes: list[str]) -> str:
     return "\n\n".join(parts)
 
 
-def _shrink_old_pages(notes: list[str], keep: int = 2) -> None:
-    """Page views are big and a Role re-reads its notes every step: all but the newest two shrink to their first lines."""
-    pages = [i for i, n in enumerate(notes) if n.startswith("browse ")]
-    for i in pages[:-keep]:
-        notes[i] = "(earlier page) " + " ".join(notes[i].splitlines()[1:3])[:200]
-
-
 def _summary(action, plan: list[PlanStep]) -> str:
     match action:
         case PlanAction(steps=steps):
@@ -72,14 +66,9 @@ def _summary(action, plan: list[PlanStep]) -> str:
             return f"delegate {i} → {plan[i].role}: {plan[i].goal}"
         case DelegateAction(step=i):
             return f"delegate {i}"
-        case FetchAction(url=url):
-            return f"fetch {url}"
-        case FilesAction(op=op, path=path, pattern=pattern):
-            return f"files {op} {path}" + (f" {pattern}" if pattern else "")
-        case BrowseAction(op=op, url=url, link=link):
-            return f"browse {op} {url or link or ''}".strip()
         case _:
-            return action.kind
+            cap = capabilities.get(action.kind)
+            return cap.summary(action) if cap is not None else action.kind
 
 
 class Runner:
@@ -100,21 +89,27 @@ class Runner:
         self._notify = notify
         self._files = files or Files()  # no Grants = no access
         self._browser = browser or Browser()  # starts Chrome only when a page is first opened
+        self._hands = {"fetch": fetcher, "files": self._files, "browse": self._browser}  # by capability name
         self._trace = trace
         self._cancel = cancel or asyncio.Event()  # set by the Channel when the User presses Stop
         self._cap = float(os.environ.get("STEPOUT_TASK_CAP_USD", "1.00"))
 
     async def submit(self, task: Task) -> None:
         self._cancel.clear()
-        run = _Run(task_id=task.id, cap=self._cap)
+        run = _Run(task_id=task.id, conversation_id=task.conversation_id, cap=self._cap)
+        self._ledger.start_run(task, run.id, run.cap)
+        outcome = Outcome.FAILED  # stays so if the model or a hand raises
         try:
             finding = await self._agent("orchestrator", task.request, run, parent=None)
+            outcome = Outcome.CANCELLED if run.stopped else Outcome.DONE if finding.ok else Outcome.FAILED
         finally:
+            self._ledger.end_run(run.id, outcome, run.spent)
             await self._browser.close(run.id)  # its pages are this Run's alone
-        await self._notify(Reply(text=f"{finding.text}\n\n(cost: ${run.spent:.4f})"))
+        reply = f"{finding.text}\n\n(cost: ${run.spent:.4f})"  # the footer goes once the page reads cost_usd (X2)
+        await self._notify(Reply(text=reply, conversation_id=task.conversation_id, run_id=run.id, cost_usd=run.spent))
 
     async def _emit(self, run: _Run, kind: str, role: str, summary: str, *, parent=None, cost=0.0, **data) -> Event:
-        event = Event(task_id=run.task_id, run_id=run.id, kind=kind, role=role, parent=parent, cost_usd=cost, data={"summary": summary, **data})
+        event = Event(task_id=run.task_id, run_id=run.id, conversation_id=run.conversation_id, kind=kind, role=role, parent=parent, cost_usd=cost, data={"summary": summary, **data})
         self._ledger.record(event)
         if self._trace:
             await self._trace(event)
@@ -124,6 +119,7 @@ class Runner:
         await self._emit(run, "plan", "orchestrator", "plan updated", steps=[s.model_dump() for s in run.plan])
 
     async def _stop(self, run: _Run, role: str, parent: str | None, text: str) -> Finding:
+        run.stopped = True
         await self._emit(run, "stop", role, text, parent=parent)
         return Finding(text, ok=False)
 
@@ -136,12 +132,20 @@ class Runner:
         plan_step.status = "done" if child.ok else "failed"
         await self._emit_plan(run)
         await self._emit(run, "return", plan_step.role, f"{plan_step.status}: {child.text[:200]}", parent=parent, ok=child.ok)
-        notes.append(f"Finding for step {i} ({plan_step.status}):\n{child.text[:_TEXT_CHARS]}")
+        notes.append(f"Finding for step {i} ({plan_step.status}):\n{child.text[:TEXT_CHARS]}")
 
     async def _agent(self, role_name: str, goal: str, run: _Run, parent: str | None) -> Finding:
         role = ROLES[role_name]
         notes: list[str] = []
         ran: set[str] = set()  # hand actions already run: asking again cannot change the answer
+        step: Event | None = None  # the Step event being handled; ctx.emit hangs its events under it
+        ctx = RunContext(
+            run_id=run.id,
+            role=role_name,
+            hands=self._hands,
+            cancelled=self._cancel.is_set,
+            emit=lambda kind, summary, **data: self._emit(run, kind, role_name, summary, parent=step.id, **data),
+        )
         for _ in range(role.max_steps):
             if self._cancel.is_set():
                 return await self._stop(run, role_name, parent, "Stopped by you.")
@@ -156,7 +160,7 @@ class Runner:
             run.searches -= response.searches
 
             action = response.action
-            verdict = gate.check(action, role.actions)
+            verdict = gate.check(action, role.actions, ctx)
             allowed = isinstance(verdict, Allow)
             summary = _summary(action, run.plan) if allowed else f"refused {action.kind}: {verdict.reason}"
             step = await self._emit(run, "step", role_name, summary, parent=parent, cost=response.cost_usd, action=action.model_dump(), verdict=verdict.kind)
@@ -165,9 +169,8 @@ class Runner:
                 continue
 
             key = action.model_dump_json()
+            cap = capabilities.get(action.kind)
             match action:
-                case BrowseAction(op="open") | FilesAction() | FetchAction() if key in ran:
-                    notes.append("You already ran exactly this and the result will not change. Try something different, or answer.")
                 case AnswerAction(text=text):
                     return Finding(text, ok=bool(text.strip()))
                 case PlanAction(steps=steps):
@@ -183,22 +186,12 @@ class Runner:
                         notes.append(f"Refused: there is no step {i}.")
                         continue
                     await self._run_step(run, i, step.id, notes)
-                case FilesAction(op=op, path=path, pattern=pattern):
-                    ran.add(key)
-                    result = await self._files.run(op, path, pattern, self._cancel.is_set)
-                    notes.append(f"files {op} {path}:\n{result[:_TEXT_CHARS]}")
-                case BrowseAction(op=op, url=url, link=link):
-                    ran.add(key)
-                    view, shot = await self._browser.run(run.id, op, url, link)
-                    notes.append(f"browse {op}:\n{view}")
-                    _shrink_old_pages(notes)
-                    if shot:
-                        await self._emit(run, "shot", role_name, "page screenshot", parent=step.id, shot=shot)
-                case FetchAction(url=url):
-                    ran.add(key)
-                    try:
-                        page = await self._fetcher.get(url)
-                        notes.append(f"Fetched {url}:\n{page.text[:_TEXT_CHARS]}")
-                    except (BlockedUrl, httpx.HTTPError) as exc:
-                        notes.append(f"Fetching {url} failed: {exc}")
+                case _ if cap is not None:
+                    if cap.repeat_guard(action):
+                        if key in ran:
+                            notes.append(_REPEATED)
+                            continue
+                        ran.add(key)
+                    notes.append(await cap.run(action, ctx))
+                    cap.compact(notes)
         return Finding(f"The {role_name} agent couldn't finish in {role.max_steps} steps.", ok=False)

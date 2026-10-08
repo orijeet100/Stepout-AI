@@ -8,7 +8,7 @@ A task agent you drive from a chat page (Telegram later). An Orchestrator plans 
 
 ```bash
 ./.venv/Scripts/python.exe -m pytest -q                 # offline tests
-./.venv/Scripts/python.exe -m stepout.app web           # chat at http://127.0.0.1:8765 (needs .env with ANTHROPIC_API_KEY)
+./.venv/Scripts/python.exe -m stepout.app web           # chat at http://127.0.0.1:8765 (needs .env with ANTHROPIC_API_KEY; set STEPOUT_PORT for another port)
 ```
 
 ## Docs

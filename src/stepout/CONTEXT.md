@@ -87,6 +87,10 @@ _Avoid_: log (the Ledger is the record; the Trace is the live view of it)
 One thing the Assistant wants to do in the world during a Step — navigate, click, type, submit, fetch, read a file, upload a file.
 _Avoid_: command, operation, tool call
 
+**Capability**:
+One kind of hand a Role can hold — fetch, files, browse, web search — kept in one file: its tool schema, its Action, how it runs, its own Gate rule, its Trace line and a one-line blurb of what it can and cannot do. A new Capability is one file plus one line in the registry. A Role's tools are Capability names.
+_Avoid_: plugin, skill, tool (the *tool* is the schema the model sees)
+
 **Outcome**:
 How a Task ended — Done, Blocked, Declined, Failed, Cancelled, Expired, or Uncertain.
 _Avoid_: status, result

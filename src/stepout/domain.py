@@ -8,10 +8,16 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal, Union
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+from stepout import capabilities
+from stepout.capabilities.browse import BrowseAction  # defined by their capability; re-exported so existing imports keep working
+from stepout.capabilities.fetch import FetchAction
+from stepout.capabilities.files import FilesAction
+from stepout.roles import SPECIALISTS
 
 
 def _id() -> str:
@@ -37,17 +43,24 @@ class Outcome(StrEnum):
     UNCERTAIN = "uncertain"
 
 
+DEFAULT_CONVERSATION = "default"  # the CLI's one chat, and the page's until it sends chat ids
+
+
 class Message(BaseModel):
     """One unit of text sent in a Conversation, in either direction."""
 
     id: str = Field(default_factory=_id)
     user_id: str
     text: str
+    conversation_id: str = DEFAULT_CONVERSATION
     at: datetime = Field(default_factory=_now)
 
 
 class Reply(BaseModel):
     text: str
+    conversation_id: str = DEFAULT_CONVERSATION
+    run_id: str | None = None  # the Run that produced it, if one did
+    cost_usd: float | None = None  # that Run's cost
 
 
 class Task(BaseModel):
@@ -57,6 +70,7 @@ class Task(BaseModel):
     user_id: str
     request: str
     route: Route
+    conversation_id: str = DEFAULT_CONVERSATION
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -70,11 +84,8 @@ class Run(BaseModel):
 
 
 # --- Actions the model may propose, and their Results --------------------
-
-
-class FetchAction(BaseModel):
-    kind: Literal["fetch"] = "fetch"
-    url: str
+# A capability's Action lives with the capability (stepout/capabilities/). What stays here are the control
+# Actions (plan, delegate, answer) and the legacy search Action.
 
 
 class SearchAction(BaseModel):
@@ -89,26 +100,8 @@ class AnswerAction(BaseModel):
     text: str
 
 
-class FilesAction(BaseModel):
-    """Look at the User's disk: names, sizes, dates, counts. Never contents."""
-
-    kind: Literal["files"] = "files"
-    op: Literal["list", "find", "count"]
-    path: str
-    pattern: str | None = None
-
-
-class BrowseAction(BaseModel):
-    """Read a web page in the headless browser. Read-only: open a url, follow a numbered link, read on."""
-
-    kind: Literal["browse"] = "browse"
-    op: Literal["open", "click", "more"]
-    url: str | None = None
-    link: int | None = None
-
-
 class PlanStep(BaseModel):
-    role: Literal["direct", "files", "browser"]  # widen as Roles gain hands (reader)
+    role: Literal[SPECIALISTS]  # from ROLES: a new specialist Role is a valid step Role, and in the plan tool, with no other edit
     goal: str
     status: Literal["pending", "running", "done", "failed"] = "pending"
 
@@ -127,7 +120,9 @@ class DelegateAction(BaseModel):
     step: int
 
 
-Action = FetchAction | SearchAction | AnswerAction | PlanAction | DelegateAction | FilesAction | BrowseAction
+# Built once at import from the registry, so a registered capability is part of the union by construction.
+# (A capability registered later, as the tests do, is not in it: ModelResponse.action is a plain BaseModel for that reason.)
+Action = Annotated[Union[(*capabilities.action_types(), SearchAction, AnswerAction, PlanAction, DelegateAction)], Field(discriminator="kind")]
 
 
 class FetchResult(BaseModel):
@@ -197,7 +192,8 @@ class Event(BaseModel):
     id: str = Field(default_factory=_id)
     task_id: str | None = None
     run_id: str | None = None
-    kind: str  # "screening" | "plan" | "step" | "return" | "stop"
+    conversation_id: str | None = None
+    kind: str  # "screening" | "plan" | "step" | "return" | "stop" | "shot" | "message"
     role: str | None = None  # which Role acted
     parent: str | None = None  # the Delegate step event that started this Role's work
     data: dict

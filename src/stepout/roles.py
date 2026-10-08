@@ -4,20 +4,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from stepout.model import HAIKU, SONNET
+from stepout import capabilities
+
+HAIKU = "claude-haiku-4-5"
+SONNET = "claude-sonnet-5"  # model ids; model.py prices them
 
 
 @dataclass(frozen=True)
 class Role:
     model: str
     system: str
-    tools: tuple[str, ...]  # offered to the model; the Gate only lets the Role take these Action kinds
+    tools: tuple[str, ...]  # capability names (or control tools); offered to the model, and the Gate only lets the Role take these Action kinds
     max_steps: int
 
     @property
     def actions(self) -> frozenset[str]:
-        # web_search runs on the provider's side and never reaches us as an Action; every Role can answer.
-        return frozenset(self.tools) - {"web_search"} | {"answer"}
+        # A tool the provider runs (web_search: a capability with no Action) never reaches us as an Action; every Role can answer.
+        runs_here = (t for t in self.tools if (cap := capabilities.get(t)) is None or cap.action is not None)
+        return frozenset(runs_here) | {"answer"}
 
 
 _ORCHESTRATOR = """\
@@ -52,3 +56,4 @@ ROLES = {
     "files": Role(HAIKU, _FILES, ("files",), max_steps=6),
     "browser": Role(SONNET, _BROWSER, ("browse",), max_steps=8),
 }
+SPECIALISTS = tuple(name for name in ROLES if name != "orchestrator")  # the Roles a Plan step may name

@@ -237,10 +237,11 @@ data/runs/<run_id>/               screenshots
 web/               React + Vite + TypeScript (S9): package.json, src/, dist/ (build output, gitignored)
 src/stepout/
   CONTEXT.md       Assistant language
-  domain.py        Message, Reply, Task, Run, Action, Result, Verdict, Question, Approval, Outcome, Event …
+  domain.py        Message, Reply, Task, Run, Action (built from the capability registry plus plan/delegate/answer), Result, Verdict, Question, Approval, Outcome, Event …
+  capabilities/    one file per tool (fetch · files · browse · web_search): schema, Action, executor, Gate rule, Trace line, blurb; __init__.py holds ALL, the one registration list
   app.py           composition root
   store.py         the one SQL module; migrations/ holds numbered .sql files
-  intake.py · runner.py (the loop) · roles.py (Role table) · gate.py · memory.py · ledger.py · browser.py · fetch.py · files.py · model.py
+  intake.py · runner.py (the loop) · roles.py (Role table) · gate.py · memory.py · ledger.py · browser.py · fetch.py · files.py (the hands) · model.py
   channels/        cli.py · telegram.py · web.py (serves web/dist)
 tests/
   support/         scripted model, Simulated-web launcher, Simulated-folder builder

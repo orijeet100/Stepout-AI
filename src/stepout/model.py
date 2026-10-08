@@ -15,10 +15,10 @@ from typing import Protocol
 import anthropic
 from pydantic import BaseModel
 
-from stepout.domain import Action, AnswerAction, BrowseAction, DelegateAction, FetchAction, FilesAction, PlanAction
-
-HAIKU = "claude-haiku-4-5"
-SONNET = "claude-sonnet-5"
+from stepout import capabilities
+from stepout.capabilities.base import tool_schema
+from stepout.domain import Action, AnswerAction, DelegateAction, PlanAction
+from stepout.roles import HAIKU, SONNET, SPECIALISTS
 
 # $ per million tokens: (input, output). Web search billed separately, per use.
 PRICING = {
@@ -27,19 +27,11 @@ PRICING = {
 }
 WEB_SEARCH_COST_PER_USE = 10.00 / 1000
 
-# Basic web search: 20260209+ defaults to dynamic filtering via code execution, which Haiku can't use.
-_WEB_SEARCH = {"type": "web_search_20250305", "name": "web_search"}
-
-
-def _tool(name: str, description: str, required: list[str] | None = None, **props: dict) -> dict:
-    return {"name": name, "description": description, "input_schema": {"type": "object", "properties": props, "required": required or list(props)}}
-
-
-_CLIENT_TOOLS = {
+# The Orchestrator's own tools. Every other tool comes from the capability registry.
+_CONTROL_TOOLS = {
     t["name"]: t
     for t in [
-        _tool("fetch", "Read one web page whose URL you already know. Returns its text.", url={"type": "string"}),
-        _tool(
+        tool_schema(
             "plan",
             "Write your plan: 1-3 steps, each run by one role. Calling it again replaces the plan.",
             steps={
@@ -48,32 +40,13 @@ _CLIENT_TOOLS = {
                 "maxItems": 3,
                 "items": {
                     "type": "object",
-                    "properties": {"role": {"type": "string", "enum": ["direct", "files", "browser"]}, "goal": {"type": "string"}},
+                    "properties": {"role": {"type": "string", "enum": list(SPECIALISTS)}, "goal": {"type": "string"}},
                     "required": ["role", "goal"],
                 },
             },
         ),
-        _tool(
-            "files",
-            "Look at the user's disk: names, sizes, dates and counts only, never file contents. op 'list' shows one folder; "
-            "'count' totals a whole folder tree by file extension; 'find' searches a folder tree for names containing the pattern "
-            "(or matching a * glob; several quoted or comma-separated terms match any of them), newest first. Paths are Windows paths such as D:\\Documents.",
-            required=["op", "path"],
-            op={"type": "string", "enum": ["list", "count", "find"]},
-            path={"type": "string"},
-            pattern={"type": "string"},
-        ),
-        _tool(
-            "browse",
-            "Read web pages in a headless browser, read-only. op 'open' loads a url; 'click' follows a numbered link from "
-            "the page you last opened; 'more' shows the next part of the current page's text.",
-            required=["op"],
-            op={"type": "string", "enum": ["open", "click", "more"]},
-            url={"type": "string"},
-            link={"type": "integer", "minimum": 1},
-        ),
-        _tool("delegate", "Run one step of your plan by its number (0 is the first). Its Finding comes back next turn.", step={"type": "integer", "minimum": 0}),
-        _tool("answer", "Give the final reply to the user.", text={"type": "string"}),
+        tool_schema("delegate", "Run one step of your plan by its number (0 is the first). Its Finding comes back next turn.", step={"type": "integer", "minimum": 0}),
+        tool_schema("answer", "Give the final reply to the user.", text={"type": "string"}),
     ]
 }
 
@@ -87,7 +60,7 @@ class ModelRequest(BaseModel):
 
 
 class ModelResponse(BaseModel):
-    action: Action
+    action: BaseModel  # any Action; not the closed `Action` union, which cannot know a capability registered after import
     cost_usd: float
     searches: int = 0  # web searches this call used
 
@@ -108,10 +81,11 @@ def _cost(model: str, input_tokens: int, output_tokens: int, web_searches: int) 
 def _tool_defs(request: ModelRequest) -> list[dict]:
     defs = []
     for name in request.tools:
+        tool = _CONTROL_TOOLS.get(name) or capabilities.get(name).tool
         if name != "web_search":
-            defs.append(_CLIENT_TOOLS[name])
-        elif request.max_searches > 0:
-            defs.append({**_WEB_SEARCH, "max_uses": request.max_searches})
+            defs.append(tool)
+        elif request.max_searches > 0:  # the provider runs searches; this Run's remaining count caps them
+            defs.append({**tool, "max_uses": request.max_searches})
     return defs
 
 
@@ -131,13 +105,9 @@ def _action(content) -> Action:
     tool = next((b for b in content if b.type == "tool_use"), None)
     if tool is not None:
         args = tool.input
+        if (parsed := capabilities.parse(tool.name, args)) is not None:
+            return parsed
         match tool.name:
-            case "fetch":
-                return FetchAction(url=args["url"])
-            case "files":
-                return FilesAction(**args)
-            case "browse":
-                return BrowseAction(**args)
             case "plan":
                 return PlanAction(steps=args["steps"])
             case "delegate":

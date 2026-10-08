@@ -46,12 +46,14 @@ flowchart LR
 
 | Code | Job |
 |---|---|
-| `runner.py` | the one agent loop for every Role; shared Budget/Gate/Ledger; plan auto-starts its first step; Stop; repeat guard |
-| `roles.py` | Role table: prompt, tools, model, step cap (Orchestrator Sonnet 5, Direct Haiku 4.5, Files Haiku 4.5, Browser Sonnet 5) |
-| `model.py` | Anthropic adapter; tools `plan delegate answer fetch files browse`; citations → Sources list |
-| `gate.py` | `screen` (before spend) and `check(action, role's kinds)` |
-| `files.py` / `browser.py` / `fetch.py` | the hands; each enforces its own path or network policy |
-| `intake.py`, `ledger.py`, `store.py`, `domain.py` | routing + decline, append-only events (role, parent), SQLite with tracked migrations, plain-data types |
+| `capabilities/` | **one file per tool** (`fetch` `files` `browse` `web_search`): tool schema, Action, executor, Gate rule, Trace line, repeat guard, note trimming, blurb. `__init__.py` holds `ALL`: **a new capability is one new file plus one line there** |
+| `runner.py` | the one agent loop for every Role; shared Budget/Gate/Ledger; plan auto-starts its first step; Stop; runs any capability through the registry |
+| `roles.py` | Role table: prompt, tools (capability names), model, step cap (Orchestrator Sonnet 5, Direct Haiku 4.5, Files Haiku 4.5, Browser Sonnet 5); the plan's role list comes from it |
+| `model.py` | Anthropic adapter; control tools `plan delegate answer`, every other tool from the registry; citations → Sources list |
+| `gate.py` | `screen` (before spend) and `check(action, role's kinds)`, then the capability's own rule |
+| `files.py` / `browser.py` / `fetch.py` | the hands; each enforces its own path or network policy (a capability reaches its hand through `RunContext.hands`) |
+| `intake.py`, `ledger.py`, `store.py`, `domain.py` | routing + decline, append-only events (role, parent, chat), tasks/runs/chats rows, SQLite with tracked migrations, plain-data types |
+| `contract.py`, `history.py` | the page↔backend wire types (`docs/ui-contract.md` v1) and the read-only reader that returns them from the database |
 | `channels/web.py`, `channels/cli.py`, `app.py`, `web/` | channels (trace out, Stop in, screenshot route), wiring, the React page |
 
 ## Decisions (and where to read more)
@@ -98,7 +100,17 @@ Stop takes effect at the next step (up to ~20 s inside a long search) · a searc
 Windows-only paths (`files.py`). Run tests with the venv Python. In generated Python, write Windows paths with `\\` (a bare `\D` is a `SyntaxWarning`; CI-style check: `pytest -W error::SyntaxWarning`). Use `-X utf8` when printing arrows to the console. The live suite and the web chat spend real money: say so before running them. `.archify/` holds generated diagrams (local only).
 
 ## Lane: Main
-Not started. Next: B1a (isolation guards) and B1b (capability modules) — [`plan/main-worktree.md`](plan/main-worktree.md). Owner of this section: the Main lane.
+Owner of this section: the Main lane · hand-off: [`plan/main-worktree.md`](plan/main-worktree.md) · branch `claude/main-worktree-plan-ebf573`.
+
+| Iteration | State |
+|---|---|
+| **B1a** isolation guards | **done 2026-10-07** · `STEPOUT_PORT` (default 8765) · pytest `pythonpath = ["src", "."]`, `testpaths = ["tests"]` · `tests/test_isolation.py` · `scripts/owners.py --lane main\|ui <branch>` (merge agent runs it per lane) · log: [`b1a-isolation-guards`](log/2026-10-07-b1a-isolation-guards.md), [`unlisted-paths-belong-to-main`](log/2026-10-07-unlisted-paths-belong-to-main.md) |
+| **B1b** capability modules | **done 2026-10-07, no behaviour change** · `src/stepout/capabilities/` (`base` `fetch` `files` `browse` `web_search` + the `ALL` registry) · `domain.Action`, the tool schemas, the Gate rule and the Runner's dispatch all come from the registry · `PlanStep.role` and the plan tool's role list come from `ROLES` · proof: `tests/test_capabilities.py` runs a fake `echo` capability that imports none of domain/model/gate/runner/roles · log: [`b1b-capability-modules`](log/2026-10-07-b1b-capability-modules.md) · **live smoke suite 6/6 and its cost (within 10%) are still to be checked by the merge agent at the next sync** |
+
+| **B2** persistence | **done 2026-10-07; ready for sync X2** · chats, messages, `tasks` and `runs` are saved (migrations 0003, 0004) · `conversation_id` on `Message`/`Reply`/`Task`/`Event` (default `"default"`) · `app.SavedChannel` saves every message and reply, with `run_id` and `cost_usd` on an assistant message · a Run's row ends `done`, `cancelled` (Stop or budget; the contract's `stopped`) or `failed` · `shot` events carry `url`/`title` · `contract.py` = the wire types of `ui-contract.md` v1 · `history.py` returns them (`list_conversations`, `get_conversation` with runs, `run_events`) · `tests/test_contract.py` validates `web/fixtures/*.json` (skips until the UI lane adds them) · log: [`b2-v0-save-chats`](log/2026-10-07-b2-v0-save-chats.md), [`b2-runs-contract-history`](log/2026-10-07-b2-runs-contract-history.md) (it lists what the UI lane should check at X2) · **for X2 (UI lane's `channels/web.py`):** send `hello`, serve `/api/*` from `history`, add `queued` to `state`, send and read chat ids; the cost footer leaves `Runner.submit` once the page reads `cost_usd` |
+
+**Offline tests:** 168 passed, 1 skipped (the fixture check, until `web/fixtures` exists), 6 deselected (after B2; 135 at the start). **Setup in a worktree:** `py -3.13 -m venv .venv` then `.venv\Scripts\python.exe -m pip install -e ".[dev]"`. In Git Bash, `python` may be MSYS2's, whose venv has `bin/` instead of `Scripts/`: use `py` or PowerShell.
+**Ceiling noticed, not fixed:** `Store.__init__` runs a migration script and sets `user_version` in separate steps, so two processes opening one *new* database file at the same moment can both run an `ALTER` and leave it unusable (`duplicate column name`). One process per database file is the design (ADR 0006) and each worktree has its own `data/`; B2's migration 0003 is the place to make it atomic if wanted.
 
 ## Lane: UI
 **U1 done:** the look is **C · Ink** ([decision](log/2026-10-07-look-is-direction-c-ink-graphite-mono-run-detail-run-green.md)); tokens in `web/src/design/tokens.css`; `npm run check:contrast` guards them. **U2a done** (the page, a mock backend, seven invented fixtures, Vitest): `python web/mock/server.py` (port 8766), then `cd web && npm run dev` (http://localhost:5173); `npm test` (35), `python -m pytest web/mock -q` (9). **Until U2b the page works against the mock only** (the real backend still speaks v0). **Next:** `git merge main` when the merge agent says B2 is there, then U2b in `channels/web.py` (hello/message/trace/status, `/api/*`, the Host/Origin/id tests, `queued`, `HistoryReader` wired to `history.py`; fixtures must pass `tests/test_contract.py`; ask Main for the cost-footer change through a `contract` entry). Then U3 ([`plan/ui-worktree.md`](plan/ui-worktree.md)). Not done yet in U2: the Playwright flow in `web/e2e/` (listed for U3/U4), a drawer for narrow screens (U5). **Open, needs the User's yes before U4:** the User wants the browser view to be the live headless browser, not screenshots. Proposed: a view-only live stream of the run's page (Playwright `page.screencast` frames, on request only), which supersedes the [simple screenshot viewer](log/2026-10-07-simple-screenshot-viewer.md) and needs a Main-lane change in `browser.py`. The lane has its own venv (`.venv`) and `web/node_modules`; the UI/UX Pro Max skill is installed locally and untracked ([log](log/2026-10-07-ui-ux-pro-max-skill-used-for-u1-installed-locally-and-not-co.md)). Owner of this section: the UI lane.
