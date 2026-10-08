@@ -6,6 +6,7 @@ export type Run = {
   conversationId: string
   startedAt: string
   hint: RunInfo['state'] | null // what the API said when the chat was loaded; live state comes from `status`
+  cap: number | null // the Run's budget from the API (a live Run's comes from `status`); null if unknown or none
   events: Trace[]
 }
 
@@ -78,7 +79,7 @@ function touch(chats: State['chats'], id: string, at: string, message?: Message)
 function addEvents(runs: State['runs'], events: Trace[]): State['runs'] {
   const out = { ...runs }
   for (const e of events) {
-    const run = out[e.run_id] ?? { id: e.run_id, conversationId: e.conversation_id, startedAt: e.at, hint: null, events: [] }
+    const run = out[e.run_id] ?? { id: e.run_id, conversationId: e.conversation_id, startedAt: e.at, hint: null, cap: null, events: [] }
     const merged = mergeById(run.events, [e])
     out[e.run_id] = { ...run, events: merged, startedAt: merged[0].at }
   }
@@ -117,7 +118,7 @@ export function reducer(s: State, a: Action): State {
       const runs = { ...s.runs }
       for (const r of a.runs) {
         const old = runs[r.run_id]
-        runs[r.run_id] = { id: r.run_id, conversationId: a.id, startedAt: old?.events[0]?.at ?? r.started_at, hint: r.state, events: old?.events ?? [] }
+        runs[r.run_id] = { id: r.run_id, conversationId: a.id, startedAt: old?.events[0]?.at ?? r.started_at, hint: r.state, cap: r.cap_usd > 0 ? r.cap_usd : null, events: old?.events ?? [] }
       }
       return {
         ...s,
@@ -140,7 +141,7 @@ export function reducer(s: State, a: Action): State {
 // ---- selectors ----------------------------------------------------------------------------------------------
 
 export type ChatState = 'idle' | 'queued' | 'running'
-export type RunState = 'running' | 'done' | 'stopped' | 'failed'
+export type RunState = 'running' | 'done' | 'stopped' | 'overbudget' | 'failed'
 
 /** Chats newest first, each with what it is doing now (one Run at a time across all chats). */
 export function chatList(s: State): (Chat & { state: ChatState })[] {
@@ -152,23 +153,39 @@ export function chatList(s: State): (Chat & { state: ChatState })[] {
 
 export function runState(s: State, r: Run): RunState {
   if (s.status.active?.run_id === r.id) return 'running'
-  if (r.events.some((e) => e.kind === 'stop')) return 'stopped'
+  const stop = r.events.find((e) => e.kind === 'stop')
+  // The Runner's two stop texts: "Stopped by you." and "Stopped: the $1.00 budget for this run is used up." (the API calls both `stopped`)
+  if (stop) return /budget .*used up/i.test(stop.data.summary ?? '') ? 'overbudget' : 'stopped'
+  if (r.hint === 'stopped') return 'stopped'
   return r.hint === 'failed' ? 'failed' : 'done'
 }
 
-export type Item = { kind: 'message'; message: Message } | { kind: 'run'; run: Run }
+/** The Run's budget: from `status` while it runs, from the API once it has ended; null if unknown. */
+export function runCap(s: State, r: Run): number | null {
+  return s.status.active?.run_id === r.id ? s.status.active.cap_usd || null : r.cap
+}
+
+export type Item =
+  | { kind: 'message'; message: Message; queued?: boolean; note?: boolean }
+  | { kind: 'run'; run: Run }
 
 /**
  * A chat in reading order: your message, then its Run, then the reply. Messages sent while a Run was busy
  * arrive early, so a reply sorts right after its own Run instead of after the next queued message.
+ * A user message still waiting its turn is `queued` (the last n, where `status` says n of this chat are waiting);
+ * a reply with no Run (a decline, an unknown command, an error) is a `note`.
  */
 export function timeline(s: State, chatId: string): Item[] {
   const rank = { user: 0, run: 1, assistant: 2 }
+  const messages = s.messages[chatId] ?? []
+  const waiting = s.status.queued.filter((q) => q.conversation_id === chatId).length
+  const queued = new Set(messages.filter((m) => m.role === 'user').slice(Math.max(0, messages.filter((m) => m.role === 'user').length - waiting)).map((m) => m.id))
   const rows: { key: number; rank: number; item: Item }[] = []
-  for (const message of s.messages[chatId] ?? []) {
+  for (const message of messages) {
     const run = message.run_id ? s.runs[message.run_id] : undefined
     const key = message.role === 'assistant' && run?.events.length ? ms(run.startedAt) + 0.5 : ms(message.at)
-    rows.push({ key, rank: rank[message.role], item: { kind: 'message', message } })
+    const item: Item = { kind: 'message', message, ...(queued.has(message.id) ? { queued: true } : {}), ...(message.role === 'assistant' && !message.run_id ? { note: true } : {}) }
+    rows.push({ key, rank: rank[message.role], item })
   }
   for (const run of Object.values(s.runs)) {
     if (run.conversationId === chatId && run.events.length) rows.push({ key: ms(run.startedAt), rank: rank.run, item: { kind: 'run', run } })

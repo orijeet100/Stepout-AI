@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Frame, Message, Trace } from './protocol'
-import { chatList, initial, plain, reducer, runState, timeline, type Action, type State } from './store'
+import { chatList, initial, plain, reducer, runCap, runState, timeline, type Action, type State } from './store'
 
 const C = 'c'.repeat(32)
 const t = (s: number) => `2026-10-01T09:00:${String(s).padStart(2, '0')}.000Z`
@@ -53,6 +53,37 @@ describe('what each chat is doing', () => {
     expect(runState(live, live.runs.r1)).toBe('running')
     const stopped = run(base, ...frames(trace('e2', 'r1', 'stop', 3, { summary: 'Stopped by you.' })))
     expect(runState(stopped, stopped.runs.r1)).toBe('stopped')
+  })
+})
+
+describe('run state and cap', () => {
+  const live = (run: string, cap: number): Action => ({ type: 'frame', frame: { type: 'status', state: 'running', active: { conversation_id: C, run_id: run, cap_usd: cap }, queued: [] } })
+  const detail = (state: 'running' | 'done' | 'stopped' | 'failed', cap: number): Action => ({ type: 'detail', id: C, title: '', messages: [], runs: [{ run_id: 'r1', state, cost_usd: 0, cap_usd: cap, started_at: t(1) }] })
+
+  it('the two stop texts of the Runner: by you, or the budget used up', () => {
+    const stopped = (text: string) => run(initial, ...frames(trace('e1', 'r1', 'stop', 3, { summary: text })))
+    const byYou = stopped('Stopped by you.')
+    const budget = stopped('Stopped: the $1.00 budget for this run is used up.')
+    expect(runState(byYou, byYou.runs.r1)).toBe('stopped')
+    expect(runState(budget, budget.runs.r1)).toBe('overbudget')
+  })
+
+  it('failed and stopped come from the API when the events do not say', () => {
+    const failed = run(initial, ...frames(trace('e1', 'r1', 'step', 2)), detail('failed', 1))
+    expect(runState(failed, failed.runs.r1)).toBe('failed')
+    const stopped = run(initial, ...frames(trace('e1', 'r1', 'step', 2)), detail('stopped', 1))
+    expect(runState(stopped, stopped.runs.r1)).toBe('stopped')
+  })
+
+  it('the cap is the status frame while the Run runs, the API after, and null when there is none (never a guess)', () => {
+    const s = run(initial, ...frames(trace('e1', 'r1', 'step', 2)))
+    expect(runCap(s, s.runs.r1)).toBeNull()
+    const running = run(s, live('r1', 1))
+    expect(runCap(running, running.runs.r1)).toBe(1)
+    const ended = run(s, detail('done', 2.5))
+    expect(runCap(ended, ended.runs.r1)).toBe(2.5)
+    const noBudget = run(s, detail('done', 0)) // a cap of 0 is "no budget": nothing to draw a meter against
+    expect(runCap(noBudget, noBudget.runs.r1)).toBeNull()
   })
 })
 
