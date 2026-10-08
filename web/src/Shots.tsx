@@ -28,6 +28,21 @@ export function ShotImage({ shot, className }: { shot: Shot; className?: string 
   return <img className={className} src={src} alt={`Screenshot of ${shot.title ?? 'the page'}`} loading="lazy" onError={() => setBad(true)} />
 }
 
+/** The pages the Browser saved, as thumbnails that open the viewer. They appear as the `shot` events arrive. */
+export function ThumbStrip({ shots, onOpen }: { shots: Shot[]; onOpen: (index: number) => void }) {
+  if (shots.length === 0) return null
+  return (
+    <div className="thumbs" role="group" aria-label="Pages the browser saved">
+      {shots.map((s, i) => (
+        <button key={s.path} type="button" className="thumb" onClick={() => onOpen(i)} aria-label={`Open screenshot ${i + 1} of ${shots.length}: ${s.title ?? 'the page'}`}>
+          <ShotImage shot={s} className="thumb__img" />
+          <span className="thumb__cap">{s.title ?? 'Untitled page'}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 type PanelProps = { runId: string; live: boolean; shots: Shot[]; onOpen?: (index: number) => void }
 
 /**

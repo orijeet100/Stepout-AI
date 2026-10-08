@@ -1,7 +1,7 @@
 import Icon from './Icon'
 import type { Trace, Verdict } from './protocol'
 import { elapsedMs, elapsedText, hasBrowserStep, money, plainLine, planOf, planProgress, shotsOf, spent, stepCost, stepCount } from './runview'
-import { BrowserPanel } from './Shots'
+import { BrowserPanel, ThumbStrip } from './Shots'
 import type { Run, RunState } from './store'
 
 const VERDICT: Record<Verdict, { label: string; icon: 'check' | 'ban' | 'ask' }> = {
@@ -94,6 +94,7 @@ export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: P
         <ul className="steps" aria-label="Steps">
           {lines.map((e) => <Line key={e.id} e={e} />)}
         </ul>
+        {onOpenShot && <ThumbStrip shots={shots} onOpen={onOpenShot} />}
       </div>
     </details>
   )

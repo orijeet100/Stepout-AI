@@ -120,6 +120,22 @@ a.page__url { color: var(--accent); }
 .shot-missing { display: grid; place-content: center; justify-items: center; gap: var(--sp-1); width: 100%; height: 100%; aspect-ratio: 10 / 7; color: var(--muted); background: var(--surface-2); font-family: var(--font-body); font-size: var(--fs-sm); }
 .browser__empty { margin: 0; }
 
+/* the saved pages: thumbnails, and the viewer */
+.thumbs { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.thumb { display: grid; gap: 4px; width: 8.5rem; padding: 0; text-align: left; background: none; border: 0; cursor: zoom-in; font-family: var(--font-body); }
+.thumb__img { display: block; width: 100%; aspect-ratio: 10 / 7; object-fit: cover; background: #fff; border: 1px solid var(--border-strong); border-radius: var(--r-md); transition: border-color var(--dur) var(--ease); }
+.thumb:hover .thumb__img { border-color: var(--accent); }
+.thumb__cap { overflow: hidden; color: var(--muted); font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
+.viewer { width: min(96vw, 64rem); max-width: none; padding: 0; background: transparent; border: 0; color: var(--text); }
+.viewer::backdrop { background: rgb(0 0 0 / 0.72); }
+.viewer__panel { display: grid; gap: var(--sp-3); padding: var(--sp-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: 0 12px 40px rgb(0 0 0 / 0.35); font: var(--fs-md) / var(--lh) var(--font-body); }
+.viewer header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+.viewer__what { display: grid; min-width: 0; }
+.viewer h2 { margin: 0; overflow: hidden; font-size: var(--fs-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.viewer .page__url { overflow-wrap: anywhere; white-space: normal; }
+.viewer__img { display: block; width: min(100%, calc((100dvh - 15rem) * 10 / 7)); margin-inline: auto; aspect-ratio: 10 / 7; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); } /* as large as fits, never letterboxed in a wider frame */
+.viewer footer { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+
 /* a message waiting its turn, and a reply that is not the end of a Run (a decline, an unknown command, an error) */
 .tag { margin-left: var(--sp-2); padding: 1px var(--sp-2); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; font-size: 0.75rem; white-space: nowrap; }
 .reply--note { padding-left: var(--sp-3); border-left: 2px solid var(--border); }
