@@ -29,6 +29,7 @@ Status: **v0 verified from the code (2026-10-07); v1 frozen at sync X1 on 2026-1
 | `return` | the specialist | `summary` (`done: …` / `failed: …`, first 200 chars), `ok` |
 | `shot` | `browser` | `summary`, `shot: "<run_id>/<n>.jpg"` (fetch it from `/shots/`) |
 | `stop` | the Role that stopped | `summary` (`Stopped by you.` or the budget message) |
+| `error` | the Role that was acting | `summary` (the plain line the User is also given as the reply), `cause` (`auth` `no_key` `credit` `rate_limit` `overloaded` `server_error` `timeout` `connection` `rejected` `malformed` `chrome` `internal`), `type` (the exception class: for the Ledger, not for display), `status` (HTTP, if any). Added 2026-10-08, additive: emitted just before a Run ends `failed` |
 
 `screening` events exist in the Ledger but are not streamed. A trace carries no run id, event id, parent or time yet (the run id is inside `shot`).
 

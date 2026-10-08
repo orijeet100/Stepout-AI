@@ -29,7 +29,7 @@ class FakeMessages:
 async def ask(*content, **request):
     model = AnthropicModel()
     fake = FakeMessages(*content)
-    model._client = NS(messages=fake)
+    model._client = NS(messages=fake, api_key="test")
     response = await model.call(ModelRequest(model=HAIKU, system="s", user_text="u", **request))
     return response, fake.kwargs
 

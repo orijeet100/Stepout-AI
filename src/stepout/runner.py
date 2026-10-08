@@ -7,6 +7,7 @@ Role shares one Budget, one Gate and one Ledger, and every event is streamed to 
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable, Sequence
@@ -16,6 +17,7 @@ from stepout import capabilities, gate
 from stepout.capabilities.base import TEXT_CHARS, RunContext, RunState
 from stepout.domain import Allow, AnswerAction, DelegateAction, Event, Exchange, Outcome, PlanAction, PlanStep, Reply, Task
 from stepout.browser import Browser
+from stepout.failure import Failure
 from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.ledger import Ledger
@@ -26,6 +28,8 @@ from stepout.roles import ROLES
 
 _MAX_PLANS = 3  # the first plan plus two re-plans
 _REPEATED = "You already ran exactly this and the result will not change. Try something different, or answer."
+_UNEXPECTED = "I hit an unexpected problem and had to stop this task. Nothing on your computer was changed. Try again; if it repeats, the details are in the terminal."
+_NO_ANSWER = "I finished without an answer to give you. Try asking again, perhaps in other words."
 
 
 @dataclass
@@ -46,6 +50,7 @@ class _Run:
     plan: list[PlanStep] = field(default_factory=list)
     plans: int = 0
     stopped: bool = False  # the User pressed Stop, or the budget ran out
+    acting: str = "orchestrator"  # the Role taking its turn: where a failure is placed in the Ledger
     previous: str = ""  # the linked Exchanges, rendered; only the Orchestrator sees them
     state: RunState = field(default_factory=RunState)  # shared by every Role: read counters and, later, the taint
     urls: set[str] = field(default_factory=set)  # addresses a tainted Run's reply may still link to (see links.py)
@@ -125,11 +130,21 @@ class Runner:
         try:
             finding = await self._agent("orchestrator", task.request, run, parent=None)
             outcome = Outcome.CANCELLED if run.stopped else Outcome.DONE if finding.ok else Outcome.FAILED
+        except Exception as exc:  # a model call or a hand failed: the Run fails, the User is told in a line, and the app serves the next message
+            finding = await self._failed(run, exc)
         finally:
             self._ledger.end_run(run.id, outcome, run.spent, run.state.tainted)
             await self._browser.close(run.id)  # its pages are this Run's alone
-        text = defang(finding.text, run.urls) if run.state.tainted else finding.text  # a file may ask for a link that holds its own text
+        text = finding.text if finding.text.strip() else _NO_ANSWER
+        text = defang(text, run.urls) if run.state.tainted else text  # a file may ask for a link that holds its own text
         await self._notify(Reply(text=text, conversation_id=task.conversation_id, run_id=run.id, cost_usd=run.spent))
+
+    async def _failed(self, run: _Run, exc: Exception) -> Finding:
+        """What went wrong, for the User (a line) and the Ledger (the cause); the terminal gets the traceback."""
+        logging.getLogger(__name__).exception("run %s failed in the %s agent", run.id, run.acting)
+        kind, message, status = (exc.kind, exc.message, exc.status) if isinstance(exc, Failure) else ("internal", _UNEXPECTED, None)
+        await self._emit(run, "error", run.acting, message, cause=kind, type=type(exc).__name__, **({"status": status} if status else {}))
+        return Finding(message, ok=False)
 
     async def _emit(self, run: _Run, kind: str, role: str, summary: str, *, parent=None, cost=0.0, **data) -> Event:
         event = Event(task_id=run.task_id, run_id=run.id, conversation_id=run.conversation_id, kind=kind, role=role, parent=parent, cost_usd=cost, data={"summary": summary, **data})
@@ -178,6 +193,7 @@ class Runner:
             if run.spent >= run.cap:
                 return await self._stop(run, role_name, parent, f"Stopped: the ${run.cap:.2f} budget for this run is used up.")
 
+            run.acting = role_name
             orchestrating = role_name == "orchestrator"
             response = await self._model.call(
                 ModelRequest(

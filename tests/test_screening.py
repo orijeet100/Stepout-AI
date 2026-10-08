@@ -102,7 +102,7 @@ def adapter_with(*content):
             return NS(content=list(content), usage=NS(input_tokens=800, output_tokens=40))
 
     model = AnthropicModel()
-    model._client = NS(messages=FakeMessages())
+    model._client = NS(messages=FakeMessages(), api_key="test")
     return model, seen
 
 

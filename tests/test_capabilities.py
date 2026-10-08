@@ -102,7 +102,7 @@ async def test_the_model_adapter_needs_no_edit_for_a_new_capability(with_echo):
             return NS(content=[NS(type="tool_use", name="echo", input={"text": "yo"})], usage=NS(input_tokens=1, output_tokens=1))
 
     model = AnthropicModel()
-    model._client = NS(messages=FakeMessages())
+    model._client = NS(messages=FakeMessages(), api_key="test")
     response = await model.call(ModelRequest(model=HAIKU, system="s", user_text="u", tools=["echo"]))
     assert seen["tools"][0]["name"] == "echo" and seen["tools"][0]["input_schema"]["required"] == ["text"]
     assert response.action == EchoAction(text="yo")
