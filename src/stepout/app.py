@@ -77,7 +77,10 @@ async def main() -> None:
     model = AnthropicModel()
     fetcher = Fetcher()
     if "web" in sys.argv[1:]:
-        channel = WebChannel(port=web_port(), shots=SHOTS_PATH)
+        # ponytail: imported here only until the UI lane's U2b (channels/web.py) is merged; then it moves to the top with WebChannel
+        from stepout.channels.web import StoreHistory
+
+        channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store))  # the channel reads history from the app's own Store
         print(f"Stepout web chat: http://127.0.0.1:{await channel.start()}  (Ctrl+C to stop)")
     else:
         channel = CliChannel()
