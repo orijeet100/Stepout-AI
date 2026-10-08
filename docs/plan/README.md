@@ -85,7 +85,7 @@ A plain session in `D:\Stepout AI`, on `main` (no lane works there, so it is fre
 3. Checks — all must pass:
    - `python scripts/log.py check --range main..HEAD` (every code change has a log entry)
    - from B1a: `python scripts/owners.py --lane main <Main branch>` and `--lane ui <UI branch>` (each lane changed only paths it owns)
-   - `python -m pytest -q` (offline, includes real Chrome; 135 passed, 6 deselected on 2026-10-07)
+   - `python -m pytest -q` (offline, includes real Chrome; all tests pass)
    - `cd web && npm ci && npm run lint && npm run build`, plus `npm test` once U2 adds it
    - from X2 on: `python -m pytest tests/test_contract.py`
    - from X2 on, **after telling the User the cost**: `python -X utf8 -m pytest -m eval -s tests/test_live.py` (about $0.11; the only paid step)

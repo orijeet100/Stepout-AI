@@ -14,7 +14,6 @@ from stepout.intake import Intake
 from stepout.ledger import Ledger
 from stepout.model import ModelResponse
 from stepout.runner import Runner
-from stepout.screening import ProceedScreener
 from stepout.store import _MIGRATIONS_DIR, Store
 from tests.support.screeners import FixedScreener
 from tests.support.scripted_model import ScriptedModel
@@ -81,7 +80,7 @@ async def serve(tmp_path, messages, responses, screener=None, **runner_kwargs):
     ledger = Ledger(store)
     model = ScriptedModel(responses)
     saved = SavedChannel(FakeChannel(*messages), ledger)
-    intake = Intake(screener or ProceedScreener(), ledger, lambda cid: history.exchanges(store, cid))
+    intake = Intake(screener or FixedScreener(), ledger, lambda cid: history.exchanges(store, cid))
     await run(saved, intake, Runner(model, NoFetcher(), ledger, saved.send, **runner_kwargs))
     return Store(tmp_path / "t.db")  # as after a restart
 

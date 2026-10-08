@@ -1,4 +1,4 @@
-"""Domain types: Message, Reply, Task, Run, Action, Result, Verdict, Outcome, Event.
+"""Domain types: Message, Reply, Task, Action, Verdict, Outcome, Event.
 
 Plain Pydantic models only — no behaviour, no live objects or callbacks (N12:
 Actions and Results must round-trip through JSON so hands can later run elsewhere).
@@ -30,12 +30,8 @@ def _now() -> datetime:
 
 class Outcome(StrEnum):
     DONE = "done"
-    BLOCKED = "blocked"
-    DECLINED = "declined"
     FAILED = "failed"
     CANCELLED = "cancelled"
-    EXPIRED = "expired"
-    UNCERTAIN = "uncertain"
 
 
 DEFAULT_CONVERSATION = "default"  # the CLI's one chat, and the page's until it sends chat ids
@@ -79,27 +75,13 @@ class Exchange(BaseModel):
     request: str
     reply: str  # without the cost footer
     did: str  # one line: what the hands did ("browse open luma.com/discover"); empty if it only answered
-    tainted: bool = False  # always False until the Reader (B4)
+    tainted: bool = False  # its Run held data from the User's files (it read a file, or built on an answer that did): whatever builds on it starts with the web closed
     run_id: str
 
 
-class Run(BaseModel):
-    """One attempt at carrying out a Task."""
-
-    id: str = Field(default_factory=_id)
-    task_id: str
-    outcome: Outcome | None = None
-    cost_usd: float = 0.0
-
-
-# --- Actions the model may propose, and their Results --------------------
+# --- Actions the model may propose ---------------------------------------
 # A capability's Action lives with the capability (stepout/capabilities/). What stays here are the control
-# Actions (plan, delegate, answer) and the legacy search Action.
-
-
-class SearchAction(BaseModel):
-    kind: Literal["search"] = "search"
-    query: str
+# Actions (plan, delegate, answer). (Web search is the provider's: it never reaches us as an Action.)
 
 
 class AnswerAction(BaseModel):
@@ -131,27 +113,7 @@ class DelegateAction(BaseModel):
 
 # Built once at import from the registry, so a registered capability is part of the union by construction.
 # (A capability registered later, as the tests do, is not in it: ModelResponse.action is a plain BaseModel for that reason.)
-Action = Annotated[Union[(*capabilities.action_types(), SearchAction, AnswerAction, PlanAction, DelegateAction)], Field(discriminator="kind")]
-
-
-class FetchResult(BaseModel):
-    kind: Literal["fetch"] = "fetch"
-    url: str
-    text: str
-
-
-class SearchResult(BaseModel):
-    kind: Literal["search"] = "search"
-    query: str
-    snippets: list[str]
-
-
-class AnswerResult(BaseModel):
-    kind: Literal["answer"] = "answer"
-    text: str
-
-
-Result = FetchResult | SearchResult | AnswerResult
+Action = Annotated[Union[(*capabilities.action_types(), AnswerAction, PlanAction, DelegateAction)], Field(discriminator="kind")]
 
 
 # --- Gate ------------------------------------------------------------------

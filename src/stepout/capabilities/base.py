@@ -7,7 +7,7 @@ only through `RunContext`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Mapping
 
 from pydantic import BaseModel
@@ -24,6 +24,18 @@ def tool_schema(name: str, description: str, required: list[str] | None = None, 
 
 
 @dataclass
+class RunState:
+    """What every Role of one Run shares, and what capabilities may read or change: counters and flags that outlive a single Step."""
+
+    scratch: dict[str, Any] = field(default_factory=dict)  # per capability, keyed by its name (e.g. how much has been read)
+    tainted: str = ""  # why this Run holds data from the User's files ("" = it does not). Once set it stays set for the Run.
+
+    def taint(self, why: str) -> None:
+        """File contents have entered this Run. From now on the Gate refuses every capability that reaches the web."""
+        self.tainted = self.tainted or why or "file contents were read"  # never empty: an empty reason would read as "not tainted"
+
+
+@dataclass
 class RunContext:
     """What a capability may use while one Role takes one Step."""
 
@@ -32,6 +44,7 @@ class RunContext:
     hands: Mapping[str, Any]  # the live hand for each capability name (Fetcher, Files, Browser, ...)
     cancelled: Callable[[], bool]  # True once the User pressed Stop
     emit: Callable[..., Awaitable[Any]]  # emit(kind, summary, **data): a Trace event under the Step that is running
+    state: RunState = field(default_factory=RunState)  # the same object for every Role in the Run
 
 
 class Capability:
@@ -39,6 +52,8 @@ class Capability:
     blurb: str  # one line: what it can and cannot do (feeds Screening and the decline reply)
     tool: dict  # JSON schema offered to the model
     action: type[BaseModel] | None = None  # the Pydantic Action (`kind == name`); None when the provider runs it (web_search)
+    stateful: bool = False  # True if what it returns depends on what it did before (the browser's current page): a repeat is then skipped only straight after the identical call
+    reaches_web: bool = False  # True if it can send or fetch anything over the network: closed by the Gate (and, for web_search, not offered) once the Run is tainted
 
     async def run(self, action: Any, ctx: RunContext) -> str:
         """Do it; return the text that goes into the Role's notes."""

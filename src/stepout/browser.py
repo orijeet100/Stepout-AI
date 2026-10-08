@@ -20,13 +20,12 @@ from urllib.parse import urljoin, urlparse
 
 from playwright.async_api import Error as PlaywrightError, async_playwright
 
-from stepout.fetch import BlockedUrl, _check_policy
+from stepout.failure import Failure
+from stepout.fetch import MAX_HOPS, REDIRECTS, BlockedUrl, _check_policy
 
 TEXT_CHARS = 5000  # of page text per view; `more` reads on
 MAX_LINKS = 30
 NAV_TIMEOUT_MS = 20_000
-MAX_HOPS = 5
-_REDIRECTS = (301, 302, 303, 307, 308)
 VIEWPORT = {"width": 1000, "height": 700}  # the page's size, and the most a live frame may be
 FRAME_QUALITY = 50  # JPEG quality of a live frame
 FRAME_GAP_S = 0.26  # at least this long between two frames of a Run: four in any second (five would need 4 gaps = 1.04 s)
@@ -98,10 +97,21 @@ class Browser:
             await self._pw.stop()
             self._pw = self._chrome = None
 
-    async def _open_session(self, run_id: str) -> _Session:
-        if self._chrome is None:  # the installed Chrome, headless: nothing to download
-            self._pw = await async_playwright().start()
+    async def _start_chrome(self) -> None:
+        """The installed Chrome, headless: nothing to download. Not installed, or not startable: say so in a line."""
+        try:
+            self._pw = self._pw or await async_playwright().start()
             self._chrome = await self._pw.chromium.launch(channel="chrome", headless=True)
+        except PlaywrightError as exc:
+            text = str(exc).strip()
+            missing = "is not found" in text or "doesn't exist" in text
+            detail = (text.splitlines() or ["no detail"])[0][:150]
+            raise Failure("chrome", "Chrome is not installed. Install Google Chrome, then try again." if missing else f"Chrome could not be started ({detail}). Try again.") from exc
+
+    async def _open_session(self, run_id: str) -> _Session:
+        if self._chrome is None or not self._chrome.is_connected():  # the first Run, or Chrome has died since
+            self._sessions.clear()  # their pages died with it
+            await self._start_chrome()
         context = await self._chrome.new_context(
             accept_downloads=False, service_workers="block", viewport=VIEWPORT
         )
@@ -184,7 +194,7 @@ class Browser:
             response = await route.fetch(max_redirects=0)
         except (BlockedUrl, PlaywrightError):
             return await route.abort()
-        if response.status in _REDIRECTS:
+        if response.status in REDIRECTS:
             if request.resource_type == "document" and request.frame.parent_frame is None and "location" in response.headers:
                 s.redirect = urljoin(request.url, response.headers["location"])
                 return await route.fulfill(status=200, content_type="text/html", body="")  # _goto checks and follows the hop

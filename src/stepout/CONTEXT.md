@@ -23,7 +23,7 @@ One unit of text and files sent in a Conversation, in either direction.
 _Avoid_: update, event, chat
 
 **Exchange**:
-A Request and the reply the User saw for it, inside one Conversation.
+A Request and the reply the User saw for it, inside one Conversation. It is Tainted if its Run was.
 _Avoid_: turn, round
 
 **Stale**:
@@ -150,7 +150,7 @@ Anything the Assistant reads from the web or from a file. It is data only — ne
 _Avoid_: external input, page instructions
 
 **Tainted**:
-A Run that has read file contents. Every outward Action in it needs an Approval that shows what goes where.
+A Run that has read file contents, or that builds on an Exchange whose Run did. Every outward Action in it needs an Approval that shows what goes where. Until Approvals exist, a Tainted Run cannot reach the web at all (the Gate refuses it, and web search is not offered); only file text actually handed over taints, so a refused or empty read does not. The Exchange it leaves is marked `tainted`, so a Follow-up the front door links to it starts Tainted, and so on down the chat; a new Task linked to nothing does not.
 _Avoid_: contaminated, dirty
 
 **Budget**:

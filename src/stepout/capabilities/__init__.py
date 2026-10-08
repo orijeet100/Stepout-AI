@@ -13,9 +13,10 @@ from stepout.capabilities.base import Capability, RunContext
 from stepout.capabilities.browse import Browse
 from stepout.capabilities.fetch import Fetch
 from stepout.capabilities.files import Files
+from stepout.capabilities.read_text import ReadText
 from stepout.capabilities.web_search import WebSearch
 
-ALL: list[Capability] = [WebSearch(), Fetch(), Files(), Browse()]
+ALL: list[Capability] = [WebSearch(), Fetch(), Files(), Browse(), ReadText()]
 
 
 def get(name: str) -> Capability | None:

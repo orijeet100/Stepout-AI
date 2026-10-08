@@ -73,7 +73,8 @@ class Harness:
     """Script order = call order. A plan runs its first step itself, so its Role's calls come right after the plan."""
 
     def __init__(self, tmp_path, responses, fetcher=None, cancel=None, files=None, browser=None):
-        self.ledger = Ledger(Store(tmp_path / "t.db"))
+        self.store = Store(tmp_path / "t.db")
+        self.ledger = Ledger(self.store)
         self.model = ScriptedModel(responses)
         self.fetcher = fetcher or FakeFetcher("page text")
         self.replies: list[Reply] = []
@@ -284,9 +285,9 @@ async def test_only_the_newest_pages_stay_in_a_roles_notes(tmp_path):
 async def test_a_runs_browser_session_is_closed_even_when_the_run_fails(tmp_path):
     browser = FakeBrowser()
     h = Harness(tmp_path, [], browser=browser)  # no scripted responses: the model call raises
-    with pytest.raises(IndexError):
-        await h.run()
+    await h.run()  # the Run fails; it does not take the app down
     assert len(browser.closed) == 1
+    assert h.replies[0].text.startswith("I hit an unexpected problem")
 
 
 async def test_roles_hold_only_their_own_hand(tmp_path):

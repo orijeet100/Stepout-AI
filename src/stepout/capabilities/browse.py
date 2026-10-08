@@ -35,6 +35,8 @@ class Browse(Capability):
         link={"type": "integer", "minimum": 1},
     )
     action = BrowseAction
+    reaches_web = True
+    stateful = True  # `click` and `more` act on the page it is on, so after a click the same `open` is a different thing to do
 
     def summary(self, action: BrowseAction) -> str:
         return f"browse {action.op} {action.url or action.link or ''}".strip()

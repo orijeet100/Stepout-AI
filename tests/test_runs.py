@@ -53,8 +53,7 @@ async def test_an_empty_answer_fails_the_run(tmp_path):
 
 
 async def test_a_crash_still_closes_the_run_row_as_failed(tmp_path):
-    with pytest.raises(IndexError):  # the scripted model has nothing left to say
-        await Harness(tmp_path, []).run()
+    await Harness(tmp_path, []).run()  # the scripted model has nothing left to say: the Run fails and the app goes on
     (run,) = runs(tmp_path)
     assert run["outcome"] == "failed" and run["ended_at"] is not None
 

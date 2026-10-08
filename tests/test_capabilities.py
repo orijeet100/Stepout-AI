@@ -9,6 +9,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from stepout import capabilities, gate
+from stepout.capabilities.read_text import ReadTextAction
 from stepout.domain import Action, AnswerAction, Allow, BrowseAction, FetchAction, FilesAction, PlanStep, Refuse, Task
 from stepout.ledger import Ledger
 from stepout.model import HAIKU, AnthropicModel, ModelRequest, ModelResponse, _tool_defs
@@ -65,7 +66,7 @@ async def test_a_registered_capability_runs_through_the_runner(with_echo, tmp_pa
     assert "echo: hi" in model.requests[1].user_text  # its result reached the Role's notes
     assert "already ran exactly this" in model.requests[2].user_text  # the repeat guard held
     steps = [e for e in traced if e.kind == "step"]
-    assert [e.data["summary"] for e in steps] == ["echo hi", "echo hi", "answer"]  # its Trace line
+    assert [e.data["summary"] for e in steps] == ["echo hi", "repeat, not run again: echo hi", "answer"]  # its Trace line; the second is a repeat the guard skipped
     assert all(e.data["verdict"] == "allow" for e in steps)
     note = next(e for e in traced if e.kind == "note")  # ctx.emit hangs its event under the Step that ran
     assert note.parent == steps[0].id and note.role == "orchestrator"
@@ -101,7 +102,7 @@ async def test_the_model_adapter_needs_no_edit_for_a_new_capability(with_echo):
             return NS(content=[NS(type="tool_use", name="echo", input={"text": "yo"})], usage=NS(input_tokens=1, output_tokens=1))
 
     model = AnthropicModel()
-    model._client = NS(messages=FakeMessages())
+    model._client = NS(messages=FakeMessages(), api_key="test")
     response = await model.call(ModelRequest(model=HAIKU, system="s", user_text="u", tools=["echo"]))
     assert seen["tools"][0]["name"] == "echo" and seen["tools"][0]["input_schema"]["required"] == ["text"]
     assert response.action == EchoAction(text="yo")
@@ -125,7 +126,7 @@ def test_a_tool_the_provider_runs_has_no_action_and_is_not_one_a_role_may_take()
 
 
 def test_plan_roles_come_from_the_role_table():
-    assert SPECIALISTS == ("direct", "files", "browser")
+    assert SPECIALISTS == ("direct", "files", "browser", "reader")
     for name in SPECIALISTS:
         assert PlanStep(role=name, goal="g").role == name
         assert f"{name} (" in ROLES["orchestrator"].system  # the prompt describes every role a Plan can name
@@ -137,7 +138,7 @@ def test_plan_roles_come_from_the_role_table():
 
 def test_the_action_union_round_trips_every_capability_action():
     adapter = TypeAdapter(Action)
-    samples = [FetchAction(url="https://example.com"), FilesAction(op="find", path="D:\\Docs", pattern="cv"), BrowseAction(op="open", url="https://example.com")]
+    samples = [FetchAction(url="https://example.com"), FilesAction(op="find", path="D:\\Docs", pattern="cv"), BrowseAction(op="open", url="https://example.com"), ReadTextAction(path="D:\\Docs\\cv.pdf")]
     assert {type(s) for s in samples} <= set(capabilities.action_types())
     for action in samples:
         assert adapter.validate_json(adapter.dump_json(action)) == action

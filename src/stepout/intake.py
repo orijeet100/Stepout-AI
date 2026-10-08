@@ -12,10 +12,12 @@ from typing import Callable, Literal
 from pydantic import BaseModel
 
 from stepout.domain import ChatReply, Decline, Event, Exchange, Message, Proceed
+from stepout.failure import Failure
 from stepout.ledger import Ledger
 from stepout.screening import Screener
 
 _FALLBACK_EXCHANGES = 3  # how much history a message carries when the front door could not say what it links to
+_CANNOT_RUN = {"auth", "no_key", "credit"}  # a front-door failure that the Run's own calls would repeat: say so, do not start a Run
 
 
 class NewTask(BaseModel):
@@ -44,7 +46,12 @@ class DeclinedReading(BaseModel):
     cost_usd: float = 0.0
 
 
-Reading = NewTask | ChatReading | CommandReading | DeclinedReading
+class FailedReading(BaseModel):
+    kind: Literal["failed"] = "failed"
+    text: str  # what the User is told: what happened and what to do
+
+
+Reading = NewTask | ChatReading | CommandReading | DeclinedReading | FailedReading
 
 
 class Intake:
@@ -65,6 +72,9 @@ class Intake:
             decision, cost = await self._screener.screen(text, recent)
             failure = "the answer was not usable"
         except Exception as exc:  # an API error, a timeout: the message still goes through
+            if isinstance(exc, Failure) and exc.kind in _CANNOT_RUN:
+                self._record("screening_failed", message, {"request": text, "cause": exc.kind}, 0.0)
+                return FailedReading(text=exc.message)
             decision, cost, failure = None, 0.0, type(exc).__name__
         if decision is None:
             self._record("screening_fallback", message, {"request": text, "failure": failure}, cost)
