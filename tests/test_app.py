@@ -66,3 +66,15 @@ async def test_answer_request_end_to_end(ledger):
     assert len(channel.sent) == 1
     assert "Paris" in channel.sent[0].text
     assert channel.sent[0].text == "Paris" and channel.sent[0].cost_usd == pytest.approx(0.0027)  # the front door's $0.0007 is in the total, and the text carries no footer
+
+
+def test_the_browser_sends_live_frames_to_a_channel_that_shows_them_and_captures_nothing_for_one_that_does_not():
+    from types import SimpleNamespace
+
+    from stepout.app import make_browser
+    from stepout.channels.cli import CliChannel
+
+    def live_frame(run_id, jpeg): ...
+
+    assert make_browser(SimpleNamespace(live_frame=live_frame))._on_frame is live_frame  # the channel's own method, unwrapped
+    assert make_browser(CliChannel())._on_frame is None  # the terminal has none
