@@ -5,6 +5,7 @@
 - **Plan of record from 2026-10-07: `docs/plan/README.md`** — two lanes in two worktrees (Main B1–B6, UI U1–U6), file ownership, sync points, merge-agent procedure. In a lane? Read your lane file there first. The wire contract between the page and the backend is `docs/ui-contract.md`.
 - **Log every decision and every behaviour change** in `docs/log/`, in the same commit: `python scripts/log.py new --kind change --lane <main|ui> --title "..."`. Query it with `python scripts/log.py list [--lane/--kind/--tag/--grep]`. `python scripts/log.py check --staged` must pass; enable the hook once per clone with `git config core.hooksPath .githooks`. Details: `docs/log/README.md`.
 - **Adding a tool = one file in `src/stepout/capabilities/` (subclass `Capability`) plus one line in `ALL` in its `__init__.py`**, then name it in a Role's `tools` in `roles.py`. The Runner, Gate and model adapter learn it from the registry; `tests/support/echo_capability.py` is the minimal example.
+- **Front door:** every message that is not a `/command` gets one cheap screening call first (`src/stepout/screening.py`): decline, plain chat, or proceed with the earlier Exchanges it links to. Its paid eval is the merge agent's: `python -X utf8 -m pytest -m eval -s tests/test_live_screening.py` (labeled prompts: `tests/data/screening_prompts.jsonl`).
 - Never read or print `.env` (it holds the API key).
 - File access for the agents is set by `data/config/grants.toml` (git-ignored; template `grants.example.toml`). Only the User edits it.
 

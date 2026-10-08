@@ -28,9 +28,9 @@ Each is **deep**: callers learn a small interface; the behaviour behind it is la
 
 | Module | Interface (all a caller learns) | Hides | Depends on |
 |---|---|---|---|
-| **Intake** | `read(message) → Reading` | fast paths (reply-to, buttons, `/commands`), Stale check, scope screening, cheap-model routing and classification | Model, Gate.`screen`, run state, clock |
+| **Intake** | `read(message) → Reading` | fast paths (reply-to, buttons, `/commands`), Stale check, then the **front door** (`screening.py`): one cheap-model call that declines, answers plain chat, or lets the message through with the earlier Exchanges it depends on; if that call fails the message proceeds with the last three | Screener (Model), the chat's Exchanges (history), run state, clock |
 | **Runner** | `submit(task)` · `deliver(answer \| approval \| cancel)` · `recover()` | the Run state machine, Steps, the agent loop and its Roles (an Orchestrator that Delegates to Direct, Browser and Files agents), tool dispatch, Budgets (including the read Budget), Checkpoints, at-most-once, Taint, Recollection at start, Memory writes at end, browser lifecycle | Model, Gate, Browser, Fetcher, Files, Memory, Ledger, Store, clock, `notify` |
-| **Gate** | `check(action, ctx) → Verdict` · `screen(request) → Screening` | every rule: Risk classes, Forbidden list, navigation rules, Approved sites, Approval matching and expiry, Taint, Grants, Budget checks | nothing — pure functions |
+| **Gate** | `check(action, ctx) → Verdict` | every rule: Risk classes, Forbidden list, navigation rules, Approved sites, Approval matching and expiry, Taint, Grants, Budget checks | nothing — pure functions |
 | **Memory** | `recall(task) → Recollection` · `remember(item) → Remembered \| Rejected` · `forget(what) → count` | Provenance check, secret/PII redaction, Pinned entries, Note expiry, bounded recall, storage format | a store behind an **internal** seam (files now; mem0 in S10) |
 | **Ledger** | `record(event)` · `query(run=None, since=None) → events` | schema, append-only rule, cost totals, references instead of contents | Store |
 | **Browser** | `open() → session`; session `look() → PageView` · `do(action) → Result` · `close()` | Playwright, page views, screenshots, **network policy on every request including ones pages start themselves**, uploads from Grants, temp downloads, Chromium sandbox | Playwright |
@@ -102,7 +102,7 @@ class Model(Protocol):                   # provider adapter · scripted model
 # Deep modules
 class Intake:
     async def read(self, message: Message) -> Reading: ...
-    # Reading = NewTask(request, route) | AnswerTo(question) | ApprovalGiven(approval, yes)
+    # Reading = NewTask(request, previous Exchanges) | Chat(text) | AnswerTo(question) | ApprovalGiven(approval, yes)
     #         | Correction(task) | Command(name, args) | Declined(reason, alternative)
     #         | Stale(message) | Unclear(choices)
 
@@ -112,7 +112,6 @@ class Runner:
     async def recover(self) -> None: ...          # on startup
 
 def check(action: Action, ctx: GateContext) -> Verdict: ...      # Allow | Ask(approval) | Refuse(reason)
-def screen(request: str) -> Screening: ...                        # Accept | Decline(reason, alternative) | Unsure
 
 class Memory:
     def recall(self, task: Task) -> Recollection: ...
@@ -140,7 +139,7 @@ class Files:
 
 ```
 You: "upload my resume to this job form" ─► Telegram adapter ─► app
-app ─► Intake.read ─► NewTask(route = Browse)                          [cheap model]
+app ─► Intake.read ─► NewTask(previous = [])                            [front door: one cheap-model call]
 app ─► Runner.submit(task)  ─► the Orchestrator Delegates: the resume lookup to the Files Role, the form to the Browser Role
                               (each runs the loop below with its own tools and returns a Finding)
   Runner: Memory.recall ─► Recollection (Persona: name, email, resume lives at …\Resume\cv.pdf)
