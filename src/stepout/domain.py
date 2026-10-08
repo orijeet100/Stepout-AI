@@ -1,4 +1,4 @@
-"""Domain types: Message, Reply, Task, Action, Result, Verdict, Outcome, Event.
+"""Domain types: Message, Reply, Task, Action, Verdict, Outcome, Event.
 
 Plain Pydantic models only — no behaviour, no live objects or callbacks (N12:
 Actions and Results must round-trip through JSON so hands can later run elsewhere).
@@ -79,7 +79,7 @@ class Exchange(BaseModel):
     run_id: str
 
 
-# --- Actions the model may propose, and their Results --------------------
+# --- Actions the model may propose ---------------------------------------
 # A capability's Action lives with the capability (stepout/capabilities/). What stays here are the control
 # Actions (plan, delegate, answer). (Web search is the provider's: it never reaches us as an Action.)
 
@@ -114,20 +114,6 @@ class DelegateAction(BaseModel):
 # Built once at import from the registry, so a registered capability is part of the union by construction.
 # (A capability registered later, as the tests do, is not in it: ModelResponse.action is a plain BaseModel for that reason.)
 Action = Annotated[Union[(*capabilities.action_types(), AnswerAction, PlanAction, DelegateAction)], Field(discriminator="kind")]
-
-
-class FetchResult(BaseModel):
-    kind: Literal["fetch"] = "fetch"
-    url: str
-    text: str
-
-
-class AnswerResult(BaseModel):
-    kind: Literal["answer"] = "answer"
-    text: str
-
-
-Result = FetchResult | AnswerResult
 
 
 # --- Gate ------------------------------------------------------------------
