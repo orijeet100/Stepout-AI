@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from stepout import capabilities
 from stepout.capabilities.base import tool_schema as _tool
-from stepout.domain import Action, AnswerAction, BrowseAction, DelegateAction, FilesAction, PlanAction
+from stepout.domain import Action, AnswerAction, DelegateAction, PlanAction
 
 HAIKU = "claude-haiku-4-5"
 SONNET = "claude-sonnet-5"
@@ -49,25 +49,6 @@ _CLIENT_TOOLS = {
                     "required": ["role", "goal"],
                 },
             },
-        ),
-        _tool(
-            "files",
-            "Look at the user's disk: names, sizes, dates and counts only, never file contents. op 'list' shows one folder; "
-            "'count' totals a whole folder tree by file extension; 'find' searches a folder tree for names containing the pattern "
-            "(or matching a * glob; several quoted or comma-separated terms match any of them), newest first. Paths are Windows paths such as D:\\Documents.",
-            required=["op", "path"],
-            op={"type": "string", "enum": ["list", "count", "find"]},
-            path={"type": "string"},
-            pattern={"type": "string"},
-        ),
-        _tool(
-            "browse",
-            "Read web pages in a headless browser, read-only. op 'open' loads a url; 'click' follows a numbered link from "
-            "the page you last opened; 'more' shows the next part of the current page's text.",
-            required=["op"],
-            op={"type": "string", "enum": ["open", "click", "more"]},
-            url={"type": "string"},
-            link={"type": "integer", "minimum": 1},
         ),
         _tool("delegate", "Run one step of your plan by its number (0 is the first). Its Finding comes back next turn.", step={"type": "integer", "minimum": 0}),
         _tool("answer", "Give the final reply to the user.", text={"type": "string"}),
@@ -131,10 +112,6 @@ def _action(content) -> Action:
         if (parsed := capabilities.parse(tool.name, args)) is not None:
             return parsed
         match tool.name:
-            case "files":
-                return FilesAction(**args)
-            case "browse":
-                return BrowseAction(**args)
             case "plan":
                 return PlanAction(steps=args["steps"])
             case "delegate":

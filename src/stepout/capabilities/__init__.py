@@ -10,9 +10,11 @@ from typing import Any
 from pydantic import BaseModel
 
 from stepout.capabilities.base import Capability, RunContext
+from stepout.capabilities.browse import Browse
 from stepout.capabilities.fetch import Fetch
+from stepout.capabilities.files import Files
 
-ALL: list[Capability] = [Fetch()]
+ALL: list[Capability] = [Fetch(), Files(), Browse()]
 
 
 def get(name: str) -> Capability | None:

@@ -15,10 +15,8 @@ from stepout.domain import (
     Action,
     AnswerAction,
     Ask,
-    BrowseAction,
     DelegateAction,
     Decline,
-    FilesAction,
     PlanAction,
     Refuse,
     Allow,
@@ -72,7 +70,7 @@ def check(action: Action, allowed: frozenset[str] | None = None, ctx: RunContext
         verdict = cap.check(action, ctx)
         return Allow() if verdict is None else verdict
     match action:
-        case SearchAction() | AnswerAction() | PlanAction() | DelegateAction() | FilesAction() | BrowseAction():
+        case SearchAction() | AnswerAction() | PlanAction() | DelegateAction():
             return Allow()
         case _:  # pragma: no cover - Action is a closed union today
             return Ask(reason="unrecognized action")

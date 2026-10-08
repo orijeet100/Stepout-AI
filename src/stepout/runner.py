@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from stepout import capabilities, gate
 from stepout.capabilities.base import TEXT_CHARS, RunContext
-from stepout.domain import Allow, AnswerAction, BrowseAction, DelegateAction, Event, FilesAction, PlanAction, PlanStep, Reply, Task
+from stepout.domain import Allow, AnswerAction, DelegateAction, Event, PlanAction, PlanStep, Reply, Task
 from stepout.browser import Browser
 from stepout.fetch import Fetcher
 from stepout.files import Files
@@ -56,13 +56,6 @@ def _state(goal: str, plan: list[PlanStep], notes: list[str]) -> str:
     return "\n\n".join(parts)
 
 
-def _shrink_old_pages(notes: list[str], keep: int = 2) -> None:
-    """Page views are big and a Role re-reads its notes every step: all but the newest two shrink to their first lines."""
-    pages = [i for i, n in enumerate(notes) if n.startswith("browse ")]
-    for i in pages[:-keep]:
-        notes[i] = "(earlier page) " + " ".join(notes[i].splitlines()[1:3])[:200]
-
-
 def _summary(action, plan: list[PlanStep]) -> str:
     match action:
         case PlanAction(steps=steps):
@@ -71,10 +64,6 @@ def _summary(action, plan: list[PlanStep]) -> str:
             return f"delegate {i} → {plan[i].role}: {plan[i].goal}"
         case DelegateAction(step=i):
             return f"delegate {i}"
-        case FilesAction(op=op, path=path, pattern=pattern):
-            return f"files {op} {path}" + (f" {pattern}" if pattern else "")
-        case BrowseAction(op=op, url=url, link=link):
-            return f"browse {op} {url or link or ''}".strip()
         case _:
             cap = capabilities.get(action.kind)
             return cap.summary(action) if cap is not None else action.kind
@@ -174,8 +163,6 @@ class Runner:
             key = action.model_dump_json()
             cap = capabilities.get(action.kind)
             match action:
-                case BrowseAction(op="open") | FilesAction() if key in ran:
-                    notes.append(_REPEATED)
                 case AnswerAction(text=text):
                     return Finding(text, ok=bool(text.strip()))
                 case PlanAction(steps=steps):
@@ -191,17 +178,6 @@ class Runner:
                         notes.append(f"Refused: there is no step {i}.")
                         continue
                     await self._run_step(run, i, step.id, notes)
-                case FilesAction(op=op, path=path, pattern=pattern):
-                    ran.add(key)
-                    result = await self._files.run(op, path, pattern, self._cancel.is_set)
-                    notes.append(f"files {op} {path}:\n{result[:TEXT_CHARS]}")
-                case BrowseAction(op=op, url=url, link=link):
-                    ran.add(key)
-                    view, shot = await self._browser.run(run.id, op, url, link)
-                    notes.append(f"browse {op}:\n{view}")
-                    _shrink_old_pages(notes)
-                    if shot:
-                        await self._emit(run, "shot", role_name, "page screenshot", parent=step.id, shot=shot)
                 case _ if cap is not None:
                     if cap.repeat_guard(action):
                         if key in ran:

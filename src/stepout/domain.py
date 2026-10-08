@@ -14,7 +14,9 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from stepout import capabilities
-from stepout.capabilities.fetch import FetchAction  # defined by their capability; re-exported so existing imports keep working
+from stepout.capabilities.browse import BrowseAction  # defined by their capability; re-exported so existing imports keep working
+from stepout.capabilities.fetch import FetchAction
+from stepout.capabilities.files import FilesAction
 
 
 def _id() -> str:
@@ -89,24 +91,6 @@ class AnswerAction(BaseModel):
     text: str
 
 
-class FilesAction(BaseModel):
-    """Look at the User's disk: names, sizes, dates, counts. Never contents."""
-
-    kind: Literal["files"] = "files"
-    op: Literal["list", "find", "count"]
-    path: str
-    pattern: str | None = None
-
-
-class BrowseAction(BaseModel):
-    """Read a web page in the headless browser. Read-only: open a url, follow a numbered link, read on."""
-
-    kind: Literal["browse"] = "browse"
-    op: Literal["open", "click", "more"]
-    url: str | None = None
-    link: int | None = None
-
-
 class PlanStep(BaseModel):
     role: Literal["direct", "files", "browser"]  # widen as Roles gain hands (reader)
     goal: str
@@ -129,7 +113,7 @@ class DelegateAction(BaseModel):
 
 # Built once at import from the registry, so a registered capability is part of the union by construction.
 # (A capability registered later, as the tests do, is not in it: ModelResponse.action is a plain BaseModel for that reason.)
-Action = Annotated[Union[(*capabilities.action_types(), SearchAction, AnswerAction, PlanAction, DelegateAction, FilesAction, BrowseAction)], Field(discriminator="kind")]
+Action = Annotated[Union[(*capabilities.action_types(), SearchAction, AnswerAction, PlanAction, DelegateAction)], Field(discriminator="kind")]
 
 
 class FetchResult(BaseModel):

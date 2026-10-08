@@ -6,9 +6,10 @@ from pathlib import Path
 from types import SimpleNamespace as NS
 
 import pytest
+from pydantic import TypeAdapter
 
 from stepout import capabilities, gate
-from stepout.domain import AnswerAction, Allow, Refuse, Task
+from stepout.domain import Action, AnswerAction, Allow, BrowseAction, FetchAction, FilesAction, Refuse, Task
 from stepout.ledger import Ledger
 from stepout.model import HAIKU, AnthropicModel, ModelRequest, ModelResponse
 from stepout.roles import ROLES
@@ -110,3 +111,11 @@ def test_blurbs_cover_every_capability():
     blurbs = capabilities.blurbs()
     assert set(blurbs) == {c.name for c in capabilities.ALL}
     assert all(b.strip() for b in blurbs.values())
+
+
+def test_the_action_union_round_trips_every_capability_action():
+    adapter = TypeAdapter(Action)
+    samples = [FetchAction(url="https://example.com"), FilesAction(op="find", path="D:\Docs", pattern="cv"), BrowseAction(op="open", url="https://example.com")]
+    assert {type(s) for s in samples} <= set(capabilities.action_types())
+    for action in samples:
+        assert adapter.validate_json(adapter.dump_json(action)) == action
