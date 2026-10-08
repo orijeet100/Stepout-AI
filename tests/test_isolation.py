@@ -32,3 +32,5 @@ def test_port_follows_the_preview_tools_port_when_stepout_port_is_not_set(monkey
     assert web_port() == 8780
     monkeypatch.setenv("STEPOUT_PORT", "")  # an empty value (a blank line in .env) counts as not set
     assert web_port() == 54321
+    monkeypatch.setenv("PORT", "not-a-number")  # a stray PORT from another tool is ignored, not a crash
+    assert web_port() == 8765

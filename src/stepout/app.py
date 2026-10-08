@@ -47,7 +47,10 @@ def startup_notes() -> list[str]:
 
 def web_port() -> int:
     """The web chat's port: STEPOUT_PORT if set, else PORT (the app's preview tool assigns one when 8765 is taken), else 8765 (so two checkouts can run side by side)."""
-    return int(os.environ.get("STEPOUT_PORT") or os.environ.get("PORT") or "8765")
+    for name in ("STEPOUT_PORT", "PORT"):
+        if (value := os.environ.get(name, "")).isdigit():  # a stray PORT that is not a number (another tool's) must not crash the start
+            return int(value)
+    return 8765
 
 
 class SavedChannel:

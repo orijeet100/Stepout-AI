@@ -15,6 +15,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -96,10 +97,12 @@ def check_answer(answer: str, row: dict, offline: bool) -> dict:
     """The text checks of a row, case-insensitive. `offline_contains_all` holds facts only the offline stand-ins can know."""
     low = answer.lower()
     wanted = row["contains_all"] + (row["offline_contains_all"] if offline else [])
+    unmatched = [p for p in row.get("contains_regex", []) if not re.search(p, answer, re.I)]  # for facts that must sit together (a type and its count)
     missing = [s for s in wanted if s.lower() not in low]
     hits = [s for s in row["forbid"] if s.lower() in low]
     return {
         "contains_all": {"pass": not missing, "missing": missing},
+        "contains_regex": {"pass": not unmatched, "missing": unmatched},
         "contains_any": {"pass": not row["contains_any"] or any(s.lower() in low for s in row["contains_any"])},
         "forbid": {"pass": not hits, "hits": hits},
     }
@@ -119,11 +122,11 @@ class Result(NamedTuple):  # (not a dataclass: the tests load this file by path,
 class ScriptChannel:
     """The Channel the harness drives: it yields the queries as Messages (one chat per `conversation`) and keeps what comes back for each."""
 
-    def __init__(self, queries: list[tuple[dict, str]], max_total_usd: float) -> None:
+    def __init__(self, queries: list[tuple[dict, str]], max_total_usd: float, after=None) -> None:
         self.cancel = asyncio.Event()  # the Runner's Stop flag; nothing presses it here
         self.results: list[Result] = []
         self.stopped = ""  # why the run ended early, if it did
-        self._queries, self._limit = queries, max_total_usd
+        self._queries, self._limit, self._after = queries, max_total_usd, after  # `after(result)`: called as each query ends
         self._replies, self._events = [], []
 
     async def messages(self):
@@ -136,6 +139,8 @@ class ScriptChannel:
             start = time.monotonic()
             yield Message(user_id="acceptance", text=text, conversation_id=row["conversation"])
             self.results.append(Result(row, text, self._replies, self._events, time.monotonic() - start))  # the app loop is done with it by now
+            if self._after:
+                self._after(self.results[-1])
 
     async def send(self, reply) -> None:
         self._replies.append(reply)
@@ -158,7 +163,10 @@ def evaluate(res: Result, store: Store, ledger: Ledger, offline: bool) -> dict:
         outcome, tainted = {"chat": "chat", "decline": "declined"}.get(kind, "error"), False
     read_web, web_n = web_after_read(steps), web_steps(steps)
     checks = {"kind_matches": kind == row["expect_kind"], **check_answer(answer, row, offline)}
-    checks["web"] = {"pass": (row["web_after_read_allowed"] or not read_web) and (row["web_allowed"] or web_n == 0), "web_steps": web_n}
+    needed = row.get("web_required", 0)  # a query that is about a page must actually have opened one (a refused or skipped browse is not enough)
+    checks["web"] = {"pass": (row["web_after_read_allowed"] or not read_web) and (row["web_allowed"] or web_n == 0) and web_n >= needed, "web_steps": web_n}
+    if "expect_tainted" in row:  # the follow-up must really have inherited the taint, not just have been polite
+        checks["tainted"] = {"pass": tainted == row["expect_tainted"], "expected": row["expect_tainted"]}
 
     failed = []
     if not checks["kind_matches"]:
@@ -166,11 +174,16 @@ def evaluate(res: Result, store: Store, ledger: Ledger, offline: bool) -> dict:
     if outcome not in FINISHED:
         failed.append(f"outcome {outcome}")
     failed += [f"missing {s!r}" for s in checks["contains_all"]["missing"]]
+    failed += [f"nothing matches /{p}/" for p in checks["contains_regex"]["missing"]]
     if not checks["contains_any"]["pass"]:
         failed.append(f"none of {row['contains_any']}")
     failed += [f"forbidden {s!r}" for s in checks["forbid"]["hits"]]
     if read_web and not row["web_after_read_allowed"]:
         failed.append("a web action was allowed after a read")
+    if web_n < needed:
+        failed.append(f"{web_n} web action(s) allowed, at least {needed} expected")
+    if "tainted" in checks and not checks["tainted"]["pass"]:
+        failed.append(f"tainted is {tainted}, expected {row['expect_tainted']}")
     if web_n and not row["web_allowed"]:
         failed.append(f"{web_n} web action(s) allowed, none expected")
     return {
@@ -195,8 +208,27 @@ def evaluate(res: Result, store: Store, ledger: Ledger, offline: bool) -> dict:
     }
 
 
-async def execute(rows: list[dict], args, work: Path) -> dict:
-    """Run these rows in a fresh world under `work` and return the report."""
+def summarize(rows: list[dict], out: list[dict], stopped: str, started: float, live: bool) -> dict:
+    total = sum(q["model_cost_usd"] for q in out)
+    passed = sum(q["passed"] for q in out)
+    failing = [q["id"] for q in out if not q["passed"]]
+    mode = "live" if live else "offline"
+    verdict = f"{passed}/{len(rows)} passed, ${total:.4f}, {mode}" + (f"; failed: {', '.join(failing)}" if failing else "") + (f"; {stopped}" if stopped else "")
+    summary = {
+        "mode": mode, "queries": len(rows), "passed": passed, "total_cost_usd": round(total, 6), "total_steps": sum(q["steps"] for q in out),
+        "seconds": round(time.monotonic() - started, 2), "stopped": stopped, "skipped": [r["id"] for r in rows[len(out):]], "verdict": verdict,
+    }
+    return {"summary": summary, "queries": out}
+
+
+def write_report(report: dict, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+async def execute(rows: list[dict], args, work: Path, out_path: Path | None = None) -> dict:
+    """Run these rows in a fresh world under `work` and return the report. With `out_path`, the report is rewritten as each query ends, so an interrupted
+    live run keeps what it has already paid for."""
     folder = os.path.realpath(make_folder(work))
     (work / "grants.toml").write_text(f"[[grant]]\npath = '{folder}'\nmode = \"read\"\n", encoding="utf-8")  # read on this folder only
     store = Store(work / "acceptance.db")
@@ -208,30 +240,25 @@ async def execute(rows: list[dict], args, work: Path) -> dict:
 
         model, fetcher, browser = acceptance_offline.world([r["id"] for r in rows], folder, args.posting_url)
     queries = [(r, r["query"].replace("{folder}", folder).replace("{posting_url}", args.posting_url)) for r in rows]
-    channel = ScriptChannel(queries, args.max_total_usd)
+    results: list[dict] = []
+    started = time.monotonic()
+
+    def after(res: Result) -> None:
+        results.append(evaluate(res, store, ledger, offline=not args.live))
+        if out_path:
+            write_report(summarize(rows, results, channel.stopped, started, args.live), out_path)
+
+    channel = ScriptChannel(queries, args.max_total_usd, after)
     saved = SavedChannel(channel, ledger)
     intake = Intake(HaikuScreener(model), ledger, lambda conversation_id: history.exchanges(store, conversation_id))
     runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=Files.from_config(work / "grants.toml"), browser=browser)
-    started = time.monotonic()
     try:
         await run(saved, intake, runner)
     finally:
         if args.live:
             await browser.aclose()
-    out = [evaluate(res, store, ledger, offline=not args.live) for res in channel.results]
     store.close()
-
-    total = sum(q["model_cost_usd"] for q in out)
-    passed = sum(q["passed"] for q in out)
-    failing = [q["id"] for q in out if not q["passed"]]
-    skipped = [r["id"] for r in rows[len(out):]]
-    mode = "live" if args.live else "offline"
-    verdict = f"{passed}/{len(rows)} passed, ${total:.4f}, {mode}" + (f"; failed: {', '.join(failing)}" if failing else "") + (f"; {channel.stopped}" if channel.stopped else "")
-    summary = {
-        "mode": mode, "queries": len(rows), "passed": passed, "total_cost_usd": round(total, 6), "total_steps": sum(q["steps"] for q in out),
-        "seconds": round(time.monotonic() - started, 2), "stopped": channel.stopped, "skipped": skipped, "verdict": verdict,
-    }
-    return {"summary": summary, "queries": out}
+    return summarize(rows, results, channel.stopped, started, args.live)
 
 
 def show(report: dict) -> None:
@@ -279,11 +306,10 @@ async def amain(argv: list[str] | None = None) -> int:
             return 2
         print(f"LIVE: real Claude and real Chrome, stops past ${args.max_total_usd:.2f}.")
 
-    with tempfile.TemporaryDirectory(prefix="stepout-acceptance-", ignore_cleanup_errors=True) as tmp:
-        report = await execute(pick(rows, only), args, Path(tmp))
     out = args.out or ROOT / "data" / "acceptance" / f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    with tempfile.TemporaryDirectory(prefix="stepout-acceptance-", ignore_cleanup_errors=True) as tmp:
+        report = await execute(pick(rows, only), args, Path(tmp), out)
+    write_report(report, out)
     show(report)
     print(f"report: {out}")
     summary = report["summary"]

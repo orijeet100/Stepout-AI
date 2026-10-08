@@ -18,6 +18,8 @@ refs: [src/stepout/fetch.py, src/stepout/links.py, src/stepout/runner.py, tests/
    - `RunState.taint("")` can no longer be a no-op (an empty reason would have read as "not tainted").
    - New test: a Run that fails after reading a file still saves that it was tainted (the reviewer checked this by hand; it is now pinned).
 
+**Since.** The link filter in point 2 was found bypassable by a second review and now fails closed: see [second-review](2026-10-08-second-review-the-link-filter-fails-closed-fetch-checks-ever.md). Points 1 and 3 stand.
+
 **Considered and not done.**
 - *Backfill of `runs.tainted` for Runs saved before migration 0006.* The reviewer showed that a pre-0006 database would call an old file-reading Run untainted. No database in use holds such a Run (the Reader is from today, and the reviewer checked both local ones), so a `json_extract` backfill is code for a case that does not exist.
 - *Requiring a same-origin header on the local `/api/*`.* A second layer for finding 1; it belongs to the UI lane's `channels/web.py`. With redirects checked, the Fetcher can no longer reach it; noted for the merge agent.

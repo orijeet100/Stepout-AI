@@ -21,7 +21,7 @@ from stepout.failure import Failure
 from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.ledger import Ledger
-from stepout.links import defang, urls
+from stepout.links import defang, links_in, urls
 from stepout.model import Model, ModelRequest
 from stepout.reader import Reader
 from stepout.roles import ROLES
@@ -121,7 +121,9 @@ class Runner:
         """`previous`: the earlier Exchanges this Task builds on (none for a new Task). `screening_cost`: what the front door spent, counted against this Run's cap."""
         self._cancel.clear()
         run = _Run(task_id=task.id, conversation_id=task.conversation_id, cap=self._cap, spent=screening_cost, previous=_previous_block(previous))
-        run.urls = urls(task.request).union(*(urls(x.reply) for x in previous))
+        # what a tainted Run's reply may link to: the request, and an earlier reply's addresses (only the links that survived, for a tainted reply: a
+        # bare address in it was only ever text, and must not become a link now)
+        run.urls = urls(task.request).union(*(links_in(x.reply) if x.tainted else urls(x.reply) for x in previous))
         for x in previous:  # an answer that used the User's files taints whatever builds on it: what a file holds must not leave through the web
             if x.tainted:
                 run.state.taint(f"an earlier answer it builds on (#{x.id}) used the contents of your files")
@@ -177,6 +179,7 @@ class Runner:
     async def _agent(self, role_name: str, goal: str, run: _Run, parent: str | None) -> Finding:
         role = ROLES[role_name]
         notes: list[str] = []
+        last = ""  # the hand action that ran last (a stateful hand's repeat only counts straight after itself)
         ran: dict[str, tuple[int, str]] = {}  # hand actions already run -> where their result sits in `notes` and what it says: asking again changes nothing while the Role can still read it
         step: Event | None = None  # the Step event being handled; ctx.emit hangs its events under it
         ctx = RunContext(
@@ -212,7 +215,7 @@ class Runner:
             allowed = isinstance(verdict, Allow)
             key = action.model_dump_json()
             cap = capabilities.get(action.kind)
-            repeat = allowed and cap is not None and cap.repeat_guard(action) and key in ran and notes[ran[key][0]] == ran[key][1]
+            repeat = allowed and cap is not None and cap.repeat_guard(action) and key in ran and notes[ran[key][0]] == ran[key][1] and (not cap.stateful or last == key)
             summary = _summary(action, run.plan) if allowed else f"refused {action.kind}: {verdict.reason}"
             if repeat:  # the Gate had nothing against it, but it is not run: say so, so the Trace does not show a page loaded twice
                 summary = f"repeat, not run again: {summary}"
@@ -243,6 +246,7 @@ class Runner:
                         continue
                     notes.append(await cap.run(action, ctx))
                     cap.compact(notes)
+                    last = key
                     if cap.repeat_guard(action):
                         ran[key] = (len(notes) - 1, notes[-1])
         return Finding(f"The {role_name} agent couldn't finish in {role.max_steps} steps.", ok=False)

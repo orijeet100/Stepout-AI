@@ -45,11 +45,21 @@ async def test_a_page_that_has_shrunk_out_of_the_notes_may_be_opened_again(tmp_p
     assert not any(e.data.get("repeat") for e in browser_steps(h, task))
 
 
-async def test_a_page_that_never_shrank_is_not_opened_a_second_time_after_a_click(tmp_path):
-    """Two views stay in full: open then click leaves the first one readable, so asking for it again is a repeat."""
-    browser = FakeBrowser(page(1), page(2))
+async def test_an_open_after_a_click_is_run_even_though_the_old_view_is_still_in_the_notes(tmp_path):
+    """Open a list, click into a listing, open the list again: the browser is on the listing now, so the list's link numbers would point into the
+    wrong page. The old view is still readable (two stay in full), but this is not a repeat of anything that can still be trusted."""
+    browser = FakeBrowser(page(1), page(2), page(3))
     h = Harness(tmp_path, [plan("read", role="browser"), browse("open", URL), browse("click", link=3), browse("open", URL), say("ok"), say("ok")], browser=browser)
     task = await h.run("x")
 
-    assert [c[1] for c in browser.calls] == ["open", "click"]
-    assert [bool(e.data.get("repeat")) for e in browser_steps(h, task)] == [False, False, True, False]
+    assert [c[1] for c in browser.calls] == ["open", "click", "open"]
+    assert not any(e.data.get("repeat") for e in browser_steps(h, task))
+
+
+async def test_a_files_repeat_is_still_skipped_after_other_calls_because_its_result_does_not_depend_on_them(tmp_path):
+    from tests.test_runner import FakeFiles, looks
+
+    files = FakeFiles("a, b")
+    h = Harness(tmp_path, [plan("look", role="files"), looks("list", "D:\\A"), looks("list", "D:\\B"), looks("list", "D:\\A"), say("ok"), say("ok")], files=files)
+    await h.run("x")
+    assert [c[1] for c in files.calls] == ["D:\\A", "D:\\B"]

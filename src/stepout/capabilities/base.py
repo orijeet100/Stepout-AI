@@ -52,6 +52,7 @@ class Capability:
     blurb: str  # one line: what it can and cannot do (feeds Screening and the decline reply)
     tool: dict  # JSON schema offered to the model
     action: type[BaseModel] | None = None  # the Pydantic Action (`kind == name`); None when the provider runs it (web_search)
+    stateful: bool = False  # True if what it returns depends on what it did before (the browser's current page): a repeat is then skipped only straight after the identical call
     reaches_web: bool = False  # True if it can send or fetch anything over the network: closed by the Gate (and, for web_search, not offered) once the Run is tainted
 
     async def run(self, action: Any, ctx: RunContext) -> str:
