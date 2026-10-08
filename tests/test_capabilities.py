@@ -54,7 +54,7 @@ async def run_task(tmp_path, responses):
         traced.append(event)
 
     model = ScriptedModel(responses)
-    await Runner(model, object(), ledger, notify, trace).submit(Task(user_id="u", request="say hi", route="answer"))
+    await Runner(model, object(), ledger, notify, trace).submit(Task(user_id="u", request="say hi"))
     return model, replies, traced
 
 

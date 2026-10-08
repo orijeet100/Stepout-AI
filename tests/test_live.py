@@ -45,7 +45,7 @@ async def ask(tmp_path, request, folder=None):
     files = Files([Grant(os.path.normcase(os.path.realpath(folder)), "read")]) if folder else None
     browser = Browser(shots=tmp_path / "shots")
     runner = Runner(AnthropicModel(), Fetcher(), ledger, notify, files=files, browser=browser)
-    task = Task(user_id="live", request=request, route="answer")
+    task = Task(user_id="live", request=request)
     try:
         await runner.submit(task)
     finally:

@@ -28,11 +28,6 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Route(StrEnum):
-    ANSWER = "answer"  # no tools
-    LOOKUP = "lookup"  # fetch or search
-
-
 class Outcome(StrEnum):
     DONE = "done"
     BLOCKED = "blocked"
@@ -69,9 +64,19 @@ class Task(BaseModel):
     id: str = Field(default_factory=_id)
     user_id: str
     request: str
-    route: Route
     conversation_id: str = DEFAULT_CONVERSATION
     created_at: datetime = Field(default_factory=_now)
+
+
+class Exchange(BaseModel):
+    """A Request and the reply the User saw for it, in one Conversation. What a Follow-up is given to build on."""
+
+    id: int  # its number in the chat (the first answered Request is 1); what the front door's `related` refers to
+    request: str
+    reply: str  # without the cost footer
+    did: str  # one line: what the hands did ("browse open luma.com/discover"); empty if it only answered
+    tainted: bool = False  # always False until the Reader (B4)
+    run_id: str
 
 
 class Run(BaseModel):
@@ -148,22 +153,28 @@ Result = FetchResult | SearchResult | AnswerResult
 # --- Gate ------------------------------------------------------------------
 
 
-class Accept(BaseModel):
-    kind: Literal["accept"] = "accept"
-    route: Route
-
-
 class Decline(BaseModel):
     kind: Literal["decline"] = "decline"
     reason: str
     alternative: str
 
 
-class Unsure(BaseModel):
-    kind: Literal["unsure"] = "unsure"
+class ChatReply(BaseModel):
+    """The front door answered plain chat itself (a greeting, thanks, "what can you do?"): no Task."""
+
+    kind: Literal["chat"] = "chat"
+    text: str
 
 
-Screening = Accept | Decline | Unsure
+class Proceed(BaseModel):
+    """Go on to the Orchestrator, with the Exchanges the message depends on (none for a new Task)."""
+
+    kind: Literal["proceed"] = "proceed"
+    related: list[int] = []
+
+
+# What the front door decides (stepout/screening.py).
+Screening = Decline | ChatReply | Proceed
 
 
 class Allow(BaseModel):

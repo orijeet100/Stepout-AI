@@ -10,7 +10,7 @@ use is rejected by newer models); a text-only reply is treated as the answer.
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Literal, Protocol
 
 import anthropic
 from pydantic import BaseModel
@@ -56,7 +56,16 @@ class ModelRequest(BaseModel):
     system: str
     user_text: str
     tools: list[str] = []  # "web_search" or a client tool name; none = a plain completion
+    tool_defs: list[dict] = []  # one-off tools, sent as they are; a call to one comes back as a ToolCall (the front door's `screen`)
     max_searches: int = 3  # web searches this Run may still use
+
+
+class ToolCall(BaseModel):
+    """The model called a one-off tool from `ModelRequest.tool_defs`; the caller reads `input` (untrusted, unvalidated)."""
+
+    kind: Literal["tool_call"] = "tool_call"
+    name: str
+    input: dict
 
 
 class ModelResponse(BaseModel):
@@ -86,7 +95,7 @@ def _tool_defs(request: ModelRequest) -> list[dict]:
             defs.append(tool)
         elif request.max_searches > 0:  # the provider runs searches; this Run's remaining count caps them
             defs.append({**tool, "max_uses": request.max_searches})
-    return defs
+    return defs + request.tool_defs
 
 
 def _sources(content) -> str:
@@ -101,7 +110,7 @@ def _sources(content) -> str:
     return "\n\nSources:\n" + "\n".join(f"- [{title}]({url})" for url, title in list(cited.items())[:8])
 
 
-def _action(content) -> Action:
+def _action(content, one_off: frozenset[str] = frozenset()) -> Action:
     tool = next((b for b in content if b.type == "tool_use"), None)
     if tool is not None:
         args = tool.input
@@ -114,6 +123,8 @@ def _action(content) -> Action:
                 return DelegateAction(step=args["step"])
             case "answer":
                 return AnswerAction(text=args["text"])
+        if tool.name in one_off:
+            return ToolCall(name=tool.name, input=dict(args))
     text = "".join(b.text for b in content if b.type == "text")
     return AnswerAction(text=text + _sources(content))
 
@@ -136,4 +147,5 @@ class AnthropicModel:
         # ponytail: a long search can end with stop_reason "pause_turn"; we return the partial text instead of resuming.
         searches = sum(1 for b in response.content if b.type == "web_search_tool_result")
         cost = _cost(request.model, response.usage.input_tokens, response.usage.output_tokens, searches)
-        return ModelResponse(action=_action(response.content), cost_usd=cost, searches=searches)
+        one_off = frozenset(d["name"] for d in request.tool_defs)
+        return ModelResponse(action=_action(response.content, one_off), cost_usd=cost, searches=searches)

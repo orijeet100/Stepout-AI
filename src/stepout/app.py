@@ -10,16 +10,18 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from stepout import history
 from stepout.channels.cli import CliChannel
 from stepout.channels.web import WebChannel
 from stepout.browser import Browser
 from stepout.domain import Reply, Task
 from stepout.fetch import Fetcher
 from stepout.files import Files
-from stepout.intake import CommandReading, DeclinedReading, Intake, NewTask
+from stepout.intake import ChatReading, CommandReading, DeclinedReading, Intake, NewTask
 from stepout.ledger import Ledger
 from stepout.model import AnthropicModel
 from stepout.runner import Runner
+from stepout.screening import HaikuScreener
 from stepout.store import Store
 
 DB_PATH = Path("data/stepout.db")
@@ -54,13 +56,15 @@ async def run(channel, intake: Intake, runner: Runner) -> None:
         try:
             reading = await intake.read(message)
             match reading:
-                case DeclinedReading(reason=reason, alternative=alternative):
-                    await channel.send(Reply(text=f"{reason} {alternative}", conversation_id=cid))
+                case DeclinedReading(reason=reason, alternative=alternative, cost_usd=cost):
+                    await channel.send(Reply(text=f"{reason} {alternative}", conversation_id=cid, cost_usd=cost))
+                case ChatReading(text=text, cost_usd=cost):
+                    await channel.send(Reply(text=text, conversation_id=cid, cost_usd=cost))
                 case CommandReading(name=name):
                     await channel.send(Reply(text=f"Unknown command: /{name}", conversation_id=cid))
-                case NewTask(request=request, route=route):
-                    task = Task(user_id=message.user_id, request=request, route=route, conversation_id=cid)
-                    await runner.submit(task)
+                case NewTask(request=request, previous=previous, cost_usd=cost):
+                    task = Task(user_id=message.user_id, request=request, conversation_id=cid)
+                    await runner.submit(task, previous, screening_cost=cost)
         except Exception as exc:  # one failed request (API error, bad key) must not end the session
             logging.exception("request failed")
             await channel.send(Reply(text=f"Something went wrong ({type(exc).__name__}). Check the terminal for details.", conversation_id=cid))
@@ -77,7 +81,7 @@ async def main() -> None:
         print(f"Stepout web chat: http://127.0.0.1:{await channel.start()}  (Ctrl+C to stop)")
     else:
         channel = CliChannel()
-    intake = Intake(model, ledger)
+    intake = Intake(HaikuScreener(model), ledger, lambda conversation_id: history.exchanges(store, conversation_id))
     if not GRANTS_PATH.exists():
         print(f"No {GRANTS_PATH}: the Files agent can't see your disk. Copy grants.example.toml there to allow it.")
     files = Files.from_config(GRANTS_PATH)

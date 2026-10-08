@@ -51,10 +51,6 @@ _Avoid_: reply-to, continuation, thread
 An accepted Request the Assistant is responsible for finishing. It ends with an Outcome.
 _Avoid_: job, workflow, ticket
 
-**Route**:
-The kind of work a Task needs — Answer (no tools), Lookup (fetch or search), Browse (a browser), or Laptop (the User's own files and folders, inside Grants).
-_Avoid_: mode, workflow type
-
 **Run**:
 One attempt at carrying out a Task. A Correction or a retry starts a new Run of the same Task.
 _Avoid_: execution, session, episode
