@@ -22,6 +22,7 @@ export default function Composer({ online, busy, onSend }: Props) {
   return (
     <form className="composer" onSubmit={submit}>
       <textarea
+        id="message"
         aria-label="Message"
         rows={1}
         maxLength={20_000}

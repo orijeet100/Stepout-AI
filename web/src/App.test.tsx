@@ -128,6 +128,82 @@ describe('App', () => {
     })
   })
 
+  describe('the chat-list drawer under 900 px', () => {
+    const window900 = (narrow: boolean) =>
+      vi.stubGlobal('matchMedia', (query: string) => ({ matches: narrow, media: query, addEventListener: () => {}, removeEventListener: () => {} }))
+    const side = () => document.querySelector('aside.side') as HTMLElement
+    const main = () => document.querySelector('main.main') as HTMLElement
+    const menu = () => screen.getByRole('button', { name: 'Chats', expanded: undefined }) as HTMLButtonElement
+
+    it('wide: the list is simply there, nothing is inert', async () => {
+      window900(false)
+      await connected()
+      expect(side().hasAttribute('inert')).toBe(false)
+      expect(main().hasAttribute('inert')).toBe(false)
+    })
+
+    it('narrow and closed: the drawer cannot be reached (inert), and the menu button says it is closed', async () => {
+      window900(true)
+      await connected()
+      expect(side().hasAttribute('inert')).toBe(true)
+      expect(main().hasAttribute('inert')).toBe(false)
+      expect(menu().getAttribute('aria-expanded')).toBe('false')
+      expect(menu().getAttribute('aria-controls')).toBe('chats')
+      expect(document.querySelector('.app')!.getAttribute('data-drawer')).toBe('closed')
+    })
+
+    it('the menu button opens it like a modal: the page behind is inert and focus moves into the list', async () => {
+      window900(true)
+      await connected()
+      fireEvent.click(menu())
+      expect(document.querySelector('.app')!.getAttribute('data-drawer')).toBe('open')
+      expect(menu().getAttribute('aria-expanded')).toBe('true')
+      expect(side().hasAttribute('inert')).toBe(false)
+      expect(main().hasAttribute('inert')).toBe(true)
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'New chat' })) // the first control in the drawer
+    })
+
+    it('Esc closes it and focus goes back to the menu button', async () => {
+      window900(true)
+      await connected()
+      fireEvent.click(menu())
+      fireEvent.keyDown(side(), { key: 'Escape' })
+      expect(document.querySelector('.app')!.getAttribute('data-drawer')).toBe('closed')
+      expect(document.activeElement).toBe(menu())
+      expect(side().hasAttribute('inert')).toBe(true)
+    })
+
+    it('the scrim closes it, and so does choosing a chat or starting a new one', async () => {
+      window900(true)
+      await connected()
+      const state = () => document.querySelector('.app')!.getAttribute('data-drawer')
+      fireEvent.click(menu())
+      fireEvent.click(document.querySelector('.scrim')!)
+      expect(state()).toBe('closed')
+      fireEvent.click(menu())
+      fireEvent.click(screen.getByRole('button', { name: /Which events are free\?/ }))
+      expect(state()).toBe('closed')
+      fireEvent.click(menu())
+      fireEvent.click(screen.getByRole('button', { name: 'New chat' }))
+      expect(state()).toBe('closed')
+      expect(screen.getByRole('heading', { name: 'New chat' })).toBeTruthy() // and it did start one
+    })
+
+    it('Esc does nothing when the drawer is not open', async () => {
+      window900(true)
+      await connected()
+      fireEvent.keyDown(main(), { key: 'Escape' })
+      expect(document.activeElement).not.toBe(menu())
+    })
+
+    it('a skip link leads straight to the message box', async () => {
+      await connected()
+      const skip = screen.getByRole('link', { name: 'Skip to the message box' })
+      expect(skip.getAttribute('href')).toBe('#message')
+      expect(document.getElementById('message')).toBe(screen.getByLabelText('Message'))
+    })
+  })
+
   it('two messages sent at once from a draft go to the same new chat: it is made once', async () => {
     const posts = vi.fn()
     vi.stubGlobal(

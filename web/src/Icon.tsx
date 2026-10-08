@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 // One stroke icon set (24×24, 2px, round caps) so every glyph matches. Shapes follow Lucide (ISC licence).
 const paths = {
   plus: <path d="M12 5v14M5 12h14" />,
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   send: <path d="M12 19V5M5 12l7-7 7 7" />,
   stop: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" />,
   check: <path d="M20 6 9 17l-5-5" />,

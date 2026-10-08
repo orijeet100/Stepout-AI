@@ -1,12 +1,13 @@
+import type { Ref } from 'react'
 import Icon from './Icon'
 import type { Chat } from './protocol'
 import { plain, type ChatState } from './store'
 
-type Props = { chats: (Chat & { state: ChatState })[]; selected: string | null; onSelect: (id: string) => void; onNew: () => void }
+type Props = { chats: (Chat & { state: ChatState })[]; selected: string | null; onSelect: (id: string) => void; onNew: () => void; inert?: boolean; ref?: Ref<HTMLElement> }
 
-export default function Sidebar({ chats, selected, onSelect, onNew }: Props) {
+export default function Sidebar({ chats, selected, onSelect, onNew, inert, ref }: Props) {
   return (
-    <aside className="side" aria-label="Chats">
+    <aside id="chats" ref={ref} className="side" aria-label="Chats" inert={inert}>
       <div className="brand">
         <strong>Stepout</strong>
         <button className="btn btn--icon" type="button" aria-label="New chat" onClick={onNew}>
