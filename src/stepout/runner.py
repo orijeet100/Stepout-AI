@@ -174,7 +174,7 @@ class Runner:
                     system=role.system,
                     user_text=_state(goal, run.plan if orchestrating else [], notes, run.previous if orchestrating else ""),
                     tools=list(role.tools),
-                    max_searches=run.searches,
+                    max_searches=0 if run.state.tainted else run.searches,  # a tainted Run is not offered web search
                 )
             )
             run.spent += response.cost_usd

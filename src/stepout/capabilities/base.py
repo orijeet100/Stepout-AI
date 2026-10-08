@@ -28,6 +28,11 @@ class RunState:
     """What every Role of one Run shares, and what capabilities may read or change: counters and flags that outlive a single Step."""
 
     scratch: dict[str, Any] = field(default_factory=dict)  # per capability, keyed by its name (e.g. how much has been read)
+    tainted: str = ""  # why this Run holds data from the User's files ("" = it does not). Once set it stays set for the Run.
+
+    def taint(self, why: str) -> None:
+        """File contents have entered this Run. From now on the Gate refuses every capability that reaches the web."""
+        self.tainted = self.tainted or why
 
 
 @dataclass
@@ -47,6 +52,7 @@ class Capability:
     blurb: str  # one line: what it can and cannot do (feeds Screening and the decline reply)
     tool: dict  # JSON schema offered to the model
     action: type[BaseModel] | None = None  # the Pydantic Action (`kind == name`); None when the provider runs it (web_search)
+    reaches_web: bool = False  # True if it can send or fetch anything over the network: closed by the Gate (and, for web_search, not offered) once the Run is tainted
 
     async def run(self, action: Any, ctx: RunContext) -> str:
         """Do it; return the text that goes into the Role's notes."""

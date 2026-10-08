@@ -35,6 +35,7 @@ class Browse(Capability):
         link={"type": "integer", "minimum": 1},
     )
     action = BrowseAction
+    reaches_web = True
 
     def summary(self, action: BrowseAction) -> str:
         return f"browse {action.op} {action.url or action.link or ''}".strip()

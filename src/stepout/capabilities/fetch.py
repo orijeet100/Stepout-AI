@@ -21,6 +21,7 @@ class Fetch(Capability):
     blurb = "Reads one public web page whose address is known, as text; no logins, scripts or forms."
     tool = tool_schema("fetch", "Read one web page whose URL you already know. Returns its text.", url={"type": "string"})
     action = FetchAction
+    reaches_web = True
 
     def summary(self, action: FetchAction) -> str:
         return f"fetch {action.url}"

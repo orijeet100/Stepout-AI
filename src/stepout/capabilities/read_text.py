@@ -37,4 +37,7 @@ class ReadText(Capability):
 
     async def run(self, action: ReadTextAction, ctx: RunContext) -> str:
         usage = ctx.state.scratch.setdefault(self.name, ReadUsage())
-        return (await ctx.hands[self.name].read(action.path, usage)).text
+        result = await ctx.hands[self.name].read(action.path, usage)
+        if result.content:  # only when file text was actually handed over: a refusal, an empty file or a scan taints nothing
+            ctx.state.taint(f"the contents of {action.path} were read")
+        return result.text
