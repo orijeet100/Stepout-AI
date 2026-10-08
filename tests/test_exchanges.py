@@ -69,8 +69,7 @@ async def test_a_new_task_has_no_history_block(tmp_path):
 async def test_the_front_doors_cost_is_part_of_the_runs_total(tmp_path):
     h = Harness(tmp_path, [plan("a"), say("found"), say("done")])  # 3 model calls at $0.001
     await follow_up(h, [], screening_cost=0.003)
-    assert h.replies[0].text.endswith("(cost: $0.0060)")
-    assert h.replies[0].cost_usd == pytest.approx(0.006)
+    assert h.replies[0].text == "done" and h.replies[0].cost_usd == pytest.approx(0.006)  # the cost is data on the reply, not a footer in its text
     (run,) = Store(tmp_path / "t.db").query("SELECT cost_usd FROM runs")
     assert run["cost_usd"] == pytest.approx(0.006)
 

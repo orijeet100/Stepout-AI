@@ -92,7 +92,7 @@ async def test_a_conversation_through_the_app_is_saved_and_survives_a_restart(tm
     reopened = await serve(tmp_path, [ask("a", "what is the capital of France?"), ask("b", "what is the capital of Spain?"), ask("a", "pay this invoice")], answers, screener)
 
     a, b = (history.get_conversation(reopened, c) for c in "ab")
-    head = lambda m: (m.role, m.text.splitlines()[0])  # an answer ends with a cost footer; compare its first line
+    head = lambda m: (m.role, m.text.splitlines()[0])  # first line only: a decline joins two sentences
     assert [head(m) for m in a.messages] == [
         ("user", "what is the capital of France?"),
         ("assistant", "Paris"),

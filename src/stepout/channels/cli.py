@@ -25,7 +25,7 @@ class CliChannel:
                 yield Message(user_id=LOCAL_USER, text=line)
 
     async def send(self, reply: Reply) -> None:
-        print(reply.text)
+        print(reply.text + (f"\n\n(cost: ${reply.cost_usd:.4f})" if reply.cost_usd else ""))  # the terminal has no cost field to show
 
     async def trace(self, event: Event) -> None:
         if event.kind != "plan":  # plan snapshots are for the web checklist; the step lines say the same

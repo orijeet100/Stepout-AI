@@ -138,7 +138,7 @@ async def test_an_answer_in_words_instead_of_the_tool_also_falls_back_and_its_co
 
 async def test_the_front_doors_cost_is_part_of_the_runs_total_and_its_record(tmp_path):
     _, channel, store = await converse(tmp_path, [ask("c1", "what is 2+3?")], [proceed(), answer("5")])
-    assert channel.sent[0].text.endswith("(cost: $0.0017)") and channel.sent[0].cost_usd == pytest.approx(SCREEN_COST + STEP_COST)
+    assert channel.sent[0].text == "5" and channel.sent[0].cost_usd == pytest.approx(SCREEN_COST + STEP_COST)
     assert store.query("SELECT cost_usd FROM runs")[0]["cost_usd"] == pytest.approx(SCREEN_COST + STEP_COST)
     assert store.query("SELECT cost_usd FROM events WHERE kind = 'screening'")[0]["cost_usd"] == pytest.approx(SCREEN_COST)
 

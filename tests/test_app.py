@@ -65,4 +65,4 @@ async def test_answer_request_end_to_end(ledger):
     await run(channel, Intake(FixedScreener((Proceed(), 0.0007)), ledger), runner)
     assert len(channel.sent) == 1
     assert "Paris" in channel.sent[0].text
-    assert channel.sent[0].text.endswith("(cost: $0.0027)")  # the front door's $0.0007 is in the total
+    assert channel.sent[0].text == "Paris" and channel.sent[0].cost_usd == pytest.approx(0.0027)  # the front door's $0.0007 is in the total, and the text carries no footer
