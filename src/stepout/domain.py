@@ -30,12 +30,8 @@ def _now() -> datetime:
 
 class Outcome(StrEnum):
     DONE = "done"
-    BLOCKED = "blocked"
-    DECLINED = "declined"
     FAILED = "failed"
     CANCELLED = "cancelled"
-    EXPIRED = "expired"
-    UNCERTAIN = "uncertain"
 
 
 DEFAULT_CONVERSATION = "default"  # the CLI's one chat, and the page's until it sends chat ids
