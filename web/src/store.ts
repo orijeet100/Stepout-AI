@@ -119,15 +119,11 @@ export function reducer(s: State, a: Action): State {
         const old = runs[r.run_id]
         runs[r.run_id] = { id: r.run_id, conversationId: a.id, startedAt: old?.events[0]?.at ?? r.started_at, hint: r.state, events: old?.events ?? [] }
       }
-      // History is the record. A message that arrived live gets a different id from its saved copy (until the backend
-      // gives a message one id), so keep only live messages newer than anything history has, and take the rest from it.
-      const newest = Math.max(0, ...a.messages.map((m) => ms(m.at)))
-      const liveNewer = (s.messages[a.id] ?? []).filter((m) => ms(m.at) > newest)
       return {
         ...s,
         runs,
         chats: { ...s.chats, [a.id]: { ...(s.chats[a.id] ?? { id: a.id, updated_at: '', preview: '' }), title: a.title || s.chats[a.id]?.title || '' } },
-        messages: { ...s.messages, [a.id]: mergeById(a.messages, liveNewer) },
+        messages: { ...s.messages, [a.id]: mergeById(s.messages[a.id] ?? [], a.messages) },
       }
     }
     case 'events':

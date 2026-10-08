@@ -382,8 +382,10 @@ async def test_a_page_message_runs_through_the_real_app_and_reads_back_from_the_
         assert shot == {"summary": "page screenshot", "shot": "abc/1.jpg", "url": "https://example.com", "title": "Example"}
         reply = next(f for f in seen if f["type"] == "message" and f["role"] == "assistant")
         assert reply["text"].startswith("It says Example Domain.") and reply["run_id"] == run_id and reply["cost_usd"] == pytest.approx(0.004)
-        stored = (await (await client.get(f"{base}/api/conversations/{chat}")).json())["messages"][1]
-        assert (reply["id"], reply["at"]) == (stored["id"], stored["at"])  # the live reply and the saved one are the same message: a page that reloads cannot show it twice
+        stored = (await (await client.get(f"{base}/api/conversations/{chat}")).json())["messages"]
+        assert (reply["id"], reply["at"]) == (stored[1]["id"], stored[1]["at"])  # the live reply and the saved one are the same message: a page that reloads cannot show it twice
+        echo = seen[0]
+        assert (echo["id"], echo["at"]) == (stored[0]["id"], stored[0]["at"])  # and so is your own message
 
         # history now returns the same run: same event ids, in the order they were streamed
         listed = await (await client.get(f"{base}/api/conversations")).json()
