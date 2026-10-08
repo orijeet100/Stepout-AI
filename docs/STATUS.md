@@ -14,7 +14,7 @@ Updated 2026-10-08 · after sync 3 · the work of both lanes (B1–B3, U1–U2) 
 | **M2** Files | `list`/`find`/`count`, real-path resolution, fixed block list, `grants.toml`, 60 s walks | real D: drive: 1.6M files counted, PARTIAL; `.env` refused; "find my resume" asks for a hint, then finds it ($0.034) |
 | **M3** Browser | headless installed Chrome, read-only, every request and redirect hop policed, screenshots in the trace | zero requests reach a private server by any route; live smoke suite 6/6 |
 
-**Tests:** 132 offline (`pytest -q`, includes real Chrome) + 6 live smoke tasks (`pytest -m eval`, about $0.11). **Next: M4 (Reader)**, then S3 Approvals.
+**Tests:** offline (`pytest -q`, includes real Chrome; the current count is under Lane: Main) + 6 live smoke tasks (`pytest -m eval`, about $0.11). **Next:** finish V0 ([`plan/v0-finish.md`](plan/v0-finish.md)), then S3 Approvals.
 
 ## Run, test, verify
 ```bash
@@ -85,15 +85,15 @@ flowchart LR
 ## Remaining, in order
 > **Replanned 2026-10-07:** the order of work is now [`plan/README.md`](plan/README.md) (two lanes, iterations B1–B6 and U1–U6). The Reader below is iteration B4; Approvals and pause/resume are B5. The list below is the older view; each lane's progress is in its section further down.
 
-1. **M4 Reader** — `read_text` for text and PDF (pypdf; check its licence), secret screening, 20 reads/10 MB/40k chars per Run, Taint, and the "no web after a read" rule; demos: summarize the newest PDF; compare my resume to a job posting.
+1. **Finish V0**: C3 and C4 of [`plan/v0-finish.md`](plan/v0-finish.md) (the Reader itself is built and passed its demos live): the acceptance run, tuning the caps from its numbers, the staleness audit.
 2. **S3 Approvals + pause/resume** — Questions, Approvals, Checkpoints, `recover()`: needed for uploads and form filling, and so a hint like "it's in the 2026 resume folder" continues the same task (today it arrives as a new request with no memory).
 3. S4 Telegram · S5 Memory (recall, Persona, Notes) · S6/S7 Evaluation and the security suite (one loop vs orchestrated is a Condition) · S9 persona editor · S10 mem0 · S11 organize files. See [`roadmap.md`](roadmap.md).
 4. Ideas parked: smarter file search (ask with options, rank folders, prune `node_modules`/`.git`/venvs, fuzzy names), a Verifier before replying, a separate Planner and parallel steps (V1).
 
-**Open questions:** secret screening method (patterns vs model) · PDF library licence · is a click Consequential (S3) · evaluation matrix vs the $25/month budget (S6).
+**Open questions:** is a click Consequential (S3) · evaluation matrix vs the $25/month budget (S6).
 
 ## Known gaps (ceilings, not bugs)
-Stop takes effect at the next step (up to ~20 s inside a long search) · a search ending in `pause_turn` is returned partial · a malformed tool call shows "Something went wrong" instead of being fed back · chat/trace history lives in memory until restart · the Orchestrator sometimes over-plans · whole-drive counts are partial by design · names and paths from `list`/`find` go to the model API (counts don't) · a folder swapped for a link between resolve and walk isn't caught (walks never follow links) · screenshots in `data/runs/` are never cleaned up · subresource redirects are dropped, not followed.
+Stop takes effect at the next step (up to ~20 s inside a long search) · a search ending in `pause_turn` is returned partial · a malformed tool call shows "Something went wrong" instead of being fed back · a PDF read that times out (30 s) is abandoned but its worker thread keeps running until pypdf returns (a subprocess would end it) · the 10 MB read limit is one total per Run (the stricter reading) · the Orchestrator sometimes over-plans · whole-drive counts are partial by design · names and paths from `list`/`find` go to the model API (counts don't) · a folder swapped for a link between resolve and walk isn't caught (walks never follow links) · screenshots in `data/runs/` are never cleaned up · subresource redirects are dropped, not followed.
 
 ## Gotchas for the next agent
 Windows-only paths (`files.py`). Run tests with the venv Python. In generated Python, write Windows paths with `\\` (a bare `\D` is a `SyntaxWarning`; CI-style check: `pytest -W error::SyntaxWarning`). Use `-X utf8` when printing arrows to the console. The live suite and the web chat spend real money: say so before running them. `.archify/` holds generated diagrams (local only). **A new worktree has none of the git-ignored files**: paste `.env` (the nearest one wins; with none, the app finds the primary checkout's, because worktrees sit inside it), copy `grants.example.toml` to `data/config/grants.toml` and edit it (only the User does), and run `cd web && npm ci && npm run build`. Port 8765 is often taken by the UI lane's mock: the desktop app's Start button picks a free one (`PORT`); from a shell set `STEPOUT_PORT`.

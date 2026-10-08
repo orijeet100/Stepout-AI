@@ -2,7 +2,7 @@
 
 Status: agreed 2026-10-07 · Design: [`architecture.md`](architecture.md) · Decisions: [ADR 0010](adr/0010-one-loop-many-roles.md) · Older slice order: [`roadmap.md`](roadmap.md)
 
-**Progress.** M1–M3 done 2026-10-07; results, decisions and what's next are in [`STATUS.md`](STATUS.md). Next: M4.
+**Progress.** M1–M3 done 2026-10-07, M4 (the Reader) built 2026-10-08 and its demos passed live; results, decisions and what's next are in [`STATUS.md`](STATUS.md).
 
 **Goal.** From the web chat, ask for something in plain English. An **Orchestrator** plans it, hands each step to a specialist agent (web, files, browser, file reader), and reports back — while you watch every call and return live. Read-only. $1 per Run.
 

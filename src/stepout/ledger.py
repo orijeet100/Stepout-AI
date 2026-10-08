@@ -85,7 +85,3 @@ class Ledger:
             )
             for r in rows
         ]
-
-    def cost_since(self, since_iso: str) -> float:
-        rows = self._store.query("SELECT COALESCE(SUM(cost_usd), 0) AS total FROM events WHERE at >= ?", (since_iso,))
-        return rows[0]["total"]
