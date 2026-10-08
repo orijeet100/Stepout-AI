@@ -14,6 +14,7 @@ def test_each_role_holds_one_kind_of_hand():
     assert ROLES["direct"].actions == {"fetch", "answer"}
     assert ROLES["files"].actions == {"files", "answer"}
     assert ROLES["browser"].actions == {"browse", "answer"}
+    assert ROLES["reader"].actions == {"read_text", "answer"}  # the only role that can open a file, and it holds nothing else
 
 
 def test_a_role_can_only_take_its_own_actions():

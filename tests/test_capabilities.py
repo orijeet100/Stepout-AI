@@ -126,7 +126,7 @@ def test_a_tool_the_provider_runs_has_no_action_and_is_not_one_a_role_may_take()
 
 
 def test_plan_roles_come_from_the_role_table():
-    assert SPECIALISTS == ("direct", "files", "browser")
+    assert SPECIALISTS == ("direct", "files", "browser", "reader")
     for name in SPECIALISTS:
         assert PlanStep(role=name, goal="g").role == name
         assert f"{name} (" in ROLES["orchestrator"].system  # the prompt describes every role a Plan can name
