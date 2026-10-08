@@ -1,6 +1,7 @@
 import Icon from './Icon'
 import type { Trace, Verdict } from './protocol'
-import { elapsedMs, elapsedText, money, plainLine, planOf, planProgress, spent, stepCost, stepCount } from './runview'
+import { elapsedMs, elapsedText, hasBrowserStep, money, plainLine, planOf, planProgress, shotsOf, spent, stepCost, stepCount } from './runview'
+import { BrowserPanel, ThumbStrip } from './Shots'
 import type { Run, RunState } from './store'
 
 const VERDICT: Record<Verdict, { label: string; icon: 'check' | 'ban' | 'ask' }> = {
@@ -13,12 +14,12 @@ const STATE_LABEL: Record<RunState, string> = { running: 'Working…', done: '',
 const stepsOf = (done: number, total: number) => `${done} of ${total} step${total === 1 ? '' : 's'}`
 
 /** A real number against its real limit: never an estimate, so no bar without both. */
-function Meter({ label, now, max, text, full }: { label: string; now: number; max: number; text: string; full?: boolean }) {
+function Meter({ label, now, max, text, tone }: { label: string; now: number; max: number; text: string; tone?: 'warn' | 'full' }) {
   return (
     <div className="meter">
       <div className="meter__head"><span>{label}</span><span>{text}</span></div>
       <div className="meter__bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.min(now, max)} aria-valuetext={text}>
-        <span className={full ? 'is-full' : undefined} style={{ width: `${Math.min(100, (now / max) * 100)}%` }} />
+        <span className={tone ? `is-${tone}` : undefined} style={{ width: `${Math.min(100, (now / max) * 100)}%` }} />
       </div>
     </div>
   )
@@ -43,15 +44,16 @@ function Line({ e }: { e: Trace }) {
   )
 }
 
-type Props = { run: Run; state: RunState; cap: number | null; now: number; onStop: () => void }
+type Props = { run: Run; state: RunState; cap: number | null; now: number; onStop: () => void; onOpenShot?: (index: number) => void }
 
-export default function RunBlock({ run, state, cap, now, onStop }: Props) {
+export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: Props) {
   const running = state === 'running'
   const plan = planOf(run)
   const { done, total } = planProgress(plan)
   const cost = spent(run)
   const time = elapsedText(elapsedMs(run, running, now))
   const steps = stepCount(run)
+  const shots = shotsOf(run)
   const lines = run.events.filter((e) => e.kind === 'step' || e.kind === 'return' || e.kind === 'stop')
   const summary = running
     ? ['Working…', total ? stepsOf(done, total) : '', time].filter(Boolean).join(' · ')
@@ -67,7 +69,7 @@ export default function RunBlock({ run, state, cap, now, onStop }: Props) {
         {(total > 0 || cap) && (
           <div className="progress">
             {total > 0 && <Meter label="Plan" now={done} max={total} text={stepsOf(done, total)} />}
-            {cap && <Meter label="Budget" now={cost} max={cap} text={`${money(cost)} of ${money(cap)}`} full={cost >= cap} />}
+            {cap && <Meter label="Budget" now={cost} max={cap} text={`${money(cost)} of ${money(cap)}`} tone={cost >= cap ? 'full' : cost >= cap * 0.8 ? 'warn' : undefined} />}
           </div>
         )}
         {running && (
@@ -75,6 +77,7 @@ export default function RunBlock({ run, state, cap, now, onStop }: Props) {
             <Icon name="stop" size={14} /> Stop
           </button>
         )}
+        <BrowserPanel runId={run.id} live={running && hasBrowserStep(run)} shots={shots} onOpen={onOpenShot} />
         {plan.length > 0 && (
           <ol className="plan" aria-label="Plan">
             {plan.map((s, i) => (
@@ -91,6 +94,7 @@ export default function RunBlock({ run, state, cap, now, onStop }: Props) {
         <ul className="steps" aria-label="Steps">
           {lines.map((e) => <Line key={e.id} e={e} />)}
         </ul>
+        {onOpenShot && <ThumbStrip shots={shots} onOpen={onOpenShot} />}
       </div>
     </details>
   )

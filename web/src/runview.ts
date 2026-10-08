@@ -32,3 +32,30 @@ export function elapsedMs(run: Run, running: boolean, now: number): number {
 }
 
 export const planProgress = (plan: PlanStep[]) => ({ done: plan.filter((p) => p.status === 'done').length, total: plan.length })
+
+// ---- the browser's pages: saved screenshots (`shot` events) and the live view -------------------------------------------
+
+export type Shot = { path: string; url: string | null; title: string | null }
+
+/** A Run's saved screenshots, in the order they were taken. */
+export const shotsOf = (run: Run): Shot[] =>
+  run.events.filter((e) => e.kind === 'shot' && e.data.shot).map((e) => ({ path: e.data.shot!, url: e.data.url ?? null, title: e.data.title ?? null }))
+
+/** Has the Browser agent done anything in this Run? Only then is there a page to watch. */
+export const hasBrowserStep = (run: Run) => run.events.some((e) => e.kind === 'step' && e.role === 'browser')
+
+/** The address of a saved screenshot, or null if the path is not the `<run>/<n>.jpg` the backend writes: never built from anything else. */
+export const shotSrc = (path: string): string | null => (/^[0-9a-f]{32}\/\d+\.jpg$/.test(path) ? `/shots/${path}` : null)
+
+/** The live stream of a Run, or null if the id is not the 32 hex characters the backend makes. */
+export const liveSrc = (runId: string): string | null => (/^[0-9a-f]{32}$/.test(runId) ? `/live/${runId}` : null)
+
+/** A page's address as a link target: http(s) only. A model-driven page can say anything in a `url`; only a real web address becomes a link. */
+export function safeHref(url: string | null): string | null {
+  try {
+    const u = new URL(url ?? '')
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null
+  } catch {
+    return null
+  }
+}

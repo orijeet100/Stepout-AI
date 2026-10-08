@@ -15,6 +15,7 @@ export type State = {
   attempt: number // reconnect attempts since the last open connection
   chats: Record<string, Chat>
   selected: string | null
+  draft: boolean // "New chat": nothing selected on purpose; the chat is made when the first message is sent
   messages: Record<string, Message[]> // by conversation id, oldest first
   runs: Record<string, Run>
   status: Status
@@ -26,6 +27,7 @@ export const initial: State = {
   attempt: 0,
   chats: {},
   selected: null,
+  draft: false,
   messages: {},
   runs: {},
   status: { state: 'idle', active: null, queued: [] },
@@ -111,7 +113,7 @@ export function reducer(s: State, a: Action): State {
       // Keep a chat that only exists locally (just created, or learned from a live frame) if the list lacks it.
       const listed = Object.fromEntries(a.chats.map((c) => [c.id, c]))
       const kept = Object.fromEntries(Object.entries(s.chats).filter(([id]) => !(id in listed)))
-      const selected = s.selected && (s.selected in listed || s.selected in kept) ? s.selected : (a.chats[0]?.id ?? null)
+      const selected = s.draft ? null : s.selected && (s.selected in listed || s.selected in kept) ? s.selected : (a.chats[0]?.id ?? null)
       return { ...s, chats: { ...kept, ...listed }, selected }
     }
     case 'detail': {
@@ -130,9 +132,9 @@ export function reducer(s: State, a: Action): State {
     case 'events':
       return { ...s, runs: addEvents(s.runs, a.events) }
     case 'select':
-      return { ...s, selected: a.id }
+      return { ...s, selected: a.id, draft: a.id === null }
     case 'created':
-      return { ...s, selected: a.id, chats: { ...s.chats, [a.id]: { id: a.id, title: '', updated_at: a.at, preview: '' } } }
+      return { ...s, selected: a.id, draft: false, chats: { ...s.chats, [a.id]: { id: a.id, title: '', updated_at: a.at, preview: '' } } }
     case 'error':
       return { ...s, error: a.error }
   }

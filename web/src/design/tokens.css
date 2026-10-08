@@ -1,24 +1,42 @@
-/* Design tokens: direction C "Ink" (chosen 2026-10-07, docs/log). Cool graphite, mono for run detail, run-green.
-   Every colour is light-dark(light, dark), so the page follows the system theme. Components read these, never raw values.
-   Check contrast after editing a colour: `npm run check:contrast`. */
+/* Design tokens: direction C "Ink" (chosen 2026-10-07): graphite, mono for run detail, run-green.
+   Every colour is light-dark(light, dark), and the two sets are designed, not inverted:
+   - dark: stepped graphite (the sidebar is the deepest layer, cards sit above the page), a calm green with no glow,
+     depth from lightness alone;
+   - light: a cool paper (white cards on a pale page, a deeper sidebar), a deeper green, depth from soft shadow and firmer edges.
+   Status is never colour alone (the page pairs it with an icon and words). Components read these, never raw values.
+   After editing a colour: `npm run check:contrast` (text 4.5:1, control edges and the focus ring 3:1). */
 :root {
   color-scheme: light dark;
 
-  /* colour */
-  --bg: light-dark(#f6f7f9, #0e1014);
-  --surface: light-dark(#ffffff, #151821);      /* cards, composer */
-  --sidebar: light-dark(#eceef2, #0a0c10);
-  --active: light-dark(#dfe3ea, #1a1f2b);       /* selected or hovered row */
-  --text: light-dark(#14171c, #e7e9ee);
-  --muted: light-dark(#566070, #98a1b0);
-  --border: light-dark(#dde1e8, #242936);
-  --accent: light-dark(#127336, #3ddc84);       /* run-green */
-  --on-accent: light-dark(#ffffff, #04210f);    /* text on an accent fill */
-  --accent-soft: light-dark(#dcf3e4, #11271b);
-  --user-bg: light-dark(#e6e9ef, #1a1f2b);
-  --ok: light-dark(#127336, #3ddc84);
-  --warn: light-dark(#8f5508, #f0b44c);
-  --err: light-dark(#b42318, #f2766c);
+  /* surfaces, from the page outward */
+  --bg: light-dark(#f5f7fa, #0f1217);
+  --surface: light-dark(#ffffff, #161a21);       /* cards, composer */
+  --surface-2: light-dark(#eef1f5, #1c212a);     /* an inset panel inside a card (the meters), a disabled control */
+  --sidebar: light-dark(#e9edf2, #0b0d11);
+  --active: light-dark(#dde3eb, #1e2430);        /* the open chat, a hovered row */
+  --user-bg: light-dark(#e6ebf2, #1f2530);
+
+  /* text and edges */
+  --text: light-dark(#0f172a, #e8ebf0);
+  --muted: light-dark(#4b5768, #9ba5b5);
+  --border: light-dark(#dbe1e9, #252b35);          /* a quiet divider */
+  --border-strong: light-dark(#7d8899, #667287);   /* the edge of a control: 3:1 against the surfaces */
+
+  /* the one accent: run-green */
+  --accent: light-dark(#13793a, #45d483);
+  --accent-hover: light-dark(#0e6530, #6ae3a1);
+  --on-accent: light-dark(#ffffff, #06210f);      /* text on an accent fill */
+  --accent-soft: light-dark(#e1f3e8, #12281d);
+
+  /* status: text colour, plus a soft tint where a header or a banner needs one */
+  --ok: light-dark(#13793a, #4cd98a);
+  --warn: light-dark(#8a5200, #f2b94d);
+  --err: light-dark(#b42318, #f47c71);
+  --warn-soft: light-dark(#fbf0d9, #2a2212);
+  --err-soft: light-dark(#fdecea, #2d1717);
+
+  /* lift: a soft shadow in light, none in dark (there depth is the lighter surface) */
+  --shade: light-dark(rgb(15 23 42 / 0.08), rgb(0 0 0 / 0));
 
   /* type: system fonts on purpose (nothing to download; Segoe UI Variable and Cascadia on Windows 11) */
   --font-body: system-ui, 'Segoe UI Variable Text', 'Segoe UI', Roboto, sans-serif;

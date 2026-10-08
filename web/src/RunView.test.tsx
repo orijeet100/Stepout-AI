@@ -123,6 +123,22 @@ describe('stopped, over budget, failed', () => {
     expect(container.querySelector('.run')!.className).toContain('run--overbudget')
   })
 
+  it('the budget bar turns amber at 80% of the cap and red at 100%, from the real numbers (never before)', () => {
+    const { cost } = expected('web-run') // 0.1388
+    const bar = (cap: number) => {
+      const s = stateOf('web-run', { hint: 'done', cap })
+      const { container } = show(s, 'web-run')
+      const tone = container.querySelector('[role=progressbar][aria-label=Budget] > span')!.className
+      container.remove()
+      return tone
+    }
+    expect(bar(cost / 0.5)).toBe('') // 50% spent: the accent
+    expect(bar(cost / 0.8)).toBe('is-warn') // exactly 80%
+    expect(bar(cost / 0.95)).toBe('is-warn')
+    expect(bar(cost)).toBe('is-full') // the cap itself
+    expect(bar(cost / 1.4)).toBe('is-full') // beyond it
+  })
+
   it('failed (the API says so; no stop event): labelled Failed', () => {
     const { container } = show(stateOf('files-run', { hint: 'failed', cap: 1 }), 'files-run')
     expect(summary(container)).toMatch(/^Failed · \d+ steps · /)
