@@ -7,7 +7,7 @@ only through `RunContext`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Mapping
 
 from pydantic import BaseModel
@@ -24,6 +24,13 @@ def tool_schema(name: str, description: str, required: list[str] | None = None, 
 
 
 @dataclass
+class RunState:
+    """What every Role of one Run shares, and what capabilities may read or change: counters and flags that outlive a single Step."""
+
+    scratch: dict[str, Any] = field(default_factory=dict)  # per capability, keyed by its name (e.g. how much has been read)
+
+
+@dataclass
 class RunContext:
     """What a capability may use while one Role takes one Step."""
 
@@ -32,6 +39,7 @@ class RunContext:
     hands: Mapping[str, Any]  # the live hand for each capability name (Fetcher, Files, Browser, ...)
     cancelled: Callable[[], bool]  # True once the User pressed Stop
     emit: Callable[..., Awaitable[Any]]  # emit(kind, summary, **data): a Trace event under the Step that is running
+    state: RunState = field(default_factory=RunState)  # the same object for every Role in the Run
 
 
 class Capability:

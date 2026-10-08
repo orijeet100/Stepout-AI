@@ -13,13 +13,14 @@ from typing import Awaitable, Callable, Sequence
 from uuid import uuid4
 
 from stepout import capabilities, gate
-from stepout.capabilities.base import TEXT_CHARS, RunContext
+from stepout.capabilities.base import TEXT_CHARS, RunContext, RunState
 from stepout.domain import Allow, AnswerAction, DelegateAction, Event, Exchange, Outcome, PlanAction, PlanStep, Reply, Task
 from stepout.browser import Browser
 from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.ledger import Ledger
 from stepout.model import Model, ModelRequest
+from stepout.reader import Reader
 from stepout.roles import ROLES
 
 _MAX_PLANS = 3  # the first plan plus two re-plans
@@ -45,6 +46,7 @@ class _Run:
     plans: int = 0
     stopped: bool = False  # the User pressed Stop, or the budget ran out
     previous: str = ""  # the linked Exchanges, rendered; only the Orchestrator sees them
+    state: RunState = field(default_factory=RunState)  # shared by every Role: read counters and, later, the taint
     id: str = field(default_factory=lambda: uuid4().hex)
 
 
@@ -101,7 +103,7 @@ class Runner:
         self._notify = notify
         self._files = files or Files()  # no Grants = no access
         self._browser = browser or Browser()  # starts Chrome only when a page is first opened
-        self._hands = {"fetch": fetcher, "files": self._files, "browse": self._browser}  # by capability name
+        self._hands = {"fetch": fetcher, "files": self._files, "browse": self._browser, "read_text": Reader(self._files)}  # by capability name
         self._trace = trace
         self._cancel = cancel or asyncio.Event()  # set by the Channel when the User presses Stop
         self._cap = float(os.environ.get("STEPOUT_TASK_CAP_USD", "1.00"))
@@ -157,6 +159,7 @@ class Runner:
             hands=self._hands,
             cancelled=self._cancel.is_set,
             emit=lambda kind, summary, **data: self._emit(run, kind, role_name, summary, parent=step.id, **data),
+            state=run.state,
         )
         for _ in range(role.max_steps):
             if self._cancel.is_set():

@@ -13,6 +13,14 @@ Skills are instructions that steer the agent, so each was read or scanned before
 
 **Deliberately not enabled.** `graphify install --project` also registers PreToolUse hooks (a process per search/read) and a root `CLAUDE.md` rule to rebuild the graph after every code change. We removed both: too much overhead for a repo this small. To turn them on later, run `graphify claude install`.
 
+## Runtime libraries added for a feature
+
+| What | Source | Version | Licence | Where |
+|---|---|---|---|---|
+| pypdf: text from PDFs, for the Reader | [py-pdf/pypdf](https://github.com/py-pdf/pypdf), PyPI `pypdf` | 6.19.0 (`pypdf>=6.19`) | BSD-3-Clause (read from the package's own metadata); pure Python, no dependencies | `pyproject.toml`; used only in `src/stepout/reader.py` |
+
+**Review notes.** pypdf parses files written by anyone, so it runs in a worker thread with a time limit, after a 10 MB file budget and a page cap, and extraction of a page is skipped if its decompressed content is huge (the library's own docs warn that extraction needs memory for the whole content stream). pypdf also enforces its own per-stream limits (75 MB by default). Not verified: how to tighten those limits per reader (`pypdf.Configuration` exists, but the page that should document it was not found, so the defaults are used).
+
 ## Left out of agent-skills, and why
 
 - **Overlaps what we already have:** test-driven-development (`mattpocock-skills:tdd`), code-review-and-quality (`/code-review`), debugging-and-error-recovery (`diagnosing-bugs`), code-simplification (`/simplify`, ponytail), planning-and-task-breakdown / spec-driven-development / idea-refine / interview-me (`ce:plan`, `ce:brainstorm`, grilling), git-workflow-and-versioning (built in), documentation-and-adrs (we already write ADRs).
