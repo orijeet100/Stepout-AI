@@ -34,7 +34,8 @@
 .dot { display: inline-block; flex: none; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--muted); }
 .dot--running { background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
 .dot--done { background: var(--ok); }
-.dot--stopped, .dot--failed { background: var(--err); }
+.dot--stopped { background: var(--warn); }
+.dot--overbudget, .dot--failed { background: var(--err); }
 @keyframes pulse { 50% { opacity: 0.35; transform: scale(0.8); } }
 
 /* main column */
@@ -86,6 +87,19 @@
 .verdict--allow { color: var(--ok); }
 .verdict--refuse { color: var(--err); }
 .verdict--ask { color: var(--warn); }
+
+/* progress: a number against its limit, never a guess */
+.progress { display: grid; gap: var(--sp-2); width: 100%; padding: var(--sp-2) var(--sp-3); background: var(--accent-soft); border-radius: var(--r-md); }
+.meter__head { display: flex; justify-content: space-between; gap: var(--sp-3); margin-bottom: 4px; }
+.meter__bar { height: 6px; overflow: hidden; background: color-mix(in srgb, var(--text) 14%, transparent); border-radius: 999px; }
+.meter__bar > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width var(--dur) var(--ease); }
+.meter__bar > span.is-full { background: var(--err); }
+.run--overbudget, .run--failed { border-color: color-mix(in srgb, var(--err) 45%, var(--border)); }
+
+/* a message waiting its turn, and a reply that is not the end of a Run (a decline, an unknown command, an error) */
+.tag { margin-left: var(--sp-2); padding: 1px var(--sp-2); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; font-size: 0.75rem; white-space: nowrap; }
+.reply--note { padding-left: var(--sp-3); border-left: 2px solid var(--border); }
+.note__cap { display: block; margin-bottom: 2px; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* composer */
 .composer { display: flex; align-items: flex-end; gap: var(--sp-2); width: calc(100% - var(--sp-4)); max-width: var(--measure); margin: 0 auto var(--sp-3); padding: var(--sp-2); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); }

@@ -1,14 +1,17 @@
 import { useEffect, useRef } from 'react'
 import Reply from './Reply'
 import RunBlock from './RunBlock'
+import { money } from './runview'
 import type { Item, Run, RunState } from './store'
+import { useNow } from './useNow'
 
-type Props = { items: Item[]; runState: (run: Run) => RunState; onStop: () => void }
+type Props = { items: Item[]; runState: (run: Run) => RunState; runCap: (run: Run) => number | null; onStop: () => void }
 
-export default function ChatView({ items, runState, onStop }: Props) {
+export default function ChatView({ items, runState, runCap, onStop }: Props) {
   const end = useRef<HTMLDivElement>(null)
   const last = items.at(-1)
   const growth = last?.kind === 'run' ? last.run.events.length : items.length
+  const now = useNow(items.some((i) => i.kind === 'run' && runState(i.run) === 'running'))
   useEffect(() => {
     end.current?.scrollIntoView?.({ block: 'end' }) // jsdom has no scrollIntoView
   }, [items.length, growth])
@@ -23,18 +26,25 @@ export default function ChatView({ items, runState, onStop }: Props) {
   return (
     <div className="scroll">
       <div className="col">
-        {items.map((item) =>
-          item.kind === 'run' ? (
-            <RunBlock key={item.run.id} run={item.run} state={runState(item.run)} onStop={onStop} />
-          ) : item.message.role === 'user' ? (
-            <p key={item.message.id} className="user">{item.message.text}</p>
-          ) : (
-            <div key={item.message.id} className="reply">
-              <Reply text={item.message.text} />
-              {item.message.cost_usd !== null && <small className="muted">${item.message.cost_usd.toFixed(4)}</small>}
+        {items.map((item) => {
+          if (item.kind === 'run') return <RunBlock key={item.run.id} run={item.run} state={runState(item.run)} cap={runCap(item.run)} now={now} onStop={onStop} />
+          const { message } = item
+          if (message.role === 'user') {
+            return (
+              <p key={message.id} className="user">
+                {message.text}
+                {item.queued && <span className="tag">Queued</span>}
+              </p>
+            )
+          }
+          return (
+            <div key={message.id} className={`reply${item.note ? ' reply--note' : ''}`}>
+              {item.note && <small className="note__cap">No run was started</small>}
+              <Reply text={message.text} />
+              {message.cost_usd !== null && <small className="muted">{money(message.cost_usd)}</small>}
             </div>
-          ),
-        )}
+          )
+        })}
         <div ref={end} />
       </div>
     </div>

@@ -2,7 +2,7 @@ import './App.css'
 import ChatView from './ChatView'
 import Composer from './Composer'
 import Sidebar from './Sidebar'
-import { chatList, runState, timeline } from './store'
+import { chatList, runCap, runState, timeline } from './store'
 import { useBackend } from './useBackend'
 
 export default function App() {
@@ -32,7 +32,7 @@ export default function App() {
             {(conn !== 'open' || error) && <button className="btn" type="button" onClick={retry}>Retry now</button>}
           </div>
         )}
-        <ChatView items={selected ? timeline(state, selected) : []} runState={(r) => runState(state, r)} onStop={stop} />
+        <ChatView items={selected ? timeline(state, selected) : []} runState={(r) => runState(state, r)} runCap={(r) => runCap(state, r)} onStop={stop} />
         <Composer online={conn === 'open'} busy={state.status.state === 'running'} onSend={send} />
       </main>
     </div>

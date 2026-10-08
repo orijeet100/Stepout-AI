@@ -72,8 +72,8 @@ describe('App', () => {
     act(() => ws.onopen?.())
     expect(await screen.findByRole('heading', { name: 'Which events are free?' })).toBeTruthy()
     expect(await screen.findByText('Two of them.', { selector: '.reply p' })).toBeTruthy()
-    expect(screen.getByText('$0.0500')).toBeTruthy() // the reply's cost
-    expect(screen.getByText(/1 step · \$0\.0124/)).toBeTruthy() // the run's summary
+    expect(screen.getByText('$0.05')).toBeTruthy() // the reply's cost
+    expect(screen.getByText('1 step · $0.01 · 1 s')).toBeTruthy() // the run's summary: steps · cost · elapsed, from its events
     expect(screen.getByRole('button', { name: 'New chat' })).toBeTruthy()
     const row = screen.getByRole('button', { name: /Which events are free\?/ }) // the sidebar row is a named button
     expect(row.getAttribute('aria-current')).toBe('true')
@@ -93,7 +93,8 @@ describe('App', () => {
     ws.push({ type: 'message', id: 'm3', conversation_id: C, role: 'user', text: 'And the cheapest?', run_id: null, cost_usd: null, at: t(10) })
     ws.push({ type: 'status', state: 'running', active: { conversation_id: C, run_id: R2, cap_usd: 1 }, queued: [], at: t(10) })
     ws.push({ type: 'trace', id: 'e9', conversation_id: C, run_id: R2, parent: null, kind: 'step', role: 'orchestrator', data: { summary: 'plan: browser: Look it up', verdict: 'allow' }, cost_usd: 0.0141, at: t(11) })
-    expect(await screen.findByText(/Working… 1 step · \$0\.0141/)).toBeTruthy()
+    expect(await screen.findByText(/^Working…/)).toBeTruthy()
+    expect(screen.getAllByRole('progressbar', { name: 'Budget' }).at(-1)!.getAttribute('aria-valuetext')).toBe('$0.01 of $1.00') // the live Run's spend against cap_usd from the status frame
     expect(screen.getByText('plan: browser: Look it up')).toBeTruthy()
     expect(screen.getAllByText('Running').length).toBeGreaterThan(0) // the header pill
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
@@ -102,7 +103,7 @@ describe('App', () => {
     ws.push({ type: 'trace', id: 'e10', conversation_id: C, run_id: R2, parent: null, kind: 'stop', role: 'orchestrator', data: { summary: 'Stopped by you.' }, cost_usd: 0, at: t(12) })
     ws.push({ type: 'status', state: 'idle', active: null, queued: [], at: t(12) })
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
-    expect(screen.getByText(/Stopped · 1 step/)).toBeTruthy()
+    expect(screen.getByText(/^Stopped by you · 1 step · /)).toBeTruthy()
   })
 
   it('marks a chat that is waiting behind a run as queued', async () => {
