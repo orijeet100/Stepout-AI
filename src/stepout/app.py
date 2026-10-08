@@ -15,6 +15,7 @@ from stepout.channels.cli import CliChannel
 from stepout.channels.web import WebChannel
 from stepout.browser import Browser
 from stepout.domain import Reply, Task
+from stepout.failure import UNEXPECTED
 from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.intake import ChatReading, CommandReading, DeclinedReading, FailedReading, Intake, NewTask
@@ -27,7 +28,6 @@ from stepout.store import Store
 DB_PATH = Path("data/stepout.db")
 GRANTS_PATH = Path("data/config/grants.toml")  # only the User edits this
 SHOTS_PATH = Path("data/runs")  # page screenshots, one folder per Run
-_UNEXPECTED = "I hit an unexpected problem and could not finish. Nothing on your computer was changed. Try again; if it repeats, the details are in the terminal."
 
 
 def make_browser(channel) -> Browser:
@@ -88,7 +88,7 @@ async def run(channel, intake: Intake, runner: Runner) -> None:
                     await runner.submit(task, previous, screening_cost=cost)
         except Exception as exc:  # one failed request (API error, bad key) must not end the session
             logging.exception("request failed")
-            await channel.send(Reply(text=_UNEXPECTED, conversation_id=cid))
+            await channel.send(Reply(text=UNEXPECTED, conversation_id=cid))
 
 
 async def main() -> None:

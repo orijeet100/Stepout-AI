@@ -17,7 +17,7 @@ from stepout import capabilities, gate
 from stepout.capabilities.base import TEXT_CHARS, RunContext, RunState
 from stepout.domain import Allow, AnswerAction, DelegateAction, Event, Exchange, Outcome, PlanAction, PlanStep, Reply, Task
 from stepout.browser import Browser
-from stepout.failure import Failure
+from stepout.failure import UNEXPECTED, Failure
 from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.ledger import Ledger
@@ -28,7 +28,6 @@ from stepout.roles import ROLES
 
 _MAX_PLANS = 3  # the first plan plus two re-plans
 _REPEATED = "You already ran exactly this and the result will not change. Try something different, or answer."
-_UNEXPECTED = "I hit an unexpected problem and had to stop this task. Nothing on your computer was changed. Try again; if it repeats, the details are in the terminal."
 _NO_ANSWER = "I finished without an answer to give you. Try asking again, perhaps in other words."
 
 
@@ -163,7 +162,7 @@ class Runner:
     async def _failed(self, run: _Run, exc: Exception) -> Finding:
         """What went wrong, for the User (a line) and the Ledger (the cause); the terminal gets the traceback."""
         logging.getLogger(__name__).exception("run %s failed in the %s agent", run.id, run.acting)
-        kind, message, status = (exc.kind, exc.message, exc.status) if isinstance(exc, Failure) else ("internal", _UNEXPECTED, None)
+        kind, message, status = (exc.kind, exc.message, exc.status) if isinstance(exc, Failure) else ("internal", UNEXPECTED, None)
         await self._emit(run, "error", run.acting, message, cause=kind, type=type(exc).__name__, **({"status": status} if status else {}))
         return Finding(message, ok=False)
 
