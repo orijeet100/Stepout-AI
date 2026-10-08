@@ -10,6 +10,8 @@ const VERDICT: Record<Verdict, { label: string; icon: 'check' | 'ban' | 'ask' }>
 }
 const STATE_LABEL: Record<RunState, string> = { running: 'Working…', done: '', stopped: 'Stopped by you', overbudget: 'Over budget', failed: 'Failed' }
 
+const stepsOf = (done: number, total: number) => `${done} of ${total} step${total === 1 ? '' : 's'}`
+
 /** A real number against its real limit: never an estimate, so no bar without both. */
 function Meter({ label, now, max, text, full }: { label: string; now: number; max: number; text: string; full?: boolean }) {
   return (
@@ -52,7 +54,7 @@ export default function RunBlock({ run, state, cap, now, onStop }: Props) {
   const steps = stepCount(run)
   const lines = run.events.filter((e) => e.kind === 'step' || e.kind === 'return' || e.kind === 'stop')
   const summary = running
-    ? ['Working…', total ? `${done} of ${total} steps` : '', time].filter(Boolean).join(' · ')
+    ? ['Working…', total ? stepsOf(done, total) : '', time].filter(Boolean).join(' · ')
     : [STATE_LABEL[state], `${steps} step${steps === 1 ? '' : 's'}`, money(cost), time].filter(Boolean).join(' · ')
   return (
     <details className={`run run--${state}`} open={running}>
@@ -64,7 +66,7 @@ export default function RunBlock({ run, state, cap, now, onStop }: Props) {
       <div className="run__body">
         {(total > 0 || cap) && (
           <div className="progress">
-            {total > 0 && <Meter label="Plan" now={done} max={total} text={`${done} of ${total} steps`} />}
+            {total > 0 && <Meter label="Plan" now={done} max={total} text={stepsOf(done, total)} />}
             {cap && <Meter label="Budget" now={cost} max={cap} text={`${money(cost)} of ${money(cap)}`} full={cost >= cap} />}
           </div>
         )}
