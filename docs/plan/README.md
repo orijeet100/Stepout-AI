@@ -30,7 +30,7 @@ Collisions are accepted but kept rare: **every path has exactly one owner.** The
 
 | Path | Owner |
 |---|---|
-| `web/**` (page, mock server, fixtures, UI tests), `src/stepout/channels/web.py` | **UI** |
+| `web/**` (page, mock server, fixtures, UI tests), `src/stepout/channels/web.py`, `tests/test_web_channel.py` (it tests only that file) | **UI** |
 | everything else under `src/`, `tests/`, `scripts/`, `.githooks/`, `pyproject.toml` | **Main** |
 | `docs/ui-contract.md` | shared — change only with a `contract` log entry; both lanes read it at each sync |
 | `docs/log/*` | both — one file per entry, unique names, so no conflicts |

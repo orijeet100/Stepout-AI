@@ -25,6 +25,11 @@ def test_each_lane_may_touch_its_own_files_and_the_shared_ones():
     assert owners.violations("main", ["src/stepout/runner.py", "tests/test_gate.py", "scripts/owners.py", ".githooks/pre-commit", *shared]) == []
 
 
+def test_the_web_channels_own_test_file_belongs_to_the_ui_lane():
+    assert owners.violations("ui", ["tests/test_web_channel.py"]) == []
+    assert owners.violations("main", ["tests/test_web_channel.py"]) == ["tests/test_web_channel.py"]
+
+
 def test_windows_separators_are_normalised():
     assert owners.violations("main", ["web\\src\\App.tsx"]) == ["web\\src\\App.tsx"]
 

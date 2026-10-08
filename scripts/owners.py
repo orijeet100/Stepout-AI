@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RULES = [
     ("web/", "ui"),  # the page, its mock server, fixtures and tests
     ("src/stepout/channels/web.py", "ui"),
+    ("tests/test_web_channel.py", "ui"),  # tests only the file above; the plan gave the UI lane no other place for them
     ("docs/plan/ui-worktree.md", "ui"),
     ("docs/ui-contract.md", "both"),  # changed only with a `contract` log entry
     ("docs/log/", "both"),  # one file per entry, unique names
