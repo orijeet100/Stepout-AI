@@ -72,7 +72,7 @@ export default function App() {
             {(conn !== 'open' || error) && <button className="btn" type="button" onClick={retry}>Retry now</button>}
           </div>
         )}
-        <ChatView items={selected ? timeline(state, selected) : []} runState={(r) => runState(state, r)} runCap={(r) => runCap(state, r)} onStop={stop} onOpenShot={(run, index) => setViewer({ run, index })} />
+        <ChatView key={selected ?? 'draft'} items={selected ? timeline(state, selected) : []} runState={(r) => runState(state, r)} runCap={(r) => runCap(state, r)} onStop={stop} onOpenShot={(run, index) => setViewer({ run, index })} />
         <Composer online={conn === 'open'} busy={state.status.state === 'running'} onSend={send} />
       </main>
       <ShotViewer

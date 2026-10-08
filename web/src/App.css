@@ -66,6 +66,7 @@
 .reply small { display: block; font-family: var(--font-mono); }
 
 /* run block (U3 builds on this) */
+.runblock { display: grid; gap: var(--sp-2); min-width: 0; } /* the card, and under it the pages its browser saved */
 .run { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: 0 1px 2px var(--shade), 0 4px 12px -6px var(--shade); font-family: var(--font-mono); font-size: var(--fs-sm); }
 .run > summary { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); cursor: pointer; list-style: none; }
 .run[open] > summary { border-radius: var(--r-md) var(--r-md) 0 0; }

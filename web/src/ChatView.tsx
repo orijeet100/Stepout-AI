@@ -7,16 +7,37 @@ import { useNow } from './useNow'
 
 type Props = { items: Item[]; runState: (run: Run) => RunState; runCap: (run: Run) => number | null; onStop: () => void; onOpenShot?: (runId: string, index: number) => void }
 
-export default function ChatView({ items, runState, runCap, onStop, onOpenShot }: Props) {
-  const end = useRef<HTMLDivElement>(null)
-  const last = items.at(-1)
-  const growth = last?.kind === 'run' ? last.run.events.length : items.length
-  const now = useNow(items.some((i) => i.kind === 'run' && runState(i.run) === 'running'))
-  useEffect(() => {
-    end.current?.scrollIntoView?.({ block: 'end' }) // jsdom has no scrollIntoView
-  }, [items.length, growth])
+const NEAR_END = 48 // px from the end that still counts as "reading the end"
 
-  if (items.length === 0) {
+export default function ChatView({ items, runState, runCap, onStop, onOpenShot }: Props) {
+  const box = useRef<HTMLDivElement>(null)
+  const thread = useRef<HTMLDivElement>(null)
+  const atEnd = useRef(true)
+  const now = useNow(items.some((i) => i.kind === 'run' && runState(i.run) === 'running'))
+  const toEnd = () => {
+    if (box.current) box.current.scrollTop = box.current.scrollHeight
+  }
+  const hasItems = items.length > 0
+  // A new message or reply: show it, unless the reader is up in the thread reading (their own message always counts as "go to the end").
+  const newest = items.at(-1)
+  const mine = newest?.kind === 'message' && newest.message.role === 'user'
+  useEffect(() => {
+    if (atEnd.current || mine) {
+      atEnd.current = true
+      toEnd()
+    }
+  }, [items.length, mine])
+  // Anything that changes the height after that (a step arriving, a page loading, the composer getting taller, the window resizing)
+  // must not push the last lines out of view, so while the reader is at the end the view stays at the end.
+  useEffect(() => {
+    if (!box.current || !thread.current || typeof ResizeObserver === 'undefined') return // jsdom has none
+    const watch = new ResizeObserver(() => atEnd.current && toEnd())
+    watch.observe(box.current)
+    watch.observe(thread.current)
+    return () => watch.disconnect()
+  }, [hasItems])
+
+  if (!hasItems) {
     return (
       <div className="scroll">
         <p className="empty">Ask something. It plans the steps, shows each one as it happens, and tells you what it cost.</p>
@@ -24,8 +45,19 @@ export default function ChatView({ items, runState, runCap, onStop, onOpenShot }
     )
   }
   return (
-    <div className="scroll">
-      <div className="col">
+    <div
+      className="scroll"
+      ref={box}
+      onScroll={(e) => {
+        const el = e.currentTarget
+        atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_END
+      }}
+      // opening or closing a run is the reader steering the view: do not pull them to the end
+      onClickCapture={(e) => {
+        if ((e.target as Element).closest('summary')) atEnd.current = false
+      }}
+    >
+      <div className="col" ref={thread}>
         {items.map((item) => {
           if (item.kind === 'run') return <RunBlock key={item.run.id} run={item.run} state={runState(item.run)} cap={runCap(item.run)} now={now} onStop={onStop} onOpenShot={onOpenShot && ((i) => onOpenShot(item.run.id, i))} />
           const { message } = item
@@ -45,7 +77,6 @@ export default function ChatView({ items, runState, runCap, onStop, onOpenShot }
             </div>
           )
         })}
-        <div ref={end} />
       </div>
     </div>
   )

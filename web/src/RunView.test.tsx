@@ -21,6 +21,19 @@ describe('done: a collapsed summary with the numbers of the Run', () => {
     expect(screen.getByText('browse open luma.com/discover').getAttribute('title')).toBe('browse open https://luma.com/discover') // the full text is one hover away
   })
 
+  it('shows the saved pages as thumbnails under the closed summary, outside the details, and each one opens its page', () => {
+    const s = stateOf('web-run', { hint: 'done', cap: 1 })
+    const open = vi.fn()
+    const { container } = render(<ChatView items={timeline(s, chatOf('web-run'))} runState={(r) => runState(s, r)} runCap={(r) => runCap(s, r)} onStop={() => {}} onOpenShot={open} />)
+    const details = container.querySelector('details')!
+    expect(details.open).toBe(false)
+    const thumbs = screen.getAllByRole('button', { name: /^Open screenshot \d of \d/ })
+    expect(thumbs).toHaveLength(2) // the fixture's two saved pages
+    for (const t of thumbs) expect(details.contains(t)).toBe(false) // reachable without opening the summary, and not twice
+    fireEvent.click(thumbs[1])
+    expect(open).toHaveBeenCalledWith(expect.any(String), 1)
+  })
+
   it('has the plan checklist with every step done, and a step list with role chip, verdict and the step cost', () => {
     show(stateOf('web-run', { hint: 'done', cap: 1 }), 'web-run')
     const plan = screen.getByRole('list', { name: 'Plan' })
