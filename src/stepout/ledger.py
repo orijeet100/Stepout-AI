@@ -47,13 +47,21 @@ class Ledger:
             (outcome.value, cost_usd, datetime.now(timezone.utc).isoformat(), run_id),
         )
 
-    def save_message(self, conversation_id: str, role: str, text: str, run_id: str | None = None, cost_usd: float | None = None) -> None:
-        """Save one chat message (role "user" or "assistant"). A chat is created by its first message and titled by it."""
+    def save_message(
+        self, conversation_id: str, role: str, text: str, run_id: str | None = None, cost_usd: float | None = None,
+        message_id: str | None = None, at: datetime | None = None,
+    ) -> None:
+        """Save one chat message (role "user" or "assistant"). A chat is created by its first message and titled by it.
+
+        `message_id` and `at` are the id and time the message already has (Message.id/at, Reply.id/at), so the saved copy is the same message the
+        channel showed live. They default to fresh ones. A message that waited for a Run is dated when it was sent, not when it was saved.
+        """
         extra = {k: v for k, v in (("run_id", run_id), ("cost_usd", cost_usd)) if v is not None}  # an assistant message that came from a Run
-        event = Event(kind="message", conversation_id=conversation_id, data={"role": role, "text": text, **extra})
-        at = event.at.isoformat()
-        self._store.execute("INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)", (conversation_id, text[:60], at, at))
-        self._store.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (at, conversation_id))
+        stamp = {k: v for k, v in (("id", message_id), ("at", at)) if v is not None}
+        event = Event(kind="message", conversation_id=conversation_id, data={"role": role, "text": text, **extra}, **stamp)
+        when = event.at.isoformat()
+        self._store.execute("INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)", (conversation_id, text[:60], when, when))
+        self._store.execute("UPDATE conversations SET updated_at = MAX(updated_at, ?) WHERE id = ?", (when, conversation_id))  # never backwards
         self.record(event)
 
     def query(self, task_id: str | None = None) -> list[Event]:

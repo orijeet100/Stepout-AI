@@ -14,7 +14,7 @@ from stepout.store import Store
 
 _RUN_STATE = {None: "running", "done": "done", "cancelled": "stopped"}  # any other ended outcome reads as "failed"
 _PREVIEW_CHARS = 80
-_COST_FOOTER = re.compile(r"\n\n\(cost: \$[\d.]+\)\s*$")  # still on saved replies until the page reads cost_usd
+_COST_FOOTER = re.compile(r"\n\n\(cost: \$[\d.]+\)\s*$")  # replies saved before the footer was dropped still carry it
 
 
 def list_conversations(store: Store) -> list[ConversationSummary]:
