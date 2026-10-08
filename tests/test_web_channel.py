@@ -398,3 +398,153 @@ async def test_a_page_message_runs_through_the_real_app_and_reads_back_from_the_
     finally:
         app_loop.cancel()
         await channel.stop()
+
+
+# ---- the live view: GET /live/{run_id} and WebChannel.live_frame ----------------------------------------------------------
+
+JPEG = lambda tag: b"\xff\xd8" + tag.encode() + b"\xff\xd9"  # a JPEG as far as the channel checks: starts with the JPEG marker
+LIVE_RUN = "ab" * 16
+
+
+async def run_is_active(channel, ws, run_id=LIVE_RUN):
+    """Make a Run active the way the app does: a message is picked up, then the Runner's first event for it arrives."""
+    cid = a_chat_id()
+    await ws.send_json({"type": "send", "conversation_id": cid, "text": "go"})
+    await frames(ws, 1)  # the echo
+    gen = channel.messages()
+    await asyncio.wait_for(anext(gen), 2)
+    await frames(ws, 1)  # status running
+    await channel.trace(Event(kind="step", role="browser", run_id=run_id, conversation_id=cid, data={}))
+    await frames(ws, 2)  # status with the Run, then the step
+    return cid
+
+
+async def open_live(client, base, run_id=LIVE_RUN):
+    resp = await client.get(f"{base}/live/{run_id}")
+    assert resp.status == 200
+    assert resp.headers["Content-Type"].startswith("multipart/x-mixed-replace") and "boundary=frame" in resp.headers["Content-Type"]
+    return resp, aiohttp.MultipartReader.from_response(resp)
+
+
+async def next_frame(reader, timeout=3):
+    part = await asyncio.wait_for(reader.next(), timeout)
+    if part is None:
+        return None
+    assert part.headers["Content-Type"] == "image/jpeg"
+    return await part.read()
+
+
+async def test_live_answers_404_for_a_bad_id_and_for_a_run_that_is_not_active(served, client):
+    channel, base = served
+    for bad in ("nope", "AB" * 16, "ab" * 15, "ab" * 17, "ab" * 15 + "%2f..", "ab" * 16 + "%00", "1;drop", "default"):  # the client itself folds a bare "..", so it cannot be tried here
+        assert (await client.get(f"{base}/live/{bad}")).status == 404, bad
+    assert (await client.get(f"{base}/live/{LIVE_RUN}")).status == 404  # well formed, but no such Run is running
+    ws = await connect(client, base)
+    await run_is_active(channel, ws)
+    assert (await client.get(f"{base}/live/{'cd' * 16}")).status == 404  # a Run is active, but not this one
+    (resp, _) = await open_live(client, base)
+    resp.close()
+    await channel.send(Reply(text="done", conversation_id=a_chat_id(), run_id=LIVE_RUN))
+    assert (await client.get(f"{base}/live/{LIVE_RUN}")).status == 404  # the Run ended: no longer live
+    await ws.close()
+
+
+async def test_live_has_the_same_guard_as_every_route_and_sends_no_cors_header(served, client):
+    channel, base = served
+    ws = await connect(client, base)
+    await run_is_active(channel, ws)
+    assert (await client.get(f"{base}/live/{LIVE_RUN}", headers={"Host": "evil.example"})).status == 403
+    assert (await client.get(f"{base}/live/{LIVE_RUN}", headers={"Origin": "http://evil.example"})).status == 403
+    responses = [await client.get(f"{base}/live/{'cd' * 16}"), await client.get(f"{base}/live/{LIVE_RUN}", headers={"Origin": "http://evil.example"})]
+    ok, reader = await open_live(client, base)  # our own page: 200
+    assert not [h for h in ok.headers if h.lower().startswith("access-control-")]
+    assert ok.headers["Cache-Control"] == "no-store"
+    for r in responses:  # not found, refused
+        assert not [h for h in r.headers if h.lower().startswith("access-control-")], r.status
+    ok.close()
+    await ws.close()
+
+
+async def test_live_sends_the_newest_frame_first_then_each_new_one(served, client):
+    channel, base = served
+    ws = await connect(client, base)
+    await run_is_active(channel, ws)
+    for tag in ("one", "two", "three"):  # three frames arrive before anyone is watching
+        channel.live_frame(LIVE_RUN, JPEG(tag))
+    resp, reader = await open_live(client, base)
+    assert await next_frame(reader) == JPEG("three")  # the newest at once; the older ones are not replayed
+    channel.live_frame(LIVE_RUN, JPEG("four"))
+    assert await next_frame(reader) == JPEG("four")
+    channel.live_frame("cd" * 16, JPEG("other run"))  # a frame for another Run never reaches this stream
+    channel.live_frame(LIVE_RUN, JPEG("five"))
+    assert await next_frame(reader) == JPEG("five")
+    resp.close()
+    await ws.close()
+
+
+async def test_live_ends_when_the_run_ends_and_nothing_is_kept(served, client):
+    channel, base = served
+    ws = await connect(client, base)
+    cid = await run_is_active(channel, ws)
+    channel.live_frame(LIVE_RUN, JPEG("last"))
+    resp, reader = await open_live(client, base)
+    assert await next_frame(reader) == JPEG("last")
+    await channel.send(Reply(text="done", conversation_id=cid, run_id=LIVE_RUN))  # the Run is over
+    assert await next_frame(reader) is None  # the closing boundary: the stream ends
+    assert channel._live._frames == {} and channel._live._watchers == {}  # no frame kept, no stream left
+    resp.close()
+    await ws.close()
+
+
+async def test_live_a_client_that_leaves_mid_stream_leaves_nothing_behind(served, client):
+    channel, base = served
+    ws = await connect(client, base)
+    cid = await run_is_active(channel, ws)
+    channel.live_frame(LIVE_RUN, JPEG("a"))
+    resp, reader = await open_live(client, base)
+    assert await next_frame(reader) == JPEG("a")
+    assert len(channel._live._watchers[LIVE_RUN]) == 1
+    resp.close()  # the page navigated away
+    async with asyncio.timeout(4):
+        while channel._live._watchers:  # the stream notices within about a second and cleans up
+            await asyncio.sleep(0.1)
+    channel.live_frame(LIVE_RUN, JPEG("b"))  # the Run goes on; feeding still works and stays one frame
+    assert channel._live._frames == {LIVE_RUN: JPEG("b")}
+    await channel.send(Reply(text="done", conversation_id=cid, run_id=LIVE_RUN))
+    assert channel._live._frames == {} and channel._live._watchers == {}
+    await ws.close()
+
+
+async def test_live_frame_keeps_only_the_newest_and_ignores_what_is_not_a_frame(served, client):
+    channel, base = served
+    ws = await connect(client, base)
+    await run_is_active(channel, ws)
+    channel.live_frame("cd" * 16, JPEG("not active"))  # a Run that is not the active one
+    channel.live_frame(LIVE_RUN, b"not a jpeg")
+    channel.live_frame(LIVE_RUN, b"")
+    channel.live_frame(LIVE_RUN, b"\xff\xd8" + b"x" * 1_000_001)  # far bigger than any 1000 by 700 frame
+    channel.live_frame(LIVE_RUN, "text, not bytes")  # type: ignore[arg-type]
+    assert channel._live._frames == {}
+    for n in range(200):
+        channel.live_frame(LIVE_RUN, JPEG(f"f{n}"))
+    assert channel._live._frames == {LIVE_RUN: JPEG("f199")}  # one frame, the newest: 200 frames cost 200 frames of nothing
+    await ws.close()
+
+
+async def test_stopping_the_channel_ends_an_open_live_stream_at_once(tmp_path, client):
+    channel = WebChannel(port=0, shots=tmp_path, history=FixtureHistory())
+    base = f"http://127.0.0.1:{await channel.start()}"
+    ws = await connect(client, base)
+    await run_is_active(channel, ws)
+    channel.live_frame(LIVE_RUN, JPEG("a"))
+    resp, reader = await open_live(client, base)
+    assert await next_frame(reader) == JPEG("a")
+    await asyncio.wait_for(channel.stop(), 5)  # a Run is still "active", yet shutdown does not wait for it
+    assert await next_frame(reader) is None
+    resp.close()
+
+
+def test_live_frame_is_a_plain_function_the_browser_can_call_without_awaiting():
+    import inspect
+
+    assert not inspect.iscoroutinefunction(WebChannel.live_frame)  # the seam is `on_frame(run_id, jpeg) -> None`: synchronous
