@@ -51,6 +51,15 @@ function mergeById<T extends { id: string; at: string }>(list: T[], items: T[]):
 
 const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
 
+/** A one-line plain-text version of a reply for the chat list: no **bold**, `code`, [links](…) or list markers. */
+export const plain = (md: string) =>
+  md
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^\s*(?:[#>]+|\d+\.|[-*])\s+/gm, '')
+    .replace(/[*`]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
 /** A chat the page has not listed yet (it just arrived on the wire): make an entry for it. */
 function touch(chats: State['chats'], id: string, at: string, message?: Message): State['chats'] {
   const old = chats[id] ?? { id, title: '', updated_at: at, preview: '' }

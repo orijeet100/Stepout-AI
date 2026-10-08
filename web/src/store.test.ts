@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Frame, Message, Trace } from './protocol'
-import { chatList, initial, reducer, runState, timeline, type Action, type State } from './store'
+import { chatList, initial, plain, reducer, runState, timeline, type Action, type State } from './store'
 
 const C = 'c'.repeat(32)
 const t = (s: number) => `2026-10-01T09:00:${String(s).padStart(2, '0')}.000Z`
@@ -81,6 +81,15 @@ describe('timeline', () => {
   it('a reply with no run (a decline) is just a message', () => {
     const s = run(initial, ...frames(msg('u1', 'user', 'order a pizza', 1), msg('a1', 'assistant', 'I cannot order food.', 2)))
     expect(timeline(s, C).map((i) => (i.kind === 'message' ? i.message.role : 'run'))).toEqual(['user', 'assistant'])
+  })
+})
+
+describe('plain', () => {
+  it('turns a markdown reply into one plain line for the chat list', () => {
+    expect(plain('There are **42** PDFs in `D:\\x`, see [the list](https://a.example).')).toBe('There are 42 PDFs in D:\\x, see the list.')
+    expect(plain('Here are three:\n\n1. **A** — one\n2. B — two\n- c')).toBe('Here are three: A — one B — two c')
+    expect(plain('# Title\n> quoted')).toBe('Title quoted')
+    expect(plain('keeps snake_case_names')).toBe('keeps snake_case_names')
   })
 })
 
