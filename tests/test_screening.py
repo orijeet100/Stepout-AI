@@ -187,19 +187,30 @@ def test_tripwire_temperature_is_only_allowed_on_models_released_before_opus_4_6
     assert HAIKU == "claude-haiku-4-5"
 
 
-async def test_temperature_is_sent_only_when_asked_for_and_never_as_null():
-    seen = []
+async def test_temperature_reaches_the_wire_through_the_real_sdk_only_when_asked_for():
+    # Through the real anthropic client over a mock HTTP transport (no network). A fake client accepts any keyword, which is how this once
+    # passed offline while the real SDK (1.x: no `temperature` argument on create()) raised TypeError on every screening.
+    import json
 
-    class FakeMessages:
-        async def create(self, **kwargs):
-            seen.append(kwargs)
-            return NS(content=[NS(type="text", text="ok", citations=None)], usage=NS(input_tokens=1, output_tokens=1))
+    import anthropic
+
+    try:
+        import httpx2 as httpx  # the HTTP library anthropic 1.x uses
+    except ImportError:
+        import httpx
+
+    bodies = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json={"id": "msg_1", "type": "message", "role": "assistant", "model": HAIKU, "stop_reason": "end_turn", "stop_sequence": None,
+                                         "content": [{"type": "text", "text": "ok"}], "usage": {"input_tokens": 1, "output_tokens": 1}})
 
     model = AnthropicModel()
-    model._client = NS(messages=FakeMessages())
+    model._client = anthropic.AsyncAnthropic(api_key="test", http_client=httpx.AsyncClient(transport=httpx.MockTransport(answer)))
     await model.call(ModelRequest(model=HAIKU, system="s", user_text="u"))
     await model.call(ModelRequest(model=HAIKU, system="s", user_text="u", temperature=0.0))
-    assert "temperature" not in seen[0] and seen[1]["temperature"] == 0.0
+    assert "temperature" not in bodies[0] and bodies[1]["temperature"] == 0.0
 
 
 def test_a_message_that_only_lacks_something_is_not_a_decline_and_scripts_count_as_software():

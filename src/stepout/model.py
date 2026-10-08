@@ -139,7 +139,7 @@ class AnthropicModel:
         defs = _tool_defs(request)
         extra = {"tools": defs} if defs else {}
         if request.temperature is not None:  # never send null: only set it when asked
-            extra["temperature"] = request.temperature
+            extra["extra_body"] = {"temperature": request.temperature}  # in the body: SDK 1.x has no `temperature` argument on create() (a TypeError); the body takes it on every version
         response = await self._client.messages.create(
             model=request.model,
             max_tokens=4096,
