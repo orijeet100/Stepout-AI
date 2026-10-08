@@ -5,7 +5,10 @@ and the assertions are that it never receives a single request, however the page
 """
 
 import asyncio
+import contextlib
+import logging
 import os
+import time
 from types import SimpleNamespace
 from urllib.parse import urlparse
 
@@ -16,6 +19,12 @@ from stepout.browser import Browser
 from stepout.fetch import BlockedUrl
 
 pytestmark = pytest.mark.skipif(not os.path.exists(r"C:\Program Files\Google\Chrome\Application\chrome.exe"), reason="needs Chrome")
+
+
+ANIMATED = (
+    '<title>TITLE</title><body><h1 id="n">0</h1><a href="NEXT">next</a><script>let i = 0; setInterval(() => {'
+    'document.getElementById("n").textContent = ++i; document.body.style.background = "hsl(" + (i * 9 % 360) + ",70%,80%)"}, 40)</script>'
+)
 
 
 async def serve(app) -> tuple[web.AppRunner, int]:
@@ -51,6 +60,8 @@ async def world(tmp_path):
     site.router.add_get("/", html(f'<title>Home</title><h1>Welcome</h1><p>Hello reader</p><a href="/about">About us</a> <a href="/redir">Redirector</a> <a href="{B}/secret">Direct</a> <a href="javascript:alert(1)">js</a> <a href="/about">again</a>'))
     site.router.add_get("/about", html(f'<title>About</title><p>About page</p><img src="{B}/pixel.png"><script>new WebSocket("ws://127.0.0.1:{port_b}/ws"); fetch("{B}/xhr").catch(() => {{}});</script>'))
     site.router.add_get("/long", html("<title>Long</title><p>" + "word " * 3000 + "</p>"))
+    site.router.add_get("/live", html(ANIMATED.replace("TITLE", "Live").replace("NEXT", "/live2")))  # changes every 40 ms: Chrome makes ~25 frames a second
+    site.router.add_get("/live2", html(ANIMATED.replace("TITLE", "Live two").replace("NEXT", "/live")))
     site.router.add_get("/redir", redirect(f"{B}/secret"))
     site.router.add_get("/redir-ok", redirect("/about"))
     site.router.add_get("/chain", redirect("/redir"))  # public -> public -> private
@@ -62,7 +73,7 @@ async def world(tmp_path):
             raise BlockedUrl("private address")
 
     browser = Browser(shots=tmp_path / "shots", policy=policy)
-    yield SimpleNamespace(browser=browser, a=f"http://127.0.0.1:{port_a}", b=B, hits=hits, shots=tmp_path / "shots")
+    yield SimpleNamespace(browser=browser, a=f"http://127.0.0.1:{port_a}", b=B, hits=hits, shots=tmp_path / "shots", policy=policy)
     await browser.aclose()
     await runner_a.cleanup()
     await runner_b.cleanup()
@@ -115,3 +126,87 @@ async def test_failures_are_reported_not_raised(world):
     assert (await b.run("r", "scroll"))[0].startswith("Error")
     await b.run("r", "open", f"{world.a}/")
     assert "no link 99" in (await b.run("r", "click", link=99))[0]
+
+
+# --- live frames (Browser(on_frame=...)) against real Chrome --------------------------------------------------------------------
+
+
+def jpeg_size(data: bytes) -> tuple[int, int]:
+    """Width and height from a JPEG's start-of-frame marker."""
+    i = 2
+    while i < len(data):
+        marker = data[i + 1]
+        if marker in (0xC0, 0xC1, 0xC2):
+            return int.from_bytes(data[i + 7 : i + 9], "big"), int.from_bytes(data[i + 5 : i + 7], "big")
+        i += 2 + int.from_bytes(data[i + 2 : i + 4], "big")
+    raise AssertionError("not a JPEG with a frame header")
+
+
+@contextlib.asynccontextmanager
+async def watching(world, on_frame):
+    """A second Browser over the same fake web, with a live-frame callback; closed afterwards."""
+    browser = Browser(shots=world.shots, policy=world.policy, on_frame=on_frame)
+    try:
+        yield browser
+    finally:
+        await browser.aclose()
+
+
+async def test_live_frames_arrive_while_a_page_loads_and_after_a_click_and_are_small_jpegs(world):
+    frames = []
+    async with watching(world, lambda run_id, jpeg: frames.append((run_id, jpeg))) as b:
+        await b.run("r1", "open", f"{world.a}/")
+        await asyncio.sleep(0.5)
+        first = len(frames)
+        assert first >= 1 and {run_id for run_id, _ in frames} == {"r1"}  # a still page paints at least once
+        await b.run("r1", "click", link=1)  # the About page: different pixels
+        await asyncio.sleep(0.6)
+        assert len(frames) > first and frames[-1][1] != frames[0][1]  # the frame after the click shows the new page
+    for _, jpeg in frames:
+        assert jpeg[:3] == b"\xff\xd8\xff"  # a JPEG
+        width, height = jpeg_size(jpeg)
+        assert width <= 1000 and height <= 700  # never larger than the viewport
+
+
+async def test_each_run_sends_at_most_four_frames_a_second_even_on_a_page_that_animates(world):
+    times = {"r1": [], "r2": []}
+    async with watching(world, lambda run_id, jpeg: times[run_id].append(time.monotonic())) as b:
+        await b.run("r1", "open", f"{world.a}/live")
+        await b.run("r2", "open", f"{world.a}/live")
+        await asyncio.sleep(1.6)
+        for run_id, stamps in times.items():
+            assert len(stamps) >= 3, run_id  # they flow (Chrome would give about 40 in this time)
+            assert all(sum(1 for u in stamps if t <= u < t + 1.0) <= 4 for t in stamps), run_id  # four in any second
+            assert all(b2 - a2 >= 0.25 for a2, b2 in zip(stamps, stamps[1:])), run_id
+
+
+async def test_a_callback_that_raises_does_not_break_browsing_or_the_screenshots(world, caplog):
+    def boom(run_id, jpeg):
+        raise RuntimeError("the viewer is gone")
+
+    with caplog.at_level(logging.WARNING, logger="stepout.browser"):
+        async with watching(world, boom) as b:
+            view, shot = await b.run("r1", "open", f"{world.a}/live")  # animated: frames keep coming while we work
+            assert "Title: Live" in view and (world.shots / shot).stat().st_size > 1000
+            await asyncio.sleep(0.6)
+            view, shot = await b.run("r1", "click", link=1)  # Playwright would raise the callback's error here if it escaped
+            assert "Title: Live two" in view and (world.shots / shot).stat().st_size > 1000
+            more, _ = await b.run("r1", "more")
+            assert "No more text" in more or "Text (chars" in more
+    assert len([r for r in caplog.records if "on_frame raised" in r.getMessage()]) == 1  # logged once, not four times a second
+
+
+async def test_without_a_callback_nothing_is_captured_and_with_one_it_stops_when_the_run_closes(world):
+    await world.browser.run("plain", "open", f"{world.a}/live")
+    assert world.browser._sessions["plain"].framing is False  # no callback: the screencast was never started
+
+    frames = []
+    async with watching(world, lambda run_id, jpeg: frames.append(jpeg)) as b:
+        await b.run("r1", "open", f"{world.a}/live")
+        assert b._sessions["r1"].framing is True
+        await asyncio.sleep(0.5)
+        await b.close("r1")
+        seen = len(frames)
+        assert seen >= 1
+        await asyncio.sleep(0.8)
+        assert len(frames) == seen  # none after the Run's browser closed
