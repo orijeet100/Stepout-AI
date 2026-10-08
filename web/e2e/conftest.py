@@ -86,9 +86,8 @@ def browser():
         chrome.close()
 
 
-@pytest.fixture
-def page(browser, stack):
-    wait_until_idle(stack[1])
+def guarded(browser, url: str):
+    """A page that fails its flow on a console error or an HTTP error the flow did not provoke."""
     ctx = browser.new_context(viewport={"width": 1100, "height": 760})
     page = ctx.new_page()
     page.console_errors = []
@@ -96,8 +95,34 @@ def page(browser, stack):
     page.on("console", lambda m: page.console_errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: page.console_errors.append(str(e)))
     page.on("response", lambda r: page.bad_responses.append(f"{r.status} {r.request.method} {r.url}") if r.status >= 400 else None)
-    page.goto(stack[0])
-    page.wait_for_selector(".chat")  # the chat list has loaded: the socket is up
+    page.goto(url)
+    page.wait_for_selector(".banner", state="detached")  # connected: no "Connecting…" any more
+    page.wait_for_selector(".chat, .side__empty")  # and the chat list is there (or says there are none)
     yield page
     assert not page.console_errors and not page.bad_responses, f"console errors {page.console_errors}; requests that failed and the flow did not provoke {page.bad_responses}"
     ctx.close()
+
+
+@pytest.fixture
+def page(browser, stack):
+    wait_until_idle(stack[1])
+    yield from guarded(browser, stack[0])
+
+
+@pytest.fixture(scope="session")
+def real_stack(stack, tmp_path_factory):
+    """The page served by the real backend (the wiring of `python -m stepout.app web`) with a scripted model and an empty database:
+    what the page reads back after a restart is the API's own answer, not the mock's. `stack` builds the page first."""
+    port = free_port()
+    db = tmp_path_factory.mktemp("real-backend") / "chats.db"
+    proc = subprocess.Popen([sys.executable, str(WEB / "mock" / "real_backend.py"), "--port", str(port), "--db", str(db), "--delay", "0.15"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        wait_for(f"http://127.0.0.1:{port}/api/conversations")
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        stop(proc)
+
+
+@pytest.fixture
+def real_page(browser, real_stack):
+    yield from guarded(browser, real_stack)
