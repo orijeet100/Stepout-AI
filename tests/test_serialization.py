@@ -10,20 +10,16 @@ from stepout.domain import (
     PlanAction,
     PlanStep,
     Result,
-    SearchAction,
-    SearchResult,
 )
 
 ACTIONS = [
     FetchAction(url="https://example.com"),
-    SearchAction(query="weather", snippets=["a", "b"]),
     AnswerAction(text="hi"),
     PlanAction(steps=[PlanStep(role="direct", goal="find the news", status="running")]),
     DelegateAction(step=0),
 ]
 RESULTS = [
     FetchResult(url="https://example.com", text="hello"),
-    SearchResult(query="weather", snippets=["a"]),
     AnswerResult(text="hi"),
 ]
 

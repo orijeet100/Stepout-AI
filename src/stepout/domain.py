@@ -81,12 +81,7 @@ class Exchange(BaseModel):
 
 # --- Actions the model may propose, and their Results --------------------
 # A capability's Action lives with the capability (stepout/capabilities/). What stays here are the control
-# Actions (plan, delegate, answer) and the legacy search Action.
-
-
-class SearchAction(BaseModel):
-    kind: Literal["search"] = "search"
-    query: str
+# Actions (plan, delegate, answer). (Web search is the provider's: it never reaches us as an Action.)
 
 
 class AnswerAction(BaseModel):
@@ -118,7 +113,7 @@ class DelegateAction(BaseModel):
 
 # Built once at import from the registry, so a registered capability is part of the union by construction.
 # (A capability registered later, as the tests do, is not in it: ModelResponse.action is a plain BaseModel for that reason.)
-Action = Annotated[Union[(*capabilities.action_types(), SearchAction, AnswerAction, PlanAction, DelegateAction)], Field(discriminator="kind")]
+Action = Annotated[Union[(*capabilities.action_types(), AnswerAction, PlanAction, DelegateAction)], Field(discriminator="kind")]
 
 
 class FetchResult(BaseModel):
@@ -127,18 +122,12 @@ class FetchResult(BaseModel):
     text: str
 
 
-class SearchResult(BaseModel):
-    kind: Literal["search"] = "search"
-    query: str
-    snippets: list[str]
-
-
 class AnswerResult(BaseModel):
     kind: Literal["answer"] = "answer"
     text: str
 
 
-Result = FetchResult | SearchResult | AnswerResult
+Result = FetchResult | AnswerResult
 
 
 # --- Gate ------------------------------------------------------------------
