@@ -1,4 +1,4 @@
-"""Domain types: Message, Reply, Task, Run, Action, Result, Verdict, Outcome, Event.
+"""Domain types: Message, Reply, Task, Action, Result, Verdict, Outcome, Event.
 
 Plain Pydantic models only — no behaviour, no live objects or callbacks (N12:
 Actions and Results must round-trip through JSON so hands can later run elsewhere).
@@ -81,15 +81,6 @@ class Exchange(BaseModel):
     did: str  # one line: what the hands did ("browse open luma.com/discover"); empty if it only answered
     tainted: bool = False  # its Run held data from the User's files (it read a file, or built on an answer that did): whatever builds on it starts with the web closed
     run_id: str
-
-
-class Run(BaseModel):
-    """One attempt at carrying out a Task."""
-
-    id: str = Field(default_factory=_id)
-    task_id: str
-    outcome: Outcome | None = None
-    cost_usd: float = 0.0
 
 
 # --- Actions the model may propose, and their Results --------------------
