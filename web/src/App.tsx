@@ -31,6 +31,7 @@ export default function App() {
   }, [open])
 
   const chats = chatList(state)
+  const waiting = selected ? !state.loaded[selected] : !state.listed && !state.draft // nothing to show yet, because it has not been read yet
   const current = chats.find((c) => c.id === selected)
   // After the first failure, "connecting" is just the next attempt: keep saying "reconnecting" instead of flickering.
   const banner =
@@ -46,6 +47,8 @@ export default function App() {
         ref={side}
         inert={narrow && !open}
         chats={chats}
+        listed={state.listed}
+        failed={!!error}
         selected={selected}
         onSelect={(id) => {
           select(id)
@@ -72,7 +75,7 @@ export default function App() {
             {(conn !== 'open' || error) && <button className="btn" type="button" onClick={retry}>Retry now</button>}
           </div>
         )}
-        <ChatView key={selected ?? 'draft'} items={selected ? timeline(state, selected) : []} runState={(r) => runState(state, r)} runCap={(r) => runCap(state, r)} onStop={stop} onOpenShot={(run, index) => setViewer({ run, index })} />
+        <ChatView key={selected ?? 'draft'} items={selected ? timeline(state, selected) : []} empty={waiting ? (error ? 'failed' : 'loading') : 'new'} runState={(r) => runState(state, r)} runCap={(r) => runCap(state, r)} onStop={stop} onOpenShot={(run, index) => setViewer({ run, index })} />
         <Composer online={conn === 'open'} busy={state.status.state === 'running'} onSend={send} />
       </main>
       <ShotViewer

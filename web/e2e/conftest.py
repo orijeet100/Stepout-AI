@@ -86,9 +86,9 @@ def browser():
         chrome.close()
 
 
-def guarded(browser, url: str):
+def guarded(browser, url: str, **options):
     """A page that fails its flow on a console error or an HTTP error the flow did not provoke."""
-    ctx = browser.new_context(viewport={"width": 1100, "height": 760})
+    ctx = browser.new_context(viewport={"width": 1100, "height": 760}, **options)
     page = ctx.new_page()
     page.console_errors = []
     page.bad_responses = []  # every HTTP answer of 400 or more: a flow that provokes one on purpose removes it itself
@@ -107,6 +107,21 @@ def guarded(browser, url: str):
 def page(browser, stack):
     wait_until_idle(stack[1])
     yield from guarded(browser, stack[0])
+
+
+@pytest.fixture
+def page_with(browser, stack):
+    """A page opened with browser-context options of the flow's choosing (reduced motion, a colour scheme...), guarded like `page`."""
+    wait_until_idle(stack[1])
+    opened = []
+
+    def make(**options):
+        opened.append(guarded(browser, stack[0], **options))
+        return next(opened[-1])
+
+    yield make
+    for g in opened:
+        next(g, None)  # the guard's closing assertions
 
 
 @pytest.fixture(scope="session")

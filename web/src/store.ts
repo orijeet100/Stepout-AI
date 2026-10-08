@@ -16,6 +16,8 @@ export type State = {
   chats: Record<string, Chat>
   selected: string | null
   draft: boolean // "New chat": nothing selected on purpose; the chat is made when the first message is sent
+  listed: boolean // the chat list has been read at least once (until then "no chats" would be a guess)
+  loaded: Record<string, true> // chats whose detail has been read (until then an empty thread would be a guess)
   messages: Record<string, Message[]> // by conversation id, oldest first
   runs: Record<string, Run>
   status: Status
@@ -28,6 +30,8 @@ export const initial: State = {
   chats: {},
   selected: null,
   draft: false,
+  listed: false,
+  loaded: {},
   messages: {},
   runs: {},
   status: { state: 'idle', active: null, queued: [] },
@@ -114,7 +118,7 @@ export function reducer(s: State, a: Action): State {
       const listed = Object.fromEntries(a.chats.map((c) => [c.id, c]))
       const kept = Object.fromEntries(Object.entries(s.chats).filter(([id]) => !(id in listed)))
       const selected = s.draft ? null : s.selected && (s.selected in listed || s.selected in kept) ? s.selected : (a.chats[0]?.id ?? null)
-      return { ...s, chats: { ...kept, ...listed }, selected }
+      return { ...s, chats: { ...kept, ...listed }, selected, listed: true }
     }
     case 'detail': {
       const runs = { ...s.runs }
@@ -125,6 +129,7 @@ export function reducer(s: State, a: Action): State {
       return {
         ...s,
         runs,
+        loaded: { ...s.loaded, [a.id]: true },
         chats: { ...s.chats, [a.id]: { ...(s.chats[a.id] ?? { id: a.id, updated_at: '', preview: '' }), title: a.title || s.chats[a.id]?.title || '' } },
         messages: { ...s.messages, [a.id]: mergeById(s.messages[a.id] ?? [], a.messages) },
       }
@@ -134,7 +139,7 @@ export function reducer(s: State, a: Action): State {
     case 'select':
       return { ...s, selected: a.id, draft: a.id === null }
     case 'created':
-      return { ...s, selected: a.id, draft: false, chats: { ...s.chats, [a.id]: { id: a.id, title: '', updated_at: a.at, preview: '' } } }
+      return { ...s, selected: a.id, draft: false, loaded: { ...s.loaded, [a.id]: true }, chats: { ...s.chats, [a.id]: { id: a.id, title: '', updated_at: a.at, preview: '' } } }
     case 'error':
       return { ...s, error: a.error }
   }
