@@ -201,6 +201,19 @@ class Files:
             return None, "outside every grant; the User has not allowed this location, so do not suggest workarounds"
         return real, ""
 
+    def resolve_readable(self, raw: str) -> tuple[str | None, str]:
+        """`_resolve` for reading a file's CONTENTS: the same refusals, and the path must lie under a grant in `read` mode (a `metadata`
+        grant allows names, sizes and counts only) and be a file. -> (real path, "") or (None, why)."""
+        real, why = self._resolve(raw)
+        if real is None:
+            return None, why
+        low = os.path.normcase(real)
+        if not any(g.mode == "read" and _under(low, g.root) for g in self._grants):
+            return None, "the User allowed this location for names, sizes and counts only, not for reading contents, so do not suggest workarounds"
+        if not os.path.isfile(real):
+            return None, "not a file (use `files` to look at a folder)"
+        return real, ""
+
     def _list(self, real: str) -> str:
         if os.path.isfile(real):
             st = os.stat(real)

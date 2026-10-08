@@ -9,6 +9,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from stepout import capabilities, gate
+from stepout.capabilities.read_text import ReadTextAction
 from stepout.domain import Action, AnswerAction, Allow, BrowseAction, FetchAction, FilesAction, PlanStep, Refuse, Task
 from stepout.ledger import Ledger
 from stepout.model import HAIKU, AnthropicModel, ModelRequest, ModelResponse, _tool_defs
@@ -125,7 +126,7 @@ def test_a_tool_the_provider_runs_has_no_action_and_is_not_one_a_role_may_take()
 
 
 def test_plan_roles_come_from_the_role_table():
-    assert SPECIALISTS == ("direct", "files", "browser")
+    assert SPECIALISTS == ("direct", "files", "browser", "reader")
     for name in SPECIALISTS:
         assert PlanStep(role=name, goal="g").role == name
         assert f"{name} (" in ROLES["orchestrator"].system  # the prompt describes every role a Plan can name
@@ -137,7 +138,7 @@ def test_plan_roles_come_from_the_role_table():
 
 def test_the_action_union_round_trips_every_capability_action():
     adapter = TypeAdapter(Action)
-    samples = [FetchAction(url="https://example.com"), FilesAction(op="find", path="D:\\Docs", pattern="cv"), BrowseAction(op="open", url="https://example.com")]
+    samples = [FetchAction(url="https://example.com"), FilesAction(op="find", path="D:\\Docs", pattern="cv"), BrowseAction(op="open", url="https://example.com"), ReadTextAction(path="D:\\Docs\\cv.pdf")]
     assert {type(s) for s in samples} <= set(capabilities.action_types())
     for action in samples:
         assert adapter.validate_json(adapter.dump_json(action)) == action

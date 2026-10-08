@@ -10,3 +10,4 @@ class WebSearch(Capability):
     blurb = "Searches the web for current facts, a few searches per run; answers carry their source links."
     # The basic version: 20260209+ defaults to dynamic filtering via code execution, which Haiku can't use. `max_uses` is added per request.
     tool = {"type": "web_search_20250305", "name": "web_search"}
+    reaches_web = True  # it never reaches the Gate as an Action; the Runner stops offering it to a tainted Run
