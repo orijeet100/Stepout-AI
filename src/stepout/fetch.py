@@ -17,8 +17,8 @@ import httpx
 from pydantic import BaseModel
 
 _MAX_BYTES = 2_000_000
-_MAX_HOPS = 5
-_REDIRECTS = (301, 302, 303, 307, 308)
+MAX_HOPS = 5  # redirects followed, here and in the Browser
+REDIRECTS = (301, 302, 303, 307, 308)
 _TAG_RE = re.compile(r"<[^>]+>")
 
 
@@ -56,13 +56,13 @@ def _html_to_text(html: str) -> str:
 class Fetcher:
     async def get(self, url: str) -> FetchedPage:
         async with httpx.AsyncClient(follow_redirects=False, timeout=10.0) as client:
-            for _ in range(_MAX_HOPS + 1):
+            for _ in range(MAX_HOPS + 1):
                 # every hop: a redirect is a new request, and it may point at this machine (the chat's own history API) or a private host.
                 # In a thread: a slow DNS answer must not freeze the page, Stop and the live view.
                 await asyncio.to_thread(_check_policy, url)
                 try:
                     response = await client.get(url, headers={"User-Agent": "stepout/0.1"})
-                    if response.status_code not in _REDIRECTS or "location" not in response.headers:
+                    if response.status_code not in REDIRECTS or "location" not in response.headers:
                         break
                     url = str(response.url.join(response.headers["location"]))
                 except (httpx.InvalidURL, httpx.RemoteProtocolError) as exc:  # a model-written address, or a redirect to one, that is not an address
