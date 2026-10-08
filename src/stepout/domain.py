@@ -43,17 +43,24 @@ class Outcome(StrEnum):
     UNCERTAIN = "uncertain"
 
 
+DEFAULT_CONVERSATION = "default"  # the CLI's one chat, and the page's until it sends chat ids
+
+
 class Message(BaseModel):
     """One unit of text sent in a Conversation, in either direction."""
 
     id: str = Field(default_factory=_id)
     user_id: str
     text: str
+    conversation_id: str = DEFAULT_CONVERSATION
     at: datetime = Field(default_factory=_now)
 
 
 class Reply(BaseModel):
     text: str
+    conversation_id: str = DEFAULT_CONVERSATION
+    run_id: str | None = None  # the Run that produced it, if one did
+    cost_usd: float | None = None  # that Run's cost
 
 
 class Task(BaseModel):
@@ -63,6 +70,7 @@ class Task(BaseModel):
     user_id: str
     request: str
     route: Route
+    conversation_id: str = DEFAULT_CONVERSATION
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -184,7 +192,8 @@ class Event(BaseModel):
     id: str = Field(default_factory=_id)
     task_id: str | None = None
     run_id: str | None = None
-    kind: str  # "screening" | "plan" | "step" | "return" | "stop"
+    conversation_id: str | None = None
+    kind: str  # "screening" | "plan" | "step" | "return" | "stop" | "shot" | "message"
     role: str | None = None  # which Role acted
     parent: str | None = None  # the Delegate step event that started this Role's work
     data: dict

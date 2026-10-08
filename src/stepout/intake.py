@@ -66,6 +66,6 @@ class Intake:
                 reading = NewTask(request=text, route=route)
 
         self._ledger.record(
-            Event(kind="screening", data={"request": text, "reading": reading.model_dump()}, cost_usd=cost)
+            Event(kind="screening", conversation_id=message.conversation_id, data={"request": text, "reading": reading.model_dump()}, cost_usd=cost)
         )
         return reading

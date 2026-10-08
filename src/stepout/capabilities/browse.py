@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 from stepout.capabilities.base import Capability, RunContext, tool_schema
 
 _KEEP_PAGES = 2  # page views a Role keeps in full
+_PAGE_HEAD = re.compile(r"URL: (.*)\nTitle: (.*)")  # how every page view starts (stepout.browser)
 
 
 class BrowseAction(BaseModel):
@@ -43,7 +45,8 @@ class Browse(Capability):
     async def run(self, action: BrowseAction, ctx: RunContext) -> str:
         view, shot = await ctx.hands["browse"].run(ctx.run_id, action.op, action.url, action.link)
         if shot:
-            await ctx.emit("shot", "page screenshot", shot=shot)
+            head = _PAGE_HEAD.match(view)  # the viewer captions the screenshot with the page's address and title
+            await ctx.emit("shot", "page screenshot", shot=shot, **({"url": head[1], "title": head[2]} if head else {}))
         return f"browse {action.op}:\n{view}"
 
     def compact(self, notes: list[str]) -> None:
