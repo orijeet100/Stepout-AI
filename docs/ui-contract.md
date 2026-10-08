@@ -103,3 +103,14 @@ Behaviour only; no field is added or changed ([log](log/2026-10-08-asks-of-the-m
 - **A Run left open by a crash** reads `failed` when a chat is read back, unless it is the live Run.
 - **Old pages.** For one release a v0 page's `{"text": …}` and `{"stop": true}` are still accepted (into `default`); v0 frames are no longer sent.
 - **Client frames** are validated by `contract.py`: a stray field, a missing `text`, a text over 20 000 characters, or an unknown chat is ignored (no error frame).
+
+## Live view (added 2026-10-08, additive)
+
+The User sees the Assistant's headless browser while it works ([decision](log/2026-10-08-a-live-headless-browser-view-replaces-the-screenshot-only-vi.md), [contract entry](log/2026-10-08-live-view-get-live-run-id-and-the-browser-on-frame-seam.md)). View-only: nothing the page does reaches the browser.
+
+| Route | Returns |
+|---|---|
+| `GET /live/{run_id}` | `multipart/x-mixed-replace; boundary=frame`: a stream of `image/jpeg` parts. The newest frame at once, then each new one; the stream ends when the Run ends. `404` for an id that is not 32 hex characters, or a Run that is not active. Same Host and Origin guard as every route; no CORS header. |
+
+- **In the page:** `<img src="/live/<run_id>">` while the Run is running and has a Browser step; when the stream ends (or on `404`) the page shows the Run's last `shot` instead. Thumbnails and the viewer for saved screenshots (`shot` events, `/shots/...`) are unchanged.
+- **Behind it:** `Browser(shots=..., on_frame=cb)` calls `cb(run_id: str, jpeg: bytes)` (synchronous, non-blocking, at most four times a second per Run, JPEG no larger than the 1000 by 700 viewport). `app.py` passes the channel's `live_frame(run_id, jpeg)` when it has one. The channel keeps only the newest frame per active Run and stores nothing: the `shot` events stay the record.

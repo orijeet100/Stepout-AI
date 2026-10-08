@@ -2,7 +2,7 @@
 date: 2026-10-07
 kind: decision
 lane: ui
-status: accepted
+status: superseded
 title: Screenshot viewer is a simple big view, no cursor replay or streaming
 tags: [ui, viewer, browser]
 refs: [docs/plan/ui-worktree.md]

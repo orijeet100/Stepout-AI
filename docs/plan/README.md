@@ -1,6 +1,6 @@
 # Plan — two lanes, built in iterations
 
-Status: agreed 2026-10-07 · UI contract v1 frozen the same day (sync X1) · replaces the "Remaining, in order" list in [`../STATUS.md`](../STATUS.md) · decisions: [`../log/`](../log/README.md) · design: [`../architecture.md`](../architecture.md)
+Status: agreed 2026-10-07 · **finishing V0 from B4 and U3 on: [`v0-finish.md`](v0-finish.md)** · UI contract v1 frozen the same day (sync X1) · replaces the "Remaining, in order" list in [`../STATUS.md`](../STATUS.md) · decisions: [`../log/`](../log/README.md) · design: [`../architecture.md`](../architecture.md)
 
 **Destination.** An assistant you use like an app — separate chats, live progress, a screenshot viewer, a clean look — on a codebase where a new capability is **one file plus one line**, where your message is screened before any money is spent, where a follow-up carries the right history, and where every decision and change is logged and queryable. Built by two agents in two worktrees that rarely touch the same file.
 
