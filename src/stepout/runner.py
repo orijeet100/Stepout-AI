@@ -156,7 +156,7 @@ class Runner:
     async def _agent(self, role_name: str, goal: str, run: _Run, parent: str | None) -> Finding:
         role = ROLES[role_name]
         notes: list[str] = []
-        ran: set[str] = set()  # hand actions already run: asking again cannot change the answer
+        ran: dict[str, tuple[int, str]] = {}  # hand actions already run -> where their result sits in `notes` and what it says: asking again changes nothing while the Role can still read it
         step: Event | None = None  # the Step event being handled; ctx.emit hangs its events under it
         ctx = RunContext(
             run_id=run.id,
@@ -188,14 +188,17 @@ class Runner:
             action = response.action
             verdict = gate.check(action, role.actions, ctx)
             allowed = isinstance(verdict, Allow)
+            key = action.model_dump_json()
+            cap = capabilities.get(action.kind)
+            repeat = allowed and cap is not None and cap.repeat_guard(action) and key in ran and notes[ran[key][0]] == ran[key][1]
             summary = _summary(action, run.plan) if allowed else f"refused {action.kind}: {verdict.reason}"
-            step = await self._emit(run, "step", role_name, summary, parent=parent, cost=response.cost_usd, action=action.model_dump(), verdict=verdict.kind)
+            if repeat:  # the Gate had nothing against it, but it is not run: say so, so the Trace does not show a page loaded twice
+                summary = f"repeat, not run again: {summary}"
+            step = await self._emit(run, "step", role_name, summary, parent=parent, cost=response.cost_usd, action=action.model_dump(), verdict=verdict.kind, **({"repeat": True} if repeat else {}))
             if not allowed:
                 notes.append(f"Refused: {verdict.reason}")
                 continue
 
-            key = action.model_dump_json()
-            cap = capabilities.get(action.kind)
             match action:
                 case AnswerAction(text=text):
                     return Finding(text, ok=bool(text.strip()))
@@ -213,11 +216,11 @@ class Runner:
                         continue
                     await self._run_step(run, i, step.id, notes)
                 case _ if cap is not None:
-                    if cap.repeat_guard(action):
-                        if key in ran:
-                            notes.append(_REPEATED)
-                            continue
-                        ran.add(key)
+                    if repeat:
+                        notes.append(_REPEATED)
+                        continue
                     notes.append(await cap.run(action, ctx))
                     cap.compact(notes)
+                    if cap.repeat_guard(action):
+                        ran[key] = (len(notes) - 1, notes[-1])
         return Finding(f"The {role_name} agent couldn't finish in {role.max_steps} steps.", ok=False)
