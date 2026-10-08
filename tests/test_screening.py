@@ -169,3 +169,52 @@ async def test_the_screener_keeps_the_models_raw_answer_for_the_eval_to_show():
     words = HaikuScreener(ScriptedModel([ModelResponse(action=AnswerAction(text="Sure, go ahead"), cost_usd=0.0)]))
     await words.screen("again", [X1])
     assert words.last_answer == {"no tool call": "Sure, go ahead"}
+
+
+# --- stability: temperature 0, and what the live runs showed ---------------------------------------------------------------
+
+
+async def test_the_screening_call_asks_for_temperature_zero_and_is_the_only_one_that_does():
+    _, request = await screen(decided(decision="proceed", related=[]))
+    assert request.temperature == 0.0
+    assert ModelRequest(model=HAIKU, system="s", user_text="u").temperature is None  # every other call keeps the API default
+
+
+def test_tripwire_temperature_is_only_allowed_on_models_released_before_opus_4_6():
+    # Official reference: "Models released after Claude Opus 4.6 do not support setting temperature. A value of 1.0 will be accepted ...,
+    # all other values will be rejected with a 400 error." The screening call sets 0, so the day HAIKU moves to a newer model, every screening
+    # would fail (and fall back, fail open, unnoticed). If this test fails, read that note and drop `temperature=0.0` or keep the old model.
+    assert HAIKU == "claude-haiku-4-5"
+
+
+async def test_temperature_reaches_the_wire_through_the_real_sdk_only_when_asked_for():
+    # Through the real anthropic client over a mock HTTP transport (no network). A fake client accepts any keyword, which is how this once
+    # passed offline while the real SDK (1.x: no `temperature` argument on create()) raised TypeError on every screening.
+    import json
+
+    import anthropic
+
+    try:
+        import httpx2 as httpx  # the HTTP library anthropic 1.x uses
+    except ImportError:
+        import httpx
+
+    bodies = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json={"id": "msg_1", "type": "message", "role": "assistant", "model": HAIKU, "stop_reason": "end_turn", "stop_sequence": None,
+                                         "content": [{"type": "text", "text": "ok"}], "usage": {"input_tokens": 1, "output_tokens": 1}})
+
+    model = AnthropicModel()
+    model._client = anthropic.AsyncAnthropic(api_key="test", http_client=httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+    await model.call(ModelRequest(model=HAIKU, system="s", user_text="u"))
+    await model.call(ModelRequest(model=HAIKU, system="s", user_text="u", temperature=0.0))
+    assert "temperature" not in bodies[0] and bodies[1]["temperature"] == 0.0
+
+
+def test_a_message_that_only_lacks_something_is_not_a_decline_and_scripts_count_as_software():
+    # Live runs 2 and 3: "delete the duplicate lines from this list" and "summarize this article about ..." (nothing attached) were declined
+    # ("I need you to provide the list first") or answered in words; "write me a python script" went on in both runs.
+    assert "A request that only lacks something" in _SYSTEM and "is NOT a decline" in _SYSTEM
+    assert "scripts, apps, websites" in _SYSTEM

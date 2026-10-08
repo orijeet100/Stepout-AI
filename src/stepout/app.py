@@ -29,6 +29,11 @@ GRANTS_PATH = Path("data/config/grants.toml")  # only the User edits this
 SHOTS_PATH = Path("data/runs")  # page screenshots, one folder per Run
 
 
+def make_browser(channel) -> Browser:
+    """The Runs' browser. It sends live frames to the channel if the channel shows them (the web channel does; the terminal has none, so nothing is captured)."""
+    return Browser(shots=SHOTS_PATH, on_frame=getattr(channel, "live_frame", None))
+
+
 def web_port() -> int:
     """The web chat's port: STEPOUT_PORT if set, else 8765 (so two checkouts can run side by side)."""
     return int(os.environ.get("STEPOUT_PORT", "8765"))
@@ -88,7 +93,7 @@ async def main() -> None:
     if not GRANTS_PATH.exists():
         print(f"No {GRANTS_PATH}: the Files agent can't see your disk. Copy grants.example.toml there to allow it.")
     files = Files.from_config(GRANTS_PATH)
-    browser = Browser(shots=SHOTS_PATH)
+    browser = make_browser(channel)
     saved = SavedChannel(channel, ledger)
     runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=files, browser=browser)
     try:
