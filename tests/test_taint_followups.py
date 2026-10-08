@@ -117,3 +117,18 @@ async def test_the_fail_open_fallback_carries_taint_too(tmp_path):
 
     assert browser.calls == []
     assert [x.tainted for x in history.exchanges(store, "c1")] == [True, True]
+
+
+async def test_a_run_that_fails_after_reading_a_file_still_saves_that_it_was_tainted(tmp_path):
+    """The model call after the read raises (the script has run out): the Run ends `failed`, and what it read is not forgotten."""
+    import pytest
+
+    folder = tmp_path / "Docs"
+    folder.mkdir()
+    cv = folder / "cv.pdf"
+    cv.write_bytes(make_pdf(["Ana Quinn - Data Engineer"]))
+    h = Harness(tmp_path, [plan(f"read {cv}", role="reader"), reads(cv)], files=Files([Grant(os.path.normcase(os.path.realpath(folder)), "read")]))
+    with pytest.raises(IndexError):
+        await h.run(f"Summarize {cv}")
+    (run,) = h.store.query("SELECT outcome, tainted FROM runs")
+    assert run["outcome"] == "failed" and run["tainted"]

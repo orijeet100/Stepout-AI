@@ -79,3 +79,11 @@ async def test_the_front_doors_cost_counts_against_the_cap(tmp_path, monkeypatch
     h = Harness(tmp_path, [say("never reached")])
     await follow_up(h, [], screening_cost=0.06)  # already over before the Orchestrator starts
     assert len(h.model.requests) == 0 and "budget" in h.replies[0].text.lower()
+
+
+async def test_a_repeat_the_runner_skipped_is_not_listed_as_something_the_hands_did(tmp_path):
+    page = ("URL: https://example.com\nTitle: Example\nText: Example Domain", "abc/1.jpg")
+    script = [plan("read it", role="browser"), browse("open", "https://example.com"), browse("open", "https://example.com"), say("Example Domain"), say("It says Example Domain.")]
+    store = await serve(tmp_path, [ask("c1", "read https://example.com")], script, browser=FakeBrowser(page))
+    (x,) = history.exchanges(store, "c1")
+    assert x.did == "browse open example.com"  # not also "repeat, not run again: browse open example.com"

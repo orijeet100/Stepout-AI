@@ -176,3 +176,9 @@ async def test_a_run_that_never_reads_is_unchanged(tmp_path):
     h = Harness(tmp_path, [steps(("direct", "look up")), fetch("https://example.com/z"), say("found"), say("done")])
     await h.run("look something up")
     assert h.fetcher.urls == ["https://example.com/z"] and {r.max_searches for r in h.model.requests} == {3}
+
+
+def test_a_taint_with_no_reason_still_taints():
+    state = RunState()
+    state.taint("")
+    assert state.tainted

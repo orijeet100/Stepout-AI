@@ -19,6 +19,7 @@ from stepout.browser import Browser
 from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.ledger import Ledger
+from stepout.links import defang, urls
 from stepout.model import Model, ModelRequest
 from stepout.reader import Reader
 from stepout.roles import ROLES
@@ -47,6 +48,7 @@ class _Run:
     stopped: bool = False  # the User pressed Stop, or the budget ran out
     previous: str = ""  # the linked Exchanges, rendered; only the Orchestrator sees them
     state: RunState = field(default_factory=RunState)  # shared by every Role: read counters and, later, the taint
+    urls: set[str] = field(default_factory=set)  # addresses a tainted Run's reply may still link to (see links.py)
     id: str = field(default_factory=lambda: uuid4().hex)
 
 
@@ -114,6 +116,7 @@ class Runner:
         """`previous`: the earlier Exchanges this Task builds on (none for a new Task). `screening_cost`: what the front door spent, counted against this Run's cap."""
         self._cancel.clear()
         run = _Run(task_id=task.id, conversation_id=task.conversation_id, cap=self._cap, spent=screening_cost, previous=_previous_block(previous))
+        run.urls = urls(task.request).union(*(urls(x.reply) for x in previous))
         for x in previous:  # an answer that used the User's files taints whatever builds on it: what a file holds must not leave through the web
             if x.tainted:
                 run.state.taint(f"an earlier answer it builds on (#{x.id}) used the contents of your files")
@@ -125,7 +128,8 @@ class Runner:
         finally:
             self._ledger.end_run(run.id, outcome, run.spent, run.state.tainted)
             await self._browser.close(run.id)  # its pages are this Run's alone
-        await self._notify(Reply(text=finding.text, conversation_id=task.conversation_id, run_id=run.id, cost_usd=run.spent))
+        text = defang(finding.text, run.urls) if run.state.tainted else finding.text  # a file may ask for a link that holds its own text
+        await self._notify(Reply(text=text, conversation_id=task.conversation_id, run_id=run.id, cost_usd=run.spent))
 
     async def _emit(self, run: _Run, kind: str, role: str, summary: str, *, parent=None, cost=0.0, **data) -> Event:
         event = Event(task_id=run.task_id, run_id=run.id, conversation_id=run.conversation_id, kind=kind, role=role, parent=parent, cost_usd=cost, data={"summary": summary, **data})
@@ -148,6 +152,8 @@ class Runner:
         plan_step.status = "running"
         await self._emit_plan(run)
         child = await self._agent(plan_step.role, plan_step.goal, run, parent=parent)
+        if not run.state.tainted:  # addresses found before any file was read; the Reader's own Finding is already tainted
+            run.urls |= urls(child.text)
         plan_step.status = "done" if child.ok else "failed"
         await self._emit_plan(run)
         await self._emit(run, "return", plan_step.role, f"{plan_step.status}: {child.text[:200]}", parent=parent, ok=child.ok)

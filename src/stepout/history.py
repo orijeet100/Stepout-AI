@@ -70,7 +70,7 @@ def _did(store: Store, run_id: str) -> str:
     """What the specialists' hands did in a Run, from the step summaries: "browse open luma.com/discover; fetch luma.com/tech"."""
     done: list[str] = []
     for e in run_events(store, run_id):
-        if e.kind == "step" and e.role != "orchestrator" and e.data.get("verdict") == "allow" and e.data["action"]["kind"] != "answer":
+        if e.kind == "step" and e.role != "orchestrator" and e.data.get("verdict") == "allow" and not e.data.get("repeat") and e.data["action"]["kind"] != "answer":
             line = re.sub(r"https?://", "", e.data["summary"])
             if line not in done:
                 done.append(line)

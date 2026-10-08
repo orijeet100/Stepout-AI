@@ -41,7 +41,7 @@ class Ledger:
             (run_id, task.id, cap_usd, datetime.now(timezone.utc).isoformat()),
         )
 
-    def end_run(self, run_id: str, outcome: Outcome, cost_usd: float, tainted: str = "") -> None:
+    def end_run(self, run_id: str, outcome: Outcome, cost_usd: float, tainted: str) -> None:
         """`tainted`: why the Run held data from the User's files ("" = it did not); what lets a later Run that builds on this one start with the web closed."""
         self._store.execute(
             "UPDATE runs SET outcome = ?, cost_usd = ?, ended_at = ?, tainted = ? WHERE id = ?",

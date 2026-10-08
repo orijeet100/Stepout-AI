@@ -73,7 +73,8 @@ class Harness:
     """Script order = call order. A plan runs its first step itself, so its Role's calls come right after the plan."""
 
     def __init__(self, tmp_path, responses, fetcher=None, cancel=None, files=None, browser=None):
-        self.ledger = Ledger(Store(tmp_path / "t.db"))
+        self.store = Store(tmp_path / "t.db")
+        self.ledger = Ledger(self.store)
         self.model = ScriptedModel(responses)
         self.fetcher = fetcher or FakeFetcher("page text")
         self.replies: list[Reply] = []
