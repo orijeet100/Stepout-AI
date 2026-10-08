@@ -6,12 +6,15 @@
 from __future__ import annotations
 
 import json
+import re
 
 from stepout.contract import ConversationDetail, ConversationSummary, MessageFrame, RunSummary, TraceFrame
+from stepout.domain import Exchange
 from stepout.store import Store
 
 _RUN_STATE = {None: "running", "done": "done", "cancelled": "stopped"}  # any other ended outcome reads as "failed"
 _PREVIEW_CHARS = 80
+_COST_FOOTER = re.compile(r"\n\n\(cost: \$[\d.]+\)\s*$")  # still on saved replies until the page reads cost_usd
 
 
 def list_conversations(store: Store) -> list[ConversationSummary]:
@@ -60,4 +63,29 @@ def run_events(store: Store, run_id: str) -> list[TraceFrame]:
             role=r["role"], data=json.loads(r["data"]), cost_usd=r["cost_usd"], at=r["at"],
         )
         for r in store.query("SELECT * FROM events WHERE run_id = ? AND conversation_id IS NOT NULL ORDER BY at, rowid", (run_id,))
+    ]
+
+
+def _did(store: Store, run_id: str) -> str:
+    """What the specialists' hands did in a Run, from the step summaries: "browse open luma.com/discover; fetch luma.com/tech"."""
+    done: list[str] = []
+    for e in run_events(store, run_id):
+        if e.kind == "step" and e.role != "orchestrator" and e.data.get("verdict") == "allow" and e.data["action"]["kind"] != "answer":
+            line = re.sub(r"https?://", "", e.data["summary"])
+            if line not in done:
+                done.append(line)
+    return "; ".join(done)[:200]
+
+
+def exchanges(store: Store, conversation_id: str, last: int = 10) -> list[Exchange]:
+    """The chat's answered Requests, oldest first, numbered from 1; only the newest `last` are built (the numbers stay the chat's own)."""
+    chat = get_conversation(store, conversation_id)
+    if chat is None:
+        return []
+    replies = {m.run_id: m.text for m in chat.messages if m.role == "assistant" and m.run_id}
+    answered = [r for r in chat.runs if r.run_id in replies]  # a Run that never replied (a crash) is not an Exchange
+    return [
+        Exchange(id=n, request=r.request, reply=_COST_FOOTER.sub("", replies[r.run_id]), did=_did(store, r.run_id), run_id=r.run_id)
+        for n, r in enumerate(answered, start=1)
+        if n > len(answered) - last
     ]

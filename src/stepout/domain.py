@@ -74,6 +74,17 @@ class Task(BaseModel):
     created_at: datetime = Field(default_factory=_now)
 
 
+class Exchange(BaseModel):
+    """A Request and the reply the User saw for it, in one Conversation. What a Follow-up is given to build on."""
+
+    id: int  # its number in the chat (the first answered Request is 1); what the front door's `related` refers to
+    request: str
+    reply: str  # without the cost footer
+    did: str  # one line: what the hands did ("browse open luma.com/discover"); empty if it only answered
+    tainted: bool = False  # always False until the Reader (B4)
+    run_id: str
+
+
 class Run(BaseModel):
     """One attempt at carrying out a Task."""
 
