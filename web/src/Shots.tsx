@@ -65,12 +65,22 @@ export function BrowserPanel({ runId, live, shots, onOpen }: PanelProps) {
         ) : (
           <span className="browser__badge">Last page</span>
         )}
-        <span className="browser__title">{last?.title ?? (stream ? 'Opening page…' : '')}</span>
+        <span className="browser__title">{last?.title ?? ''}</span>
         <PageAddress url={last?.url ?? null} />
       </figcaption>
       <div className="browser__view">
         {stream ? (
-          <img className="browser__live" src={stream} alt="Live view of the Assistant's browser. View only." onError={() => setFailed(true)} />
+          <>
+            <img className="browser__live" src={stream} alt="Live view of the Assistant's browser. View only." onError={() => setFailed(true)} />
+            {/* The Browser's first frame is a blank page. Until it has saved one (a `shot` event: the page has painted) say what is
+                happening instead of showing a white square. The stream stays connected underneath, ready when this lifts. */}
+            {!last && (
+              <div className="browser__loading" role="status">
+                <span className="glyph glyph--running" aria-hidden="true" />
+                <span>Opening the page…</span>
+              </div>
+            )}
+          </>
         ) : onOpen ? (
           <button type="button" className="browser__last" onClick={() => onOpen(shots.length - 1)} aria-label={`Open screenshot: ${last!.title ?? 'the page'}`}>
             <ShotImage key={last!.path} shot={last!} />

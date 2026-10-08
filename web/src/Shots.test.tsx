@@ -10,13 +10,31 @@ const shot = (n: number, extra: object = {}) => ({ path: `${RUN}/${n}.jpg`, url:
 const liveImg = () => document.querySelector<HTMLImageElement>('img.browser__live')
 
 describe('BrowserPanel: live while the Run runs, the last page after', () => {
-  it('while live: the stream, a Live marker that says view only, and "Opening page…" until a page is known', () => {
+  it('while live and before any page is saved: the stream stays connected under a loading cover, never a bare blank frame', () => {
     render(<BrowserPanel runId={RUN} live shots={[]} />)
     expect(liveImg()!.getAttribute('src')).toBe(`/live/${RUN}`)
     expect(liveImg()!.getAttribute('alt')).toMatch(/Live view.*View only/)
     expect(screen.getByText('Live').closest('.browser__badge')!.getAttribute('title')).toMatch(/nothing you do here reaches the browser/)
-    expect(screen.getByText('Opening page…')).toBeTruthy()
+    const cover = screen.getByRole('status')
+    expect(cover.textContent).toBe('Opening the page…')
+    expect(cover.parentElement).toBe(liveImg()!.parentElement) // over the frame, which is still there underneath
     expect(screen.queryByText('Last page')).toBeNull()
+  })
+
+  it('the cover lifts when the first page has been saved (it has painted), and stays gone', () => {
+    const { rerender } = render(<BrowserPanel runId={RUN} live shots={[]} />)
+    expect(screen.queryByRole('status')).not.toBeNull()
+    rerender(<BrowserPanel runId={RUN} live shots={[shot(1)]} />)
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(liveImg()).not.toBeNull() // the live frame itself is untouched
+    rerender(<BrowserPanel runId={RUN} live shots={[shot(1), shot(2)]} />)
+    expect(screen.queryByRole('status')).toBeNull() // later pages do not bring it back
+  })
+
+  it('no cover once the stream is gone: the last page or the plain words, not a spinner that never ends', () => {
+    render(<BrowserPanel runId={RUN} live shots={[]} />)
+    fireEvent.error(liveImg()!)
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('captions the live view with the title and address of the latest saved page', () => {
@@ -109,10 +127,10 @@ describe('in a Run, from the fixtures', () => {
     return render(<RunBlock run={run} state={state ?? runState(s, run)} cap={runCap(s, run)} now={Date.now()} onStop={() => {}} />)
   }
 
-  it('a running Browser Run shows the live view; before its first screenshot it says it is opening a page', () => {
+  it('a running Browser Run shows the live view; before its first screenshot it says it is opening the page', () => {
     block(stateOf('web-run', { upTo: FRAMES.opening, active: 1 }))
     expect(liveImg()!.getAttribute('src')).toBe(`/live/${runOf('web-run')}`)
-    expect(screen.getByText('Opening page…')).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toBe('Opening the page…')
   })
 
   it('once the Browser has saved a page, the live view is captioned with its title and address', () => {

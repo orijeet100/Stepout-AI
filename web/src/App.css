@@ -113,12 +113,13 @@
 .browser__title { flex: 0 1 auto; min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .page__url { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--muted); font-family: var(--font-mono); font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
 a.page__url { color: var(--accent); }
-.browser__view { aspect-ratio: 10 / 7; background: #fff; /* a web page is white; the frame is not themed */ }
+.browser__view { position: relative; aspect-ratio: 10 / 7; background: #fff; /* a web page is white; the frame is not themed */ }
 .browser__view img, .browser__last { display: block; width: 100%; height: 100%; }
 .browser__view img { object-fit: contain; }
 .browser__last { padding: 0; background: none; border: 0; cursor: zoom-in; }
 .shot-missing { display: grid; place-content: center; justify-items: center; gap: var(--sp-1); width: 100%; height: 100%; aspect-ratio: 10 / 7; color: var(--muted); background: var(--surface-2); font-family: var(--font-body); font-size: var(--fs-sm); }
 .browser__empty { margin: 0; }
+.browser__loading { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: var(--sp-2); color: var(--muted); background: var(--surface-2); font-family: var(--font-body); font-size: var(--fs-sm); }
 
 /* the saved pages: thumbnails, and the viewer */
 .thumbs { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
