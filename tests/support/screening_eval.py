@@ -34,6 +34,7 @@ class Scored:
     got: str  # decline | chat | proceed | fallback (no usable answer)
     related: list[int]
     cost: float
+    raw: object = None  # the model's raw answer, when the screener keeps it (HaikuScreener.last_answer): why a row went the way it did
 
     @property
     def agrees(self) -> bool:
@@ -46,7 +47,7 @@ async def evaluate(screener, rows: list[dict]) -> list[Scored]:
     scored = []
     for row in rows:
         result, cost = await screener.screen(row["prompt"], exchanges_of(row))
-        scored.append(Scored(row, "fallback" if result is None else result.kind, list(getattr(result, "related", [])), cost))
+        scored.append(Scored(row, "fallback" if result is None else result.kind, list(getattr(result, "related", [])), cost, getattr(screener, "last_answer", None)))
     return scored
 
 

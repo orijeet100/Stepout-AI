@@ -7,7 +7,8 @@ import pytest
 from stepout import capabilities
 from stepout.domain import AnswerAction, ChatReply, Decline, Exchange, Proceed
 from stepout.model import HAIKU, AnthropicModel, ModelRequest, ModelResponse, ToolCall
-from stepout.screening import HaikuScreener, ProceedScreener
+from stepout.screening import _SCREEN_TOOL, _SYSTEM, HaikuScreener, ProceedScreener
+from tests.support.screening_eval import load_rows
 from tests.support.scripted_model import ScriptedModel
 
 X1 = Exchange(id=1, request="what does example.com say?", reply="It says Example Domain.\n\nSources: ...", did="browse open example.com", run_id="r1")
@@ -48,7 +49,9 @@ async def test_with_no_history_the_index_says_so():
         (dict(decision="proceed", related=[]), Proceed(related=[])),
         (dict(decision="proceed"), Proceed(related=[])),
         (dict(decision="proceed", related=[3, 1, 1, 99]), Proceed(related=[1, 3])),  # sorted, deduplicated, and a number it was never shown is dropped
-        (dict(decision="chat", reply="  Hello! I can search the web.  "), ChatReply(text="Hello! I can search the web.")),
+        (dict(decision="chat", chat_kind="greeting", reply="  Hello! I can search the web.  ", related=[]), ChatReply(text="Hello! I can search the web.")),
+        (dict(decision="chat", chat_kind="thanks", reply="You're welcome!"), ChatReply(text="You're welcome!")),  # related missing means none
+        (dict(decision="proceed", related=None), Proceed(related=[])),  # null means none too: an answer the old parser threw away
         (dict(decision="decline", reply="That means paying someone.", alternative="I can look things up."), Decline(reason="That means paying someone.", alternative="I can look things up.")),
     ],
 )
@@ -116,3 +119,53 @@ async def test_the_same_call_without_that_tool_defined_is_still_just_words():
     model, _ = adapter_with(NS(type="tool_use", name="screen", input={"decision": "proceed"}), NS(type="text", text="hello", citations=None))
     response = await model.call(ModelRequest(model=HAIKU, system="s", user_text="u"))
     assert response.action == AnswerAction(text="hello")  # as before this change
+
+
+# --- chat is allowed only for what the prompt allows --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "answer, text, expected",
+    [
+        (dict(decision="chat", reply="51"), "What is 17 times 3?", Proceed()),  # an ordinary question it tried to answer itself
+        (dict(decision="chat", chat_kind="question", reply="Paris."), "capital of France?", Proceed()),  # not one of the three kinds
+        (dict(decision="chat", chat_kind="about_assistant", reply="Those events are free.", related=[1]), "which of those events are free?", Proceed(related=[1])),
+        (dict(decision="chat", chat_kind="about_assistant", reply="Sure.", related=[99]), "tell me more", Proceed()),  # it claimed a dependency it was never shown
+        (dict(decision="chat", chat_kind="greeting", reply="Hi!"), "hello can you also tell me what the capital of France is", Proceed()),  # a greeting that asks for more
+    ],
+)
+async def test_a_chat_that_is_not_plain_chat_goes_to_the_assistant_behind_it(answer, text, expected):
+    (result, cost), _ = await screen(decided(**answer), text=text)
+    assert result == expected and cost == pytest.approx(0.0007)  # a downgrade is a proceed, not a failure: no fallback, the cost is kept
+
+
+async def test_plain_chat_is_still_chat():
+    for text, kind in [("hi", "greeting"), ("thanks, that was helpful", "thanks"), ("what are you able to help with?", "about_assistant")]:
+        (result, _), _ = await screen(decided(decision="chat", chat_kind=kind, reply="Hello!", related=[]), recent=[], text=text)
+        assert result == ChatReply(text="Hello!"), text
+
+
+async def test_a_chat_answer_with_a_malformed_link_list_is_unusable():
+    (result, _), _ = await screen(decided(decision="chat", chat_kind="greeting", reply="hi", related="x"))
+    assert result is None
+
+
+def test_the_tool_makes_the_model_name_a_kind_and_always_give_related():
+    schema = _SCREEN_TOOL["input_schema"]
+    assert schema["required"] == ["decision", "related"]
+    assert schema["properties"]["chat_kind"]["enum"] == ["greeting", "thanks", "about_assistant"]
+
+
+def test_the_prompt_makes_proceed_the_default_and_none_of_the_eval_prompts_is_in_it():
+    assert "the default" in _SYSTEM and "NEVER answer these yourself" in _SYSTEM and "never chat" in _SYSTEM
+    for row in load_rows():  # an example in the prompt that is also an eval row would make the eval measure memory
+        assert f'"{row["prompt"].lower()}"' not in _SYSTEM.lower(), row["prompt"]
+
+
+async def test_the_screener_keeps_the_models_raw_answer_for_the_eval_to_show():
+    screener = HaikuScreener(ScriptedModel([decided(decision="proceed", related=[1])]))
+    await screener.screen("again", [X1])
+    assert screener.last_answer == {"decision": "proceed", "related": [1]}
+    words = HaikuScreener(ScriptedModel([ModelResponse(action=AnswerAction(text="Sure, go ahead"), cost_usd=0.0)]))
+    await words.screen("again", [X1])
+    assert words.last_answer == {"no tool call": "Sure, go ahead"}
