@@ -90,3 +90,16 @@ Not in v1: renaming or deleting chats, search, attachments.
 4. Also accepted: `cap_usd` on the status frame and on runs, and `url` and `title` on `shot` events.
 
 Any change from here is a `contract` log entry and a version note in this file.
+
+## Notes from U2b (2026-10-08): how the channel fills in what v1 left open
+
+Behaviour only; no field is added or changed ([log](log/2026-10-08-asks-of-the-main-lane-after-u2b-cost-footer-one-id-per-messa.md)).
+
+- **`status` between a message and its Run.** `state` is `running` as soon as a message is taken from the queue. `active` stays `null` until the Run's first event arrives (screening takes about a second), then carries the run id and `cap_usd`. A `status` frame is sent only when the queue or the active Run changes, not per event.
+- **Queued messages.** Your message is echoed as a `message` frame at once, even when it has to wait. It is not saved until its turn, so `GET /api/conversations/{id}` adds it to the chat read back, and a chat whose first message is queued appears in the list with `state: "queued"`.
+- **`POST /api/conversations`** answers `201` with `{id}`. The chat is not stored (and not in the list) until its first message is saved; until then `GET /api/conversations/{id}` answers `200` with an empty chat. `send` accepts a chat id that history knows or that this process issued, so after a restart an unused id is unknown.
+- **Ids.** 32 lowercase hex, plus the literal `default` (the CLI's chat; a v0 page's messages go there). Anything else answers `404` before any lookup. `GET /api/runs/{id}/events` answers `404` for an unknown Run and for a Run with no events yet.
+- **A message and its saved copy.** A reply's live frame carries the id and time of its saved copy. A user message's echo goes out before it is saved, so its id differs from the saved one; the page treats history as the record (it keeps a live message only if it is newer than anything history has).
+- **A Run left open by a crash** reads `failed` when a chat is read back, unless it is the live Run.
+- **Old pages.** For one release a v0 page's `{"text": …}` and `{"stop": true}` are still accepted (into `default`); v0 frames are no longer sent.
+- **Client frames** are validated by `contract.py`: a stray field, a missing `text`, a text over 20 000 characters, or an unknown chat is ignored (no error frame).

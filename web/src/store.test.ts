@@ -103,6 +103,13 @@ describe('api responses', () => {
     expect(fresh.selected).toBe(C)
   })
 
+  it('a message that arrived live is not shown twice once history has its saved copy (different id)', () => {
+    const live = run(initial, ...frames(msg('live-id', 'user', 'hello', 5), msg('live-reply', 'assistant', 'hi', 7)))
+    const saved = (id: string, role: Message['role'], text: string, s: number): Message => ({ id, conversation_id: C, role, text, run_id: null, cost_usd: null, at: t(s) })
+    const loaded = reducer(live, { type: 'detail', id: C, title: 'T', messages: [saved('db-1', 'user', 'hello', 6), saved('db-2', 'assistant', 'hi', 8)], runs: [] })
+    expect(loaded.messages[C].map((m) => m.id)).toEqual(['db-1', 'db-2'])
+  })
+
   it('loading a chat merges with what arrived live instead of replacing it', () => {
     const live = run(initial, ...frames(msg('m2', 'user', 'live', 5)))
     const loaded = reducer(live, { type: 'detail', id: C, title: 'T', messages: [{ id: 'm1', conversation_id: C, role: 'user', text: 'old', run_id: null, cost_usd: null, at: t(1) }], runs: [] })

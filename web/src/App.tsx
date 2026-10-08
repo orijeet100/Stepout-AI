@@ -10,12 +10,13 @@ export default function App() {
   const { selected, conn, attempt, error } = state
   const chats = chatList(state)
   const current = chats.find((c) => c.id === selected)
+  // After the first failure, "connecting" is just the next attempt: keep saying "reconnecting" instead of flickering.
   const banner =
-    conn === 'connecting'
-      ? 'Connecting…'
-      : conn === 'closed'
-        ? `Disconnected. Reconnecting${attempt > 1 ? ` (attempt ${attempt})` : ''}…`
-        : error
+    conn === 'open'
+      ? error
+      : attempt === 0
+        ? 'Connecting…'
+        : `Disconnected. Reconnecting${attempt > 1 ? ` (attempt ${attempt})` : ''}…`
   return (
     <div className="app">
       <Sidebar chats={chats} selected={selected} onSelect={select} onNew={newChat} />
