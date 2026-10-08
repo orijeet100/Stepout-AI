@@ -17,6 +17,7 @@ from stepout import capabilities
 from stepout.capabilities.browse import BrowseAction  # defined by their capability; re-exported so existing imports keep working
 from stepout.capabilities.fetch import FetchAction
 from stepout.capabilities.files import FilesAction
+from stepout.roles import SPECIALISTS
 
 
 def _id() -> str:
@@ -92,7 +93,7 @@ class AnswerAction(BaseModel):
 
 
 class PlanStep(BaseModel):
-    role: Literal["direct", "files", "browser"]  # widen as Roles gain hands (reader)
+    role: Literal[SPECIALISTS]  # from ROLES: a new specialist Role is a valid step Role, and in the plan tool, with no other edit
     goal: str
     status: Literal["pending", "running", "done", "failed"] = "pending"
 

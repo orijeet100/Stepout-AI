@@ -46,11 +46,12 @@ flowchart LR
 
 | Code | Job |
 |---|---|
-| `runner.py` | the one agent loop for every Role; shared Budget/Gate/Ledger; plan auto-starts its first step; Stop; repeat guard |
-| `roles.py` | Role table: prompt, tools, model, step cap (Orchestrator Sonnet 5, Direct Haiku 4.5, Files Haiku 4.5, Browser Sonnet 5) |
-| `model.py` | Anthropic adapter; tools `plan delegate answer fetch files browse`; citations → Sources list |
-| `gate.py` | `screen` (before spend) and `check(action, role's kinds)` |
-| `files.py` / `browser.py` / `fetch.py` | the hands; each enforces its own path or network policy |
+| `capabilities/` | **one file per tool** (`fetch` `files` `browse` `web_search`): tool schema, Action, executor, Gate rule, Trace line, repeat guard, note trimming, blurb. `__init__.py` holds `ALL`: **a new capability is one new file plus one line there** |
+| `runner.py` | the one agent loop for every Role; shared Budget/Gate/Ledger; plan auto-starts its first step; Stop; runs any capability through the registry |
+| `roles.py` | Role table: prompt, tools (capability names), model, step cap (Orchestrator Sonnet 5, Direct Haiku 4.5, Files Haiku 4.5, Browser Sonnet 5); the plan's role list comes from it |
+| `model.py` | Anthropic adapter; control tools `plan delegate answer`, every other tool from the registry; citations → Sources list |
+| `gate.py` | `screen` (before spend) and `check(action, role's kinds)`, then the capability's own rule |
+| `files.py` / `browser.py` / `fetch.py` | the hands; each enforces its own path or network policy (a capability reaches its hand through `RunContext.hands`) |
 | `intake.py`, `ledger.py`, `store.py`, `domain.py` | routing + decline, append-only events (role, parent), SQLite with tracked migrations, plain-data types |
 | `channels/web.py`, `channels/cli.py`, `app.py`, `web/` | channels (trace out, Stop in, screenshot route), wiring, the React page |
 
@@ -103,9 +104,9 @@ Owner of this section: the Main lane · hand-off: [`plan/main-worktree.md`](plan
 | Iteration | State |
 |---|---|
 | **B1a** isolation guards | **done 2026-10-07** · `STEPOUT_PORT` (default 8765) · pytest `pythonpath = ["src", "."]`, `testpaths = ["tests"]` · `tests/test_isolation.py` · `scripts/owners.py --lane main\|ui <branch>` (merge agent runs it per lane) · log: [`b1a-isolation-guards`](log/2026-10-07-b1a-isolation-guards.md), [`unlisted-paths-belong-to-main`](log/2026-10-07-unlisted-paths-belong-to-main.md) |
-| **B1b** capability modules | next |
+| **B1b** capability modules | **done 2026-10-07, no behaviour change** · `src/stepout/capabilities/` (`base` `fetch` `files` `browse` `web_search` + the `ALL` registry) · `domain.Action`, the tool schemas, the Gate rule and the Runner's dispatch all come from the registry · `PlanStep.role` and the plan tool's role list come from `ROLES` · proof: `tests/test_capabilities.py` runs a fake `echo` capability that imports none of domain/model/gate/runner/roles · log: [`b1b-capability-modules`](log/2026-10-07-b1b-capability-modules.md) · **live smoke suite 6/6 and its cost (within 10%) are still to be checked by the merge agent at the next sync** |
 
-**Offline tests:** 142 passed, 6 deselected (after B1a). **Setup in a worktree:** `py -3.13 -m venv .venv` then `.venv\Scripts\python.exe -m pip install -e ".[dev]"`. In Git Bash, `python` may be MSYS2's, whose venv has `bin/` instead of `Scripts/`: use `py` or PowerShell.
+**Offline tests:** 152 passed, 6 deselected (after B1b; 135 at the start). **Setup in a worktree:** `py -3.13 -m venv .venv` then `.venv\Scripts\python.exe -m pip install -e ".[dev]"`. In Git Bash, `python` may be MSYS2's, whose venv has `bin/` instead of `Scripts/`: use `py` or PowerShell.
 **Ceiling noticed, not fixed:** `Store.__init__` runs a migration script and sets `user_version` in separate steps, so two processes opening one *new* database file at the same moment can both run an `ALTER` and leave it unusable (`duplicate column name`). One process per database file is the design (ADR 0006) and each worktree has its own `data/`; B2's migration 0003 is the place to make it atomic if wanted.
 
 ## Lane: UI

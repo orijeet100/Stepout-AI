@@ -16,11 +16,9 @@ import anthropic
 from pydantic import BaseModel
 
 from stepout import capabilities
-from stepout.capabilities.base import tool_schema as _tool
+from stepout.capabilities.base import tool_schema
 from stepout.domain import Action, AnswerAction, DelegateAction, PlanAction
-
-HAIKU = "claude-haiku-4-5"
-SONNET = "claude-sonnet-5"
+from stepout.roles import HAIKU, SONNET, SPECIALISTS
 
 # $ per million tokens: (input, output). Web search billed separately, per use.
 PRICING = {
@@ -29,14 +27,11 @@ PRICING = {
 }
 WEB_SEARCH_COST_PER_USE = 10.00 / 1000
 
-# Basic web search: 20260209+ defaults to dynamic filtering via code execution, which Haiku can't use.
-_WEB_SEARCH = {"type": "web_search_20250305", "name": "web_search"}
-
-
-_CLIENT_TOOLS = {
+# The Orchestrator's own tools. Every other tool comes from the capability registry.
+_CONTROL_TOOLS = {
     t["name"]: t
     for t in [
-        _tool(
+        tool_schema(
             "plan",
             "Write your plan: 1-3 steps, each run by one role. Calling it again replaces the plan.",
             steps={
@@ -45,13 +40,13 @@ _CLIENT_TOOLS = {
                 "maxItems": 3,
                 "items": {
                     "type": "object",
-                    "properties": {"role": {"type": "string", "enum": ["direct", "files", "browser"]}, "goal": {"type": "string"}},
+                    "properties": {"role": {"type": "string", "enum": list(SPECIALISTS)}, "goal": {"type": "string"}},
                     "required": ["role", "goal"],
                 },
             },
         ),
-        _tool("delegate", "Run one step of your plan by its number (0 is the first). Its Finding comes back next turn.", step={"type": "integer", "minimum": 0}),
-        _tool("answer", "Give the final reply to the user.", text={"type": "string"}),
+        tool_schema("delegate", "Run one step of your plan by its number (0 is the first). Its Finding comes back next turn.", step={"type": "integer", "minimum": 0}),
+        tool_schema("answer", "Give the final reply to the user.", text={"type": "string"}),
     ]
 }
 
@@ -86,10 +81,11 @@ def _cost(model: str, input_tokens: int, output_tokens: int, web_searches: int) 
 def _tool_defs(request: ModelRequest) -> list[dict]:
     defs = []
     for name in request.tools:
+        tool = _CONTROL_TOOLS.get(name) or capabilities.get(name).tool
         if name != "web_search":
-            defs.append(_CLIENT_TOOLS.get(name) or capabilities.get(name).tool)
-        elif request.max_searches > 0:
-            defs.append({**_WEB_SEARCH, "max_uses": request.max_searches})
+            defs.append(tool)
+        elif request.max_searches > 0:  # the provider runs searches; this Run's remaining count caps them
+            defs.append({**tool, "max_uses": request.max_searches})
     return defs
 
 

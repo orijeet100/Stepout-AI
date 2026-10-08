@@ -6,13 +6,13 @@ from pathlib import Path
 from types import SimpleNamespace as NS
 
 import pytest
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from stepout import capabilities, gate
-from stepout.domain import Action, AnswerAction, Allow, BrowseAction, FetchAction, FilesAction, Refuse, Task
+from stepout.domain import Action, AnswerAction, Allow, BrowseAction, FetchAction, FilesAction, PlanStep, Refuse, Task
 from stepout.ledger import Ledger
-from stepout.model import HAIKU, AnthropicModel, ModelRequest, ModelResponse
-from stepout.roles import ROLES
+from stepout.model import HAIKU, AnthropicModel, ModelRequest, ModelResponse, _tool_defs
+from stepout.roles import ROLES, SPECIALISTS
 from stepout.runner import Runner
 from stepout.store import Store
 from tests.support import echo_capability
@@ -113,9 +113,31 @@ def test_blurbs_cover_every_capability():
     assert all(b.strip() for b in blurbs.values())
 
 
+def test_every_role_tool_is_a_capability_or_a_control_tool():
+    known = {c.name for c in capabilities.ALL} | {"plan", "delegate", "answer"}
+    assert {t for role in ROLES.values() for t in role.tools} <= known
+
+
+def test_a_tool_the_provider_runs_has_no_action_and_is_not_one_a_role_may_take():
+    search = capabilities.get("web_search")
+    assert search.action is None and capabilities.parse("web_search", {}) is None
+    assert ROLES["direct"].actions == {"fetch", "answer"}
+
+
+def test_plan_roles_come_from_the_role_table():
+    assert SPECIALISTS == ("direct", "files", "browser")
+    for name in SPECIALISTS:
+        assert PlanStep(role=name, goal="g").role == name
+        assert f"{name} (" in ROLES["orchestrator"].system  # the prompt describes every role a Plan can name
+    with pytest.raises(ValidationError):
+        PlanStep(role="orchestrator", goal="g")
+    plan = next(t for t in _tool_defs(ModelRequest(model=HAIKU, system="s", user_text="u", tools=["plan"])))
+    assert plan["input_schema"]["properties"]["steps"]["items"]["properties"]["role"]["enum"] == list(SPECIALISTS)
+
+
 def test_the_action_union_round_trips_every_capability_action():
     adapter = TypeAdapter(Action)
-    samples = [FetchAction(url="https://example.com"), FilesAction(op="find", path="D:\Docs", pattern="cv"), BrowseAction(op="open", url="https://example.com")]
+    samples = [FetchAction(url="https://example.com"), FilesAction(op="find", path="D:\\Docs", pattern="cv"), BrowseAction(op="open", url="https://example.com")]
     assert {type(s) for s in samples} <= set(capabilities.action_types())
     for action in samples:
         assert adapter.validate_json(adapter.dump_json(action)) == action
