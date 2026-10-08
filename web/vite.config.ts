@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config'
 const backend = process.env.VITE_BACKEND ?? 'http://127.0.0.1:8766'
 // The backend only answers its own origin (Host and Origin checks), so the dev proxy presents itself as that origin.
 const proxy = Object.fromEntries(
-  ['/api', '/shots', '/ws'].map((path) => [path, { target: backend, changeOrigin: true, ws: path === '/ws', headers: { Origin: backend } }]),
+  ['/api', '/shots', '/live', '/ws'].map((path) => [path, { target: backend, changeOrigin: true, ws: path === '/ws', headers: { Origin: backend } }]),
 )
 
 // https://vite.dev/config/
