@@ -1,6 +1,6 @@
 # Stepout AI — status and handoff (read this first)
 
-Updated 2026-10-07 · after milestone M3 · `main` is the only branch.
+Updated 2026-10-08 · after sync 3 · the work of both lanes (B1–B3, U1–U2) is on the scratch branch `integrate`; `main` is at tag `sync-2` until B3's live eval passes its bars ([note](log/2026-10-08-sync-3-b1-to-b3-u2-and-the-three-asks-verified-b3-live-eval-.md)).
 
 **What it is.** A task agent you drive from a chat page (Telegram later). An **Orchestrator** plans each request and hands steps to specialist agents that each hold one hand: web search, a headless browser, the disk's file names. It reports back while you watch every step live. **Claim to prove (later):** human interventions per task fall across repeated attempts versus a memory-off control; no model training, recall only ([ADR 0004](adr/0004-drop-zero-model-replay.md)).
 
