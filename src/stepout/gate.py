@@ -7,17 +7,16 @@ Verdict for one proposed Action. Both are total: every input gets an answer.
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
+from stepout import capabilities
 from stepout.domain import (
     Accept,
     Action,
     AnswerAction,
     Ask,
-    BrowseAction,
     DelegateAction,
     Decline,
-    FetchAction,
-    FilesAction,
     PlanAction,
     Refuse,
     Allow,
@@ -27,6 +26,9 @@ from stepout.domain import (
     Unsure,
     Verdict,
 )
+
+if TYPE_CHECKING:
+    from stepout.capabilities.base import RunContext
 
 # Forbidden: refuse outright, regardless of phrasing variety we can't enumerate —
 # unmatched-but-risky phrasing is why screen() can also return Unsure.
@@ -60,12 +62,15 @@ def screen(request: str) -> Screening:
     return Accept(route=Route.ANSWER)
 
 
-def check(action: Action, allowed: frozenset[str] | None = None) -> Verdict:
-    """`allowed` = the Action kinds the acting Role may take (None = no Role restriction)."""
+def check(action: Action, allowed: frozenset[str] | None = None, ctx: RunContext | None = None) -> Verdict:
+    """`allowed` = the Action kinds the acting Role may take (None = no Role restriction). A capability may add its own rule."""
     if allowed is not None and action.kind not in allowed:
         return Refuse(reason=f"a {action.kind} action is not available to this role")
+    if (cap := capabilities.get(action.kind)) is not None:
+        verdict = cap.check(action, ctx)
+        return Allow() if verdict is None else verdict
     match action:
-        case FetchAction() | SearchAction() | AnswerAction() | PlanAction() | DelegateAction() | FilesAction() | BrowseAction():
+        case SearchAction() | AnswerAction() | PlanAction() | DelegateAction():
             return Allow()
         case _:  # pragma: no cover - Action is a closed union today
             return Ask(reason="unrecognized action")

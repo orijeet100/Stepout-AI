@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -24,6 +25,11 @@ from stepout.store import Store
 DB_PATH = Path("data/stepout.db")
 GRANTS_PATH = Path("data/config/grants.toml")  # only the User edits this
 SHOTS_PATH = Path("data/runs")  # page screenshots, one folder per Run
+
+
+def web_port() -> int:
+    """The web chat's port: STEPOUT_PORT if set, else 8765 (so two checkouts can run side by side)."""
+    return int(os.environ.get("STEPOUT_PORT", "8765"))
 
 
 async def run(channel, intake: Intake, runner: Runner) -> None:
@@ -50,7 +56,7 @@ async def main() -> None:
     model = AnthropicModel()
     fetcher = Fetcher()
     if "web" in sys.argv[1:]:
-        channel = WebChannel(shots=SHOTS_PATH)
+        channel = WebChannel(port=web_port(), shots=SHOTS_PATH)
         print(f"Stepout web chat: http://127.0.0.1:{await channel.start()}  (Ctrl+C to stop)")
     else:
         channel = CliChannel()
