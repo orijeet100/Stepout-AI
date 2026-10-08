@@ -1,0 +1,13 @@
+id = "U2"
+title = "App shell on a mock, and a channel that speaks contract v1"
+lane = "ui"
+status = "planned"
+serves = "destination"
+needs = "X1 (signed off)"
+plan = "plan/ui-worktree.md"
+aimed_at = "A real app shell (chat list, messages, composer, reconnect banner) running against a mock backend that replays recorded-style runs, and a web channel that speaks the v1 contract."
+done_when = [
+  "`npm run build`, `npm run lint` and `npm test` pass",
+  "The app runs end to end from the mock: send, watch, stop, switch chats",
+  "The channel's v1 tests and its security tests pass (Host and Origin checks, JSON content-type, id validation, no CORS)",
+]
