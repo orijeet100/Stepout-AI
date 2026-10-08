@@ -1,6 +1,6 @@
 # Stepout AI — status and handoff (read this first)
 
-Updated 2026-10-08 · after sync 3 · the work of both lanes (B1–B3, U1–U2) is on the scratch branch `integrate`; `main` is at tag `sync-2` until B3's live eval passes its bars ([note](log/2026-10-08-sync-3-b1-to-b3-u2-and-the-three-asks-verified-b3-live-eval-.md)).
+Updated 2026-10-08 · **V0 consolidated** (tag `sync-6` on `main`): both lanes are merged, the live acceptance run passes 8 of 8 queries for $0.27, and the build is frozen. What the last passes found and fixed: [sync 3 note](log/2026-10-08-sync-3-b1-to-b3-u2-and-the-three-asks-verified-b3-live-eval-.md) and the `merge fix` entries in [`log/`](log/README.md).
 
 **What it is.** A task agent you drive from a chat page (Telegram later). An **Orchestrator** plans each request and hands steps to specialist agents that each hold one hand: web search, a headless browser, the disk's file names. It reports back while you watch every step live. **Claim to prove (later):** human interventions per task fall across repeated attempts versus a memory-off control; no model training, recall only ([ADR 0004](adr/0004-drop-zero-model-replay.md)).
 
@@ -13,8 +13,12 @@ Updated 2026-10-08 · after sync 3 · the work of both lanes (B1–B3, U1–U2) 
 | **M1** Orchestrator | one loop, Role table, Plan, shared $1 Budget, Stop, live Trace, source links | NYC news $0.068 (4× cheaper); Stop works |
 | **M2** Files | `list`/`find`/`count`, real-path resolution, fixed block list, `grants.toml`, 60 s walks | real D: drive: 1.6M files counted, PARTIAL; `.env` refused; "find my resume" asks for a hint, then finds it ($0.034) |
 | **M3** Browser | headless installed Chrome, read-only, every request and redirect hop policed, screenshots in the trace | zero requests reach a private server by any route; live smoke suite 6/6 |
+| **Chats + front door** (B2, B3) | chats, messages, runs saved and read back after a restart; one cheap call per message that declines, answers plain chat, or links a follow-up to the earlier exchange it depends on (temperature 0, fails open) | live eval 97% agreement, two identical runs; $0.002 per message |
+| **M4 Reader** (B4) | `read_text` for text and PDF (pypdf), secret screening, read limits, strict taint: after a read the Run has no web, and a Run that builds on such an answer starts the same way | both demos live on invented files with a planted injection ignored; hostile PDFs (decompression bomb, loops, truncated, encrypted) handled |
+| **The page** (U1–U5) | Ink look in light and dark, run view (plan, spend against the cap, elapsed, Stop, every state), the live headless-browser view, screenshot viewer, history that looks like a live run, chat drawer under 900 px | 29 Chrome flows, 125 component tests, no console errors |
+| **Acceptance** (B6) | `scripts/acceptance.py`: 8 queries on an invented folder through the real wiring | **8/8 live, $0.27** (m1 $0.05, m2 $0.03, m3 $0.05, m4a $0.04, m4b $0.09, follow-up $0.01, decline and chat $0.002 each) |
 
-**Tests:** offline (`pytest -q`, includes real Chrome; the current count is under Lane: Main) + 6 live smoke tasks (`pytest -m eval`, about $0.11). **Next:** finish V0 ([`plan/v0-finish.md`](plan/v0-finish.md)), then S3 Approvals.
+**Tests:** offline (`pytest -q`, includes real Chrome; the current count is under Lane: Main) + 6 live smoke tasks (`pytest -m eval`, about $0.11) + the live front-door eval (`pytest -m eval tests/test_live_screening.py`, about $0.11) + the live acceptance run (about $0.30). **Next:** use it for a few days and let the Ledger (steps and cost per Run) say what to cut; then S3 Approvals and pause/resume ([`plan/main-worktree.md`](plan/main-worktree.md) B5), then Memory, Evaluation and Telegram ([`roadmap.md`](roadmap.md)). The plan that built this: [`plan/v0-finish.md`](plan/v0-finish.md).
 
 ## Run, test, verify
 ```bash
@@ -82,7 +86,7 @@ flowchart LR
 | API facts: no forced `tool_choice` (newer models reject it); basic `web_search_20250305` (the 2026 versions need code execution, Haiku can't); `max_uses` = searches left | read from the official docs | `model.py` |
 | Orchestration efficiency: a plan starts its first step; every Role's state ends "results are above, answer if enough"; repeated identical hand actions are not re-run; only a Role's newest two page views stay in its notes | 1–4 calls per simple task | `runner.py` |
 | Browser safety: `route.fetch(max_redirects=0)`, redirect hops checked by us, page WebSockets and media blocked, DNS verdict per host:port | Playwright follows redirects itself | `browser.py` |
-| Trace = the Ledger's events streamed live; Stop = a flag checked between steps and inside walks | visibility | `runner.py`, `channels/` |
+| Trace = the Ledger's events streamed live; Stop = a flag the Runner awaits together with every model call and hand, so a Run ends within about a second (a worker thread cannot be killed: see Known gaps) | visibility | `runner.py`, `channels/` |
 | Process: thin vertical slices, tests + a live check each, docs in the same commit, third-party skills only if used (`docs/third-party.md`), public repo: no secrets or personal paths in git | | `CLAUDE.md` |
 
 ## Remaining, in order

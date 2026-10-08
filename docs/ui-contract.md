@@ -13,7 +13,7 @@ Status: **v0 verified from the code (2026-10-07); v1 frozen at sync X1 on 2026-1
 
 **Transport.** `GET /` serves `web/dist/index.html`. `GET /ws` is a WebSocket on `127.0.0.1:8765`; its `Origin` must be our own origin or absent. `GET /shots/{run}/{n}.jpg` serves page screenshots (`run` is 32 hex characters, only files the Assistant wrote; JPEG quality 50, viewport 1000×700). On connect the server replays its in-memory history; after a restart it is gone.
 
-**Page → server** (JSON text frames, max 64 KB): `{"text": "..."}` sends a message; `{"stop": true}` asks the running Run to stop (checked between steps).
+**Page → server** (JSON text frames, max 64 KB): `{"text": "..."}` sends a message; `{"stop": true}` asks the running Run to stop (it ends within about a second, even inside a model call, a read or a page load).
 
 **Server → page:**
 

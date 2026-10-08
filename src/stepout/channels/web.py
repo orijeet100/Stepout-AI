@@ -158,7 +158,7 @@ class WebChannel:
         self._hosts: set[str] = set()
         self._origins: set[str] = set()
         self._runner: web.AppRunner | None = None
-        self.cancel = asyncio.Event()  # set when the User presses Stop; the Runner checks it between steps
+        self.cancel = asyncio.Event()  # set when the User presses Stop; the Runner awaits it with every model call and hand
 
     # ---- the Channel interface the app loop uses -------------------------------------------------------------
 

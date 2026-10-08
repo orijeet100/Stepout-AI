@@ -52,7 +52,7 @@ flowchart LR
 
 1. **One agent in charge.** Only the Orchestrator talks to you. It writes the Plan as data, delegates one step at a time, re-plans at most twice.
 2. **One Gate** checks every Action of every Role. **Read-only:** typing, submitting, uploading, downloading, moving or deleting is Refused with a message.
-3. **One Budget per Run:** $1, shared by every Role, checked before each model call. At most 3 web searches. A **Stop** button cancels between steps.
+3. **One Budget per Run:** $1, shared by every Role, checked before each model call. At most 3 web searches. A **Stop** button ends the Run within about a second.
 4. **A Finding is data, never an instruction.** The Reader returns Findings; the Orchestrator never holds raw file text.
 5. **Reach:** all of `C:` and `D:` in read mode through a `grants.toml` only you edit. **Block list:** `.ssh`, `.aws`, `.azure`, `.gnupg`, `.kube`, `.env*`, `*.pem`, `*.key`, `*.pfx`, `id_rsa*`, `*.kdbx`, wallet files, `.git-credentials`, `.npmrc`, `.netrc`, browser profiles, Windows credential folders, `C:\Windows`, `C:\Program Files*`, `C:\ProgramData`, the Recycle Bin, and `D:\Stepout AI` itself.
 6. **Read limits per Run:** 20 file reads, 10 MB, 40,000 characters per file sent to the model, 60 seconds for any file walk (partial counts are reported as partial). Secrets are screened out of contents.
