@@ -6,16 +6,17 @@
 .app a { color: var(--accent); text-underline-offset: 0.15em; }
 .app :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .muted { color: var(--muted); font-size: var(--fs-sm); }
+.app ::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); }
 
 /* buttons */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1); min-height: 2.25rem; padding: 0 var(--sp-3); background: transparent; border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; font-size: var(--fs-sm); transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1); min-height: 2.25rem; padding: 0 var(--sp-3); background: transparent; border: 1px solid var(--border-strong); border-radius: var(--r-md); cursor: pointer; font-size: var(--fs-sm); transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
 .btn:hover:not(:disabled) { background: var(--active); }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn:disabled { color: var(--muted); background: var(--surface-2); border-color: var(--border); cursor: not-allowed; } /* neutral, not a faded accent */
 .btn--icon { width: 2.25rem; padding: 0; }
 .btn--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.btn--primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+.btn--primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
 .btn--stop { color: var(--err); border-color: currentColor; }
-.btn--stop:hover { background: color-mix(in srgb, var(--err) 12%, transparent); }
+.btn--stop:hover { background: var(--err-soft); }
 @media (pointer: coarse) { .btn { min-height: 44px; } .btn--icon { width: 44px; } }
 
 /* sidebar */
@@ -24,7 +25,8 @@
 .side__empty { padding: 0 var(--sp-2); }
 .chats { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .chat { position: relative; display: grid; gap: 2px; width: 100%; padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-2); text-align: left; background: transparent; border: 0; border-radius: var(--r-md); cursor: pointer; transition: background var(--dur) var(--ease); }
-.chat:hover, .chat[aria-current='true'] { background: var(--active); }
+.chat:hover { background: var(--active); }
+.chat[aria-current='true'] { background: var(--active); box-shadow: inset 2px 0 0 var(--accent); } /* the open chat has an accent edge */
 .chat__title, .chat__prev { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat__title { font-size: var(--fs-sm); font-weight: 500; }
 .chat__prev { min-height: 1.2em; color: var(--muted); font-size: 0.8125rem; }
@@ -43,7 +45,7 @@
 .head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--border); }
 .head h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pill { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 2px var(--sp-2); border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
-.banner { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); background: color-mix(in srgb, var(--warn) 14%, transparent); border-bottom: 1px solid var(--border); color: var(--text); font-size: var(--fs-sm); }
+.banner { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); background: var(--warn-soft); border-bottom: 1px solid var(--border); color: var(--text); font-size: var(--fs-sm); }
 .scroll { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-5) var(--sp-3); }
 .col { display: flex; flex-direction: column; gap: var(--sp-4); max-width: var(--measure); margin: 0 auto; }
 .empty { max-width: 28rem; margin: 20vh auto 0; color: var(--muted); text-align: center; }
@@ -61,8 +63,9 @@
 .reply small { display: block; font-family: var(--font-mono); }
 
 /* run block (U3 builds on this) */
-.run { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); font-family: var(--font-mono); font-size: var(--fs-sm); }
-.run > summary { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); cursor: pointer; list-style: none; }
+.run { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: 0 1px 2px var(--shade), 0 4px 12px -6px var(--shade); font-family: var(--font-mono); font-size: var(--fs-sm); }
+.run > summary { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); cursor: pointer; list-style: none; }
+.run[open] > summary { border-radius: var(--r-md) var(--r-md) 0 0; }
 .run > summary::-webkit-details-marker { display: none; }
 .run__sum { flex: 1; }
 .run__chev { display: inline-flex; color: var(--muted); transition: transform var(--dur) var(--ease); }
@@ -89,12 +92,18 @@
 .verdict--ask { color: var(--warn); }
 
 /* progress: a number against its limit, never a guess */
-.progress { display: grid; gap: var(--sp-2); width: 100%; padding: var(--sp-2) var(--sp-3); background: var(--accent-soft); border-radius: var(--r-md); }
+.progress { display: grid; gap: var(--sp-2); width: 100%; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border-radius: var(--r-md); } /* neutral: the colour is in the bars */
 .meter__head { display: flex; justify-content: space-between; gap: var(--sp-3); margin-bottom: 4px; }
 .meter__bar { height: 6px; overflow: hidden; background: color-mix(in srgb, var(--text) 14%, transparent); border-radius: 999px; }
 .meter__bar > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width var(--dur) var(--ease); }
-.meter__bar > span.is-full { background: var(--err); }
+.meter__bar > span.is-warn { background: var(--warn); }   /* 80% of the cap spent */
+.meter__bar > span.is-full { background: var(--err); }   /* the cap is reached */
+
+/* how a Run ended, in its header: tint plus the label's words and icon (never colour alone) */
+.run--stopped { border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); }
 .run--overbudget, .run--failed { border-color: color-mix(in srgb, var(--err) 45%, var(--border)); }
+.run--stopped > summary { background: var(--warn-soft); }
+.run--overbudget > summary, .run--failed > summary { background: var(--err-soft); }
 
 /* a message waiting its turn, and a reply that is not the end of a Run (a decline, an unknown command, an error) */
 .tag { margin-left: var(--sp-2); padding: 1px var(--sp-2); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; font-size: 0.75rem; white-space: nowrap; }
@@ -102,8 +111,9 @@
 .note__cap { display: block; margin-bottom: 2px; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* composer */
-.composer { display: flex; align-items: flex-end; gap: var(--sp-2); width: calc(100% - var(--sp-4)); max-width: var(--measure); margin: 0 auto var(--sp-3); padding: var(--sp-2); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); }
-.composer:focus-within { border-color: var(--accent); }
+.composer { display: flex; align-items: flex-end; gap: var(--sp-2); width: calc(100% - var(--sp-4)); max-width: var(--measure); margin: 0 auto var(--sp-3); padding: var(--sp-2); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-lg); box-shadow: 0 1px 2px var(--shade), 0 4px 12px -6px var(--shade); }
+.composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); } /* the composer carries the focus: a 2px accent edge, and no second ring inside it */
+.composer textarea:focus-visible { outline: none; }
 .composer textarea { flex: 1; min-width: 0; max-height: 40vh; padding: var(--sp-1) var(--sp-2); background: none; border: 0; outline: 0; resize: none; field-sizing: content; }
 .composer textarea::placeholder { color: var(--muted); }
 

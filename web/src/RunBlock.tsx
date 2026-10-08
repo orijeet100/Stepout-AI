@@ -13,12 +13,12 @@ const STATE_LABEL: Record<RunState, string> = { running: 'Working…', done: '',
 const stepsOf = (done: number, total: number) => `${done} of ${total} step${total === 1 ? '' : 's'}`
 
 /** A real number against its real limit: never an estimate, so no bar without both. */
-function Meter({ label, now, max, text, full }: { label: string; now: number; max: number; text: string; full?: boolean }) {
+function Meter({ label, now, max, text, tone }: { label: string; now: number; max: number; text: string; tone?: 'warn' | 'full' }) {
   return (
     <div className="meter">
       <div className="meter__head"><span>{label}</span><span>{text}</span></div>
       <div className="meter__bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.min(now, max)} aria-valuetext={text}>
-        <span className={full ? 'is-full' : undefined} style={{ width: `${Math.min(100, (now / max) * 100)}%` }} />
+        <span className={tone ? `is-${tone}` : undefined} style={{ width: `${Math.min(100, (now / max) * 100)}%` }} />
       </div>
     </div>
   )
@@ -67,7 +67,7 @@ export default function RunBlock({ run, state, cap, now, onStop }: Props) {
         {(total > 0 || cap) && (
           <div className="progress">
             {total > 0 && <Meter label="Plan" now={done} max={total} text={stepsOf(done, total)} />}
-            {cap && <Meter label="Budget" now={cost} max={cap} text={`${money(cost)} of ${money(cap)}`} full={cost >= cap} />}
+            {cap && <Meter label="Budget" now={cost} max={cap} text={`${money(cost)} of ${money(cap)}`} tone={cost >= cap ? 'full' : cost >= cap * 0.8 ? 'warn' : undefined} />}
           </div>
         )}
         {running && (
