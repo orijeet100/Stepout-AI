@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { elapsedMs, elapsedText, money, plainLine, planProgress, stepCost } from './runview'
+import { elapsedMs, elapsedText, hasBrowserStep, money, plainLine, planProgress, safeHref, shotSrc, shotsOf, stepCost } from './runview'
 import type { Run } from './store'
 
 const ev = (at: string) => ({ id: at, conversation_id: 'c', run_id: 'r', parent: null, kind: 'step', role: 'x', data: {}, cost_usd: 0, at })
@@ -32,5 +32,39 @@ describe('run view numbers', () => {
     const s = (status: 'pending' | 'running' | 'done' | 'failed') => ({ role: 'browser', goal: 'g', status })
     expect(planProgress([s('done'), s('running'), s('pending'), s('failed')])).toEqual({ done: 1, total: 4 })
     expect(planProgress([])).toEqual({ done: 0, total: 0 })
+  })
+})
+
+describe("the browser's pages", () => {
+  const RUN = 'ab'.repeat(16)
+  const withEvents = (events: object[]): Run => ({ id: RUN, conversationId: 'c', startedAt: 't', hint: null, cap: null, events: events as Run['events'] })
+  const shot = (n: number, data: object = {}) => ({ id: `s${n}`, kind: 'shot', role: 'browser', data: { shot: `${RUN}/${n}.jpg`, url: `https://example.com/${n}`, title: `Page ${n}`, ...data } })
+
+  it("lists a Run's screenshots in order, with their page address and title", () => {
+    const run = withEvents([{ id: 'p', kind: 'plan', data: {} }, shot(1), { id: 'x', kind: 'step', role: 'browser', data: {} }, shot(2, { title: undefined })])
+    expect(shotsOf(run)).toEqual([
+      { path: `${RUN}/1.jpg`, url: 'https://example.com/1', title: 'Page 1' },
+      { path: `${RUN}/2.jpg`, url: 'https://example.com/2', title: null },
+    ])
+    expect(shotsOf(withEvents([{ id: 's', kind: 'shot', role: 'browser', data: {} }]))).toEqual([]) // a shot event with no file names nothing to show
+  })
+
+  it('there is a page to watch only once the Browser agent has acted', () => {
+    expect(hasBrowserStep(withEvents([{ id: 'a', kind: 'step', role: 'orchestrator', data: {} }]))).toBe(false)
+    expect(hasBrowserStep(withEvents([{ id: 'a', kind: 'step', role: 'files', data: {} }]))).toBe(false)
+    expect(hasBrowserStep(withEvents([{ id: 'a', kind: 'step', role: 'browser', data: {} }]))).toBe(true)
+  })
+
+  it('a screenshot address is only ever the <run>/<n>.jpg the backend writes', () => {
+    expect(shotSrc(`${RUN}/3.jpg`)).toBe(`/shots/${RUN}/3.jpg`)
+    for (const bad of ['', '../secret.txt', `${RUN}/../x.jpg`, `${RUN}/3.png`, `${RUN}/3.jpg?x=1`, `${RUN.toUpperCase()}/3.jpg`, `${RUN}/3.jpg/extra`, 'https://evil.example/a.jpg', `//${RUN}/3.jpg`, `${RUN}%2f3.jpg`]) {
+      expect(shotSrc(bad), bad).toBeNull()
+    }
+  })
+
+  it('a page address becomes a link only if it is http or https', () => {
+    expect(safeHref('https://luma.com/discover?x=1#top')).toBe('https://luma.com/discover?x=1#top')
+    expect(safeHref('http://localhost:8080/a')).toBe('http://localhost:8080/a')
+    for (const bad of [null, '', 'luma.com', 'javascript:alert(1)', 'data:text/html,<script>', 'file:///etc/passwd', 'ftp://x.example', '//evil.example', 'vbscript:x']) expect(safeHref(bad), String(bad)).toBeNull()
   })
 })
