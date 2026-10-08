@@ -124,6 +124,25 @@ describe('plain', () => {
   })
 })
 
+describe('New chat is a draft', () => {
+  const listed = (s: State) => reducer(s, { type: 'chats', chats: [{ id: C, title: 'Old', updated_at: t(1), preview: '' }] })
+
+  it('selecting nothing on purpose stays nothing when the chat list reloads (a reconnect must not jump to the first chat)', () => {
+    const draft = reducer(listed(initial), { type: 'select', id: null })
+    expect(draft.selected).toBeNull()
+    expect(listed(draft).selected).toBeNull()
+    expect(listed(initial).selected).toBe(C) // but with no draft, the first chat is opened
+  })
+
+  it('choosing a chat, or making one from the draft, ends the draft', () => {
+    const draft = reducer(listed(initial), { type: 'select', id: null })
+    expect(listed(reducer(draft, { type: 'select', id: C })).selected).toBe(C)
+    const made = reducer(draft, { type: 'created', id: 'n'.repeat(32), at: t(2) })
+    expect(made.selected).toBe('n'.repeat(32))
+    expect(listed(made).selected).toBe('n'.repeat(32))
+  })
+})
+
 describe('api responses', () => {
   it('a chat list keeps a chat that only exists locally and selects the first one when nothing is selected', () => {
     const local = run(initial, { type: 'created', id: 'new'.padEnd(32, '0'), at: t(30) })

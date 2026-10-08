@@ -142,10 +142,7 @@ export function useBackend(): Backend {
     state,
     send,
     stop: () => socket.current?.send(JSON.stringify({ type: 'stop' })),
-    newChat: () => {
-      const id = selected.current
-      if (!id || (state.messages[id]?.length ?? 0) > 0) void createChat() // an empty chat is already a new chat
-    },
+    newChat: () => dispatch({ type: 'select', id: null }), // instant: the chat is made when its first message is sent, so typing at once cannot land in the old chat
     select: (id) => dispatch({ type: 'select', id }),
     retry: () => (state.error ? void loadChats() : reconnect.current()),
   }

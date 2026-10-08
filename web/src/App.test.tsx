@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -6,6 +6,7 @@ import App from './App'
 const C = 'c'.repeat(32)
 const R = 'a'.repeat(32)
 const R2 = 'b'.repeat(32)
+const NEW = 'e'.repeat(32) // the id the backend makes for a new chat
 const t = (s: number) => `2026-10-01T09:00:${String(s).padStart(2, '0')}.000Z`
 
 class FakeWS {
@@ -51,7 +52,10 @@ const API: Record<string, unknown> = {
 beforeEach(() => {
   FakeWS.all = []
   vi.stubGlobal('WebSocket', FakeWS)
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => (url in API ? Response.json(API[url]) : new Response('', { status: 404 }))))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => (init?.method === 'POST' ? Response.json({ id: NEW }, { status: 201 }) : url in API ? Response.json(API[url]) : new Response('', { status: 404 }))),
+  )
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -78,6 +82,17 @@ describe('App', () => {
     const row = screen.getByRole('button', { name: /Which events are free\?/ }) // the sidebar row is a named button
     expect(row.getAttribute('aria-current')).toBe('true')
     expect(screen.queryByRole('status')).toBeNull() // connected: no banner
+  })
+
+  it('New chat is instant: what you type next goes to a brand new chat, never the one you were in', async () => {
+    const ws = await connected() // a chat is open
+    fireEvent.click(screen.getByRole('button', { name: 'New chat' }))
+    expect(screen.getByRole('heading', { name: 'New chat' })).toBeTruthy() // at once, with no wait for the backend
+    const box = screen.getByLabelText('Message')
+    fireEvent.change(box, { target: { value: 'a fresh start' } })
+    fireEvent.keyDown(box, { key: 'Enter' }) // immediately: this used to race the chat being made and land in the old chat
+    await waitFor(() => expect(JSON.parse(ws.sent.at(-1)!)).toEqual({ type: 'send', conversation_id: NEW, text: 'a fresh start' }))
+    expect(ws.sent.every((f) => !f.includes(C))).toBe(true) // nothing was sent to the old chat
   })
 
   it('sends a message as a v1 `send` frame for the open chat', async () => {
