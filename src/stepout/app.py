@@ -42,11 +42,11 @@ class SavedChannel:
 
     async def messages(self):
         async for message in self._channel.messages():
-            self._ledger.save_message(message.conversation_id, "user", message.text)
+            self._ledger.save_message(message.conversation_id, "user", message.text, message_id=message.id, at=message.at)
             yield message
 
     async def send(self, reply: Reply) -> None:
-        self._ledger.save_message(reply.conversation_id, "assistant", reply.text, reply.run_id, reply.cost_usd)  # saved first: a closed page must not lose it
+        self._ledger.save_message(reply.conversation_id, "assistant", reply.text, reply.run_id, reply.cost_usd, message_id=reply.id, at=reply.at)  # saved first: a closed page must not lose it
         await self._channel.send(reply)
 
 

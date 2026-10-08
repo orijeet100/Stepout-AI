@@ -52,10 +52,14 @@ class Message(BaseModel):
 
 
 class Reply(BaseModel):
+    """What the Assistant says back. Its `id` and `at` are the saved copy's too, so a live message and its history are one message."""
+
+    id: str = Field(default_factory=_id)
     text: str
     conversation_id: str = DEFAULT_CONVERSATION
     run_id: str | None = None  # the Run that produced it, if one did
     cost_usd: float | None = None  # that Run's cost
+    at: datetime = Field(default_factory=_now)
 
 
 class Task(BaseModel):
