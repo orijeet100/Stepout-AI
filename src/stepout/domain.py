@@ -8,10 +8,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal, Union
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+from stepout import capabilities
+from stepout.capabilities.fetch import FetchAction  # defined by their capability; re-exported so existing imports keep working
 
 
 def _id() -> str:
@@ -70,11 +73,8 @@ class Run(BaseModel):
 
 
 # --- Actions the model may propose, and their Results --------------------
-
-
-class FetchAction(BaseModel):
-    kind: Literal["fetch"] = "fetch"
-    url: str
+# A capability's Action lives with the capability (stepout/capabilities/). What stays here are the control
+# Actions (plan, delegate, answer) and the legacy search Action.
 
 
 class SearchAction(BaseModel):
@@ -127,7 +127,9 @@ class DelegateAction(BaseModel):
     step: int
 
 
-Action = FetchAction | SearchAction | AnswerAction | PlanAction | DelegateAction | FilesAction | BrowseAction
+# Built once at import from the registry, so a registered capability is part of the union by construction.
+# (A capability registered later, as the tests do, is not in it: ModelResponse.action is a plain BaseModel for that reason.)
+Action = Annotated[Union[(*capabilities.action_types(), SearchAction, AnswerAction, PlanAction, DelegateAction, FilesAction, BrowseAction)], Field(discriminator="kind")]
 
 
 class FetchResult(BaseModel):

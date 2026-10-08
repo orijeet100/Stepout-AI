@@ -15,7 +15,9 @@ from typing import Protocol
 import anthropic
 from pydantic import BaseModel
 
-from stepout.domain import Action, AnswerAction, BrowseAction, DelegateAction, FetchAction, FilesAction, PlanAction
+from stepout import capabilities
+from stepout.capabilities.base import tool_schema as _tool
+from stepout.domain import Action, AnswerAction, BrowseAction, DelegateAction, FilesAction, PlanAction
 
 HAIKU = "claude-haiku-4-5"
 SONNET = "claude-sonnet-5"
@@ -31,14 +33,9 @@ WEB_SEARCH_COST_PER_USE = 10.00 / 1000
 _WEB_SEARCH = {"type": "web_search_20250305", "name": "web_search"}
 
 
-def _tool(name: str, description: str, required: list[str] | None = None, **props: dict) -> dict:
-    return {"name": name, "description": description, "input_schema": {"type": "object", "properties": props, "required": required or list(props)}}
-
-
 _CLIENT_TOOLS = {
     t["name"]: t
     for t in [
-        _tool("fetch", "Read one web page whose URL you already know. Returns its text.", url={"type": "string"}),
         _tool(
             "plan",
             "Write your plan: 1-3 steps, each run by one role. Calling it again replaces the plan.",
@@ -87,7 +84,7 @@ class ModelRequest(BaseModel):
 
 
 class ModelResponse(BaseModel):
-    action: Action
+    action: BaseModel  # any Action; not the closed `Action` union, which cannot know a capability registered after import
     cost_usd: float
     searches: int = 0  # web searches this call used
 
@@ -109,7 +106,7 @@ def _tool_defs(request: ModelRequest) -> list[dict]:
     defs = []
     for name in request.tools:
         if name != "web_search":
-            defs.append(_CLIENT_TOOLS[name])
+            defs.append(_CLIENT_TOOLS.get(name) or capabilities.get(name).tool)
         elif request.max_searches > 0:
             defs.append({**_WEB_SEARCH, "max_uses": request.max_searches})
     return defs
@@ -131,9 +128,9 @@ def _action(content) -> Action:
     tool = next((b for b in content if b.type == "tool_use"), None)
     if tool is not None:
         args = tool.input
+        if (parsed := capabilities.parse(tool.name, args)) is not None:
+            return parsed
         match tool.name:
-            case "fetch":
-                return FetchAction(url=args["url"])
             case "files":
                 return FilesAction(**args)
             case "browse":
