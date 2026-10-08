@@ -17,7 +17,7 @@ from stepout.browser import Browser
 from stepout.domain import Reply, Task
 from stepout.fetch import Fetcher
 from stepout.files import Files
-from stepout.intake import ChatReading, CommandReading, DeclinedReading, Intake, NewTask
+from stepout.intake import ChatReading, CommandReading, DeclinedReading, FailedReading, Intake, NewTask
 from stepout.ledger import Ledger
 from stepout.model import AnthropicModel
 from stepout.runner import Runner
@@ -27,6 +27,7 @@ from stepout.store import Store
 DB_PATH = Path("data/stepout.db")
 GRANTS_PATH = Path("data/config/grants.toml")  # only the User edits this
 SHOTS_PATH = Path("data/runs")  # page screenshots, one folder per Run
+_UNEXPECTED = "I hit an unexpected problem and could not finish. Nothing on your computer was changed. Try again; if it repeats, the details are in the terminal."
 
 
 def make_browser(channel) -> Browser:
@@ -34,9 +35,22 @@ def make_browser(channel) -> Browser:
     return Browser(shots=SHOTS_PATH, on_frame=getattr(channel, "live_frame", None))
 
 
+def startup_notes() -> list[str]:
+    """What is not set up yet, each with its fix: said at start, and again at first use by the thing that is missing."""
+    notes = []
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        notes.append("No ANTHROPIC_API_KEY: put it in the .env file next to the app (copy .env.example to .env and fill it in), then restart. Until then every message gets this answer.")
+    if not GRANTS_PATH.exists():
+        notes.append(f"No {GRANTS_PATH}: the Files agent can't see your disk. Copy grants.example.toml there to allow it.")
+    return notes
+
+
 def web_port() -> int:
     """The web chat's port: STEPOUT_PORT if set, else PORT (the app's preview tool assigns one when 8765 is taken), else 8765 (so two checkouts can run side by side)."""
-    return int(os.environ.get("STEPOUT_PORT") or os.environ.get("PORT") or "8765")
+    for name in ("STEPOUT_PORT", "PORT"):
+        if (value := os.environ.get(name, "")).isdigit():  # a stray PORT that is not a number (another tool's) must not crash the start
+            return int(value)
+    return 8765
 
 
 class SavedChannel:
@@ -65,6 +79,8 @@ async def run(channel, intake: Intake, runner: Runner) -> None:
                     await channel.send(Reply(text=f"{reason} {alternative}", conversation_id=cid, cost_usd=cost))
                 case ChatReading(text=text, cost_usd=cost):
                     await channel.send(Reply(text=text, conversation_id=cid, cost_usd=cost))
+                case FailedReading(text=text):
+                    await channel.send(Reply(text=text, conversation_id=cid))
                 case CommandReading(name=name):
                     await channel.send(Reply(text=f"Unknown command: /{name}", conversation_id=cid))
                 case NewTask(request=request, previous=previous, cost_usd=cost):
@@ -72,11 +88,13 @@ async def run(channel, intake: Intake, runner: Runner) -> None:
                     await runner.submit(task, previous, screening_cost=cost)
         except Exception as exc:  # one failed request (API error, bad key) must not end the session
             logging.exception("request failed")
-            await channel.send(Reply(text=f"Something went wrong ({type(exc).__name__}). Check the terminal for details.", conversation_id=cid))
+            await channel.send(Reply(text=_UNEXPECTED, conversation_id=cid))
 
 
 async def main() -> None:
     load_dotenv()
+    for note in startup_notes():
+        print(note)
     store = Store(DB_PATH)
     ledger = Ledger(store)
     model = AnthropicModel()
@@ -90,8 +108,6 @@ async def main() -> None:
     else:
         channel = CliChannel()
     intake = Intake(HaikuScreener(model), ledger, lambda conversation_id: history.exchanges(store, conversation_id))
-    if not GRANTS_PATH.exists():
-        print(f"No {GRANTS_PATH}: the Files agent can't see your disk. Copy grants.example.toml there to allow it.")
     files = Files.from_config(GRANTS_PATH)
     browser = make_browser(channel)
     saved = SavedChannel(channel, ledger)

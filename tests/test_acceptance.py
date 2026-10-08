@@ -95,7 +95,8 @@ def test_the_eight_rows_parse_and_their_ids_are_unique():
     rows = [json.loads(line) for line in lines if line.strip()]
     assert len(rows) == 8 and len({r["id"] for r in rows}) == 8
     fields = {"id", "title", "conversation", "query", "expect_kind", "contains_all", "contains_any", "offline_contains_all", "forbid", "web_allowed", "web_after_read_allowed", "note"}
-    assert all(set(r) == fields and r["expect_kind"] in ("task", "chat", "decline") for r in rows)
+    optional = {"web_required", "expect_tainted", "contains_regex"}
+    assert all(fields <= set(r) <= fields | optional and r["expect_kind"] in ("task", "chat", "decline") for r in rows)
     assert not any(r["web_after_read_allowed"] for r in rows)  # a web action after a read is wrong in every query
     ids = [r["id"] for r in rows]
     assert next(r for r in rows if r["id"] == "follow-up")["conversation"] == next(r for r in rows if r["id"] == "m4a")["conversation"] and ids.index("m4a") < ids.index("follow-up")
@@ -113,6 +114,44 @@ def test_a_report_row_counts_what_the_runs_events_and_row_show(tmp_path):
     got = acceptance.evaluate(acceptance.Result(acceptance.load_rows()[0], "q", [Reply(text="ok", cost_usd=0.01)], steps, 0.5), store, ledger, offline=True)
     assert (got["steps"], got["read_text_calls"], got["repeat_steps"], got["refused_steps"]) == (4, 1, 1, 1)
     assert (got["tainted"], got["outcome"], got["model_cost_usd"], got["web_after_read"]) == (True, "done", 0.01, False)  # the refused browse is not a web action
+
+
+def run_row(tmp_path, row, steps, tainted):
+    """evaluate() a row against hand-built events of a Run that ended `done`."""
+    store, task = Store(tmp_path / "t.db"), Task(user_id="u", request="q", conversation_id="c")
+    ledger = Ledger(store)
+    ledger.start_run(task, "run1", 1.0)
+    ledger.end_run("run1", Outcome.DONE, 0.01, tainted="a file was read" if tainted else "")
+    steps = [e.model_copy(update={"run_id": "run1"}) for e in steps]
+    return acceptance.evaluate(acceptance.Result(row, "q", [Reply(text="ok " + "pdf 3 txt 4 csv 2", cost_usd=0.01)], steps, 0.5), store, ledger, offline=True)
+
+
+def test_a_query_about_a_page_fails_when_no_web_step_ran_even_if_the_answer_reads_well(tmp_path):
+    row = next(r for r in acceptance.load_rows() if r["id"] == "m4b")
+    got = run_row(tmp_path, row, [step("plan"), step("read_text", path="p"), step("browse", "refuse", op="open"), step("answer")], tainted=True)  # reader first: the posting was refused
+    assert got["passed"] is False and any("at least 1 expected" in why for why in got["failed"])
+
+
+def test_a_follow_up_fails_when_its_run_did_not_inherit_the_taint(tmp_path):
+    row = next(r for r in acceptance.load_rows() if r["id"] == "follow-up")
+    got = run_row(tmp_path, row, [step("answer")], tainted=False)  # polite, but the front door never linked it, so nothing was tested
+    assert got["passed"] is False and any("tainted is False, expected True" in why for why in got["failed"])
+
+
+def test_each_count_must_sit_next_to_its_type():
+    row = next(r for r in acceptance.load_rows() if r["id"] == "m2")
+    assert acceptance.check_answer("pdf: 3, txt: 4, csv: 2 (9 files)", row, offline=False)["contains_regex"]["pass"]
+    assert acceptance.check_answer("3 PDF files, 4 .txt files and 2 CSV files", row, offline=False)["contains_regex"]["pass"]
+    swapped = acceptance.check_answer("txt: 3, pdf: 4, csv: 2", row, offline=False)["contains_regex"]
+    assert swapped["pass"] is False and len(swapped["missing"]) == 2
+
+
+async def test_the_report_is_rewritten_as_each_query_ends(tmp_path, monkeypatch):
+    """An interrupted live run keeps what it already paid for: the report grows one query at a time, then is written once more at the end."""
+    written, real = [], acceptance.write_report
+    monkeypatch.setattr(acceptance, "write_report", lambda report, path: (written.append(len(report["queries"])), real(report, path)))
+    assert await acceptance.amain(["--only", "m1,m2", "--out", str(tmp_path / "r.json")]) == 0
+    assert written == [1, 2, 2]
 
 
 async def test_offline_passes_all_eight_with_real_hands_and_writes_the_report(tmp_path, monkeypatch, capsys):

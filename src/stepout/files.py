@@ -198,6 +198,8 @@ class Files:
         if reason := blocked_reason(low):
             return None, f"off-limits ({reason}); this is a fixed safety rule, not a permissions problem, so do not suggest workarounds"
         if not any(_under(low, g.root) for g in self._grants):
+            if not self._grants:  # nothing is allowed because nothing was set up: a first-run problem, not a refusal
+                return None, "outside every grant (no folders are allowed yet: copy grants.example.toml to data/config/grants.toml and list the folders to allow; only the User can do that, so tell them)"
             return None, "outside every grant; the User has not allowed this location, so do not suggest workarounds"
         return real, ""
 

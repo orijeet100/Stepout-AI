@@ -13,11 +13,12 @@ from __future__ import annotations
 from typing import Literal, Protocol
 
 import anthropic
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from stepout import capabilities
 from stepout.capabilities.base import tool_schema
 from stepout.domain import Action, AnswerAction, DelegateAction, PlanAction
+from stepout.failure import Failure
 from stepout.roles import HAIKU, SONNET, SPECIALISTS
 
 # $ per million tokens: (input, output). Web search billed separately, per use.
@@ -130,25 +131,59 @@ def _action(content, one_off: frozenset[str] = frozenset()) -> Action:
     return AnswerAction(text=text + _sources(content))
 
 
+_WAIT = "Wait a minute, then send it again."
+_KEY_FIX = "Check ANTHROPIC_API_KEY in the .env file, then restart the app."
+
+
+def _explain(exc: anthropic.APIError) -> Failure:
+    """The API said no, or could not be reached: one line for the User and the cause for the Ledger. (The SDK has already retried what is worth retrying.)"""
+    status = getattr(exc, "status_code", None)
+    match exc:
+        case anthropic.AuthenticationError() | anthropic.PermissionDeniedError():
+            return Failure("auth", f"Anthropic rejected the API key ({status}). {_KEY_FIX}", status)
+        case anthropic.RateLimitError():
+            return Failure("rate_limit", f"Anthropic is rate-limiting requests right now ({status}). {_WAIT}", status)
+        case anthropic.OverloadedError():
+            return Failure("overloaded", f"Anthropic is overloaded right now ({status}). {_WAIT}", status)
+        case anthropic.InternalServerError():
+            return Failure("server_error", f"Anthropic had a server error ({status}). Try again in a minute.", status)
+        case anthropic.APITimeoutError():
+            return Failure("timeout", "The request to Anthropic timed out. Try again.")
+        case anthropic.APIConnectionError():
+            return Failure("connection", "Could not reach Anthropic. Check your internet connection, then try again.")
+        case anthropic.APIStatusError() if "credit balance" in str(getattr(exc, "message", "")).lower():
+            return Failure("credit", "Your Anthropic account is out of credit. Add credit at console.anthropic.com, then try again.", status)
+        case _:
+            return Failure("rejected", f"Anthropic rejected the request ({status}). Try again; if it repeats, tell the developer.", status)
+
+
 class AnthropicModel:
     def __init__(self) -> None:
         self._client = anthropic.AsyncAnthropic()
 
     async def call(self, request: ModelRequest) -> ModelResponse:
+        if not self._client.api_key:  # the SDK would only fail later, inside the request, with a TypeError
+            raise Failure("no_key", "There is no Anthropic API key. Put ANTHROPIC_API_KEY=... in the .env file (copy .env.example), then restart the app.")
         # Omit `tools` entirely when unused: tools=None is sent as null and the API rejects it.
         defs = _tool_defs(request)
         extra = {"tools": defs} if defs else {}
         if request.temperature is not None:  # never send null: only set it when asked
             extra["extra_body"] = {"temperature": request.temperature}  # in the body: SDK 1.x has no `temperature` argument on create() (a TypeError); the body takes it on every version
-        response = await self._client.messages.create(
-            model=request.model,
-            max_tokens=4096,
-            system=request.system,
-            messages=[{"role": "user", "content": request.user_text}],
-            **extra,
-        )
-        # ponytail: a long search can end with stop_reason "pause_turn"; we return the partial text instead of resuming.
-        searches = sum(1 for b in response.content if b.type == "web_search_tool_result")
-        cost = _cost(request.model, response.usage.input_tokens, response.usage.output_tokens, searches)
-        one_off = frozenset(d["name"] for d in request.tool_defs)
-        return ModelResponse(action=_action(response.content, one_off), cost_usd=cost, searches=searches)
+        try:
+            response = await self._client.messages.create(
+                model=request.model,
+                max_tokens=4096,
+                system=request.system,
+                messages=[{"role": "user", "content": request.user_text}],
+                **extra,
+            )
+        except anthropic.APIError as exc:
+            raise _explain(exc) from exc
+        try:
+            # ponytail: a long search can end with stop_reason "pause_turn"; we return the partial text instead of resuming.
+            searches = sum(1 for b in response.content if b.type == "web_search_tool_result")
+            cost = _cost(request.model, response.usage.input_tokens, response.usage.output_tokens, searches)
+            one_off = frozenset(d["name"] for d in request.tool_defs)
+            return ModelResponse(action=_action(response.content, one_off), cost_usd=cost, searches=searches)
+        except (AttributeError, KeyError, TypeError, ValueError, ValidationError) as exc:  # a body that is not a message, or a tool call missing its arguments
+            raise Failure("malformed", "Anthropic's reply could not be understood. Try again; if it repeats, tell the developer.") from exc
