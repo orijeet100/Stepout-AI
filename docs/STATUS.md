@@ -101,7 +101,7 @@ Windows-only paths (`files.py`). Run tests with the venv Python. In generated Py
 Not started. Next: B1a (isolation guards) and B1b (capability modules) — [`plan/main-worktree.md`](plan/main-worktree.md). Owner of this section: the Main lane.
 
 ## Lane: UI
-Not started. Next: U1 (design direction, chosen with the User) — [`plan/ui-worktree.md`](plan/ui-worktree.md). Owner of this section: the UI lane.
+**U1 built, waiting for the User's pick.** Three directions on one fixture screen at `#/design/a` (Paper), `/b` (Slate), `/c` (Ink); `?theme=light|dark`, `?viewer=N`. View: `cd web && npm run dev`, then http://localhost:5173/#/design/a. After the pick: its token block becomes `web/src/design/tokens.css`, the other two directions and the gallery are deleted, and a `decision` log entry (with screenshots) closes U1. Then U2 ([`plan/ui-worktree.md`](plan/ui-worktree.md)). The lane has its own venv (`.venv`) and `web/node_modules`; the UI/UX Pro Max skill is installed locally and untracked ([log](log/2026-10-07-ui-ux-pro-max-skill-used-for-u1-installed-locally-and-not-co.md)). Owner of this section: the UI lane.
 
 ## Files
 [`plan/`](plan/README.md) (two-lane plan, hand-offs) · [`ui-contract.md`](ui-contract.md) (page ↔ backend) · [`log/`](log/README.md) (every decision and change; `python scripts/log.py list`) · [`requirements.md`](requirements.md) (FR/NFR, acceptance script) · [`architecture.md`](architecture.md) · [`game-plan.md`](game-plan.md) (V0-basic milestones) · [`roadmap.md`](roadmap.md) (slices S0–S11) · [`adr/`](adr/) · [`third-party.md`](third-party.md) · glossaries: [`../CONTEXT-MAP.md`](../CONTEXT-MAP.md), `src/stepout/CONTEXT.md`, `tests/eval/CONTEXT.md`.
