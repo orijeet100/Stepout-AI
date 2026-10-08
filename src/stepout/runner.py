@@ -32,6 +32,10 @@ _UNEXPECTED = "I hit an unexpected problem and had to stop this task. Nothing on
 _NO_ANSWER = "I finished without an answer to give you. Try asking again, perhaps in other words."
 
 
+class _Stopped(Exception):
+    """The User pressed Stop while something was being awaited."""
+
+
 @dataclass
 class Finding:
     text: str
@@ -141,6 +145,21 @@ class Runner:
         text = defang(text, run.urls) if run.state.tainted else text  # a file may ask for a link that holds its own text
         await self._notify(Reply(text=text, conversation_id=task.conversation_id, run_id=run.id, cost_usd=run.spent))
 
+    async def _unless_stopped(self, work):
+        """Await `work`, but give up on it the moment the User presses Stop: a long model call, read, walk or page load must not outlast the button.
+        (A worker thread cannot be killed, so a read may keep running in the background until it ends; the Run does not wait for it.)"""
+        task = asyncio.ensure_future(work)
+        stop = asyncio.ensure_future(self._cancel.wait())
+        try:
+            await asyncio.wait({task, stop}, return_when=asyncio.FIRST_COMPLETED)
+            if task.done():
+                return task.result()
+            raise _Stopped
+        finally:
+            stop.cancel()
+            if not task.done():
+                task.cancel()
+
     async def _failed(self, run: _Run, exc: Exception) -> Finding:
         """What went wrong, for the User (a line) and the Ledger (the cause); the terminal gets the traceback."""
         logging.getLogger(__name__).exception("run %s failed in the %s agent", run.id, run.acting)
@@ -198,15 +217,17 @@ class Runner:
 
             run.acting = role_name
             orchestrating = role_name == "orchestrator"
-            response = await self._model.call(
-                ModelRequest(
-                    model=role.model,
-                    system=role.system,
-                    user_text=_state(goal, run.plan if orchestrating else [], notes, run.previous if orchestrating else ""),
-                    tools=list(role.tools),
-                    max_searches=0 if run.state.tainted else run.searches,  # a tainted Run is not offered web search
-                )
+            request = ModelRequest(
+                model=role.model,
+                system=role.system,
+                user_text=_state(goal, run.plan if orchestrating else [], notes, run.previous if orchestrating else ""),
+                tools=list(role.tools),
+                max_searches=0 if run.state.tainted else run.searches,  # a tainted Run is not offered web search
             )
+            try:
+                response = await self._unless_stopped(self._model.call(request))
+            except _Stopped:
+                return await self._stop(run, role_name, parent, "Stopped by you.")
             run.spent += response.cost_usd
             run.searches -= response.searches
 
@@ -244,7 +265,10 @@ class Runner:
                     if repeat:
                         notes.append(_REPEATED)
                         continue
-                    notes.append(await cap.run(action, ctx))
+                    try:
+                        notes.append(await self._unless_stopped(cap.run(action, ctx)))
+                    except _Stopped:
+                        return await self._stop(run, role_name, parent, "Stopped by you.")
                     cap.compact(notes)
                     last = key
                     if cap.repeat_guard(action):
