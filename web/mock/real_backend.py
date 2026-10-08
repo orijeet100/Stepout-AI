@@ -14,16 +14,18 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from stepout import history  # noqa: E402
 from stepout.app import SavedChannel, run  # noqa: E402
 from stepout.capabilities.browse import BrowseAction  # noqa: E402
 from stepout.channels.web import StoreHistory, WebChannel  # noqa: E402
-from stepout.domain import AnswerAction, DelegateAction, PlanAction, PlanStep, Task  # noqa: E402
+from stepout.domain import AnswerAction, ChatReply, DelegateAction, Decline, PlanAction, PlanStep, Proceed, Task  # noqa: E402
 from stepout.intake import Intake  # noqa: E402
 from stepout.ledger import Ledger  # noqa: E402
 from stepout.model import ModelRequest, ModelResponse  # noqa: E402
@@ -66,13 +68,25 @@ def script_for(request: str) -> list[ModelResponse]:
     return [say(f"(Scripted model, no cost.) You said: {request}", 0.002)]
 
 
+class DemoScreener:
+    """Stands in for the Haiku front door (stepout.screening): payments are declined, a greeting is answered, "and ..." links the chat's last exchange."""
+
+    async def screen(self, text: str, recent):
+        t = text.lower()
+        if re.search(r"\b(pay|invoice|transfer)\b", t):
+            return Decline(reason="That's a payment, which I won't do.", alternative="I can search the web, read pages and count files, read-only."), 0.001
+        if t.strip(" !.?") in ("hi", "hello", "thanks", "thank you"):
+            return ChatReply(text="Hello! Ask me to look something up."), 0.001
+        return Proceed(related=[recent[-1].id] if recent and t.startswith("and ") else []), 0.001
+
+
 class DemoModel:
     def __init__(self, delay: float) -> None:
         self.delay, self.script = delay, []
 
     async def call(self, request: ModelRequest) -> ModelResponse:
         await asyncio.sleep(self.delay)  # a model call takes a moment: gives you time to watch, and to press Stop
-        return self.script.pop(0) if request.tools else say("answer", 0.0)  # no tools = Intake's routing question
+        return self.script.pop(0)
 
 
 class DemoRunner(Runner):
@@ -80,9 +94,9 @@ class DemoRunner(Runner):
         super().__init__(model, *args, **kwargs)
         self._demo = model
 
-    async def submit(self, task: Task) -> None:
+    async def submit(self, task: Task, previous=(), screening_cost: float = 0.0) -> None:
         self._demo.script = script_for(task.request)
-        await super().submit(task)
+        await super().submit(task, previous, screening_cost)
 
 
 class DemoBrowser:
@@ -123,7 +137,7 @@ async def main() -> None:
     model = DemoModel(args.delay)
     saved = SavedChannel(channel, ledger)
     runner = DemoRunner(model, NoFetcher(), ledger, saved.send, trace=channel.trace, cancel=channel.cancel, browser=DemoBrowser())
-    await run(saved, Intake(model, ledger), runner)
+    await run(saved, Intake(DemoScreener(), ledger, lambda conversation_id: history.exchanges(store, conversation_id)), runner)
 
 
 if __name__ == "__main__":
