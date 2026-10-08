@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from stepout import capabilities, gate
 from stepout.capabilities.base import TEXT_CHARS, RunContext
-from stepout.domain import Allow, AnswerAction, DelegateAction, Event, PlanAction, PlanStep, Reply, Task
+from stepout.domain import Allow, AnswerAction, DelegateAction, Event, Outcome, PlanAction, PlanStep, Reply, Task
 from stepout.browser import Browser
 from stepout.fetch import Fetcher
 from stepout.files import Files
@@ -43,6 +43,7 @@ class _Run:
     spent: float = 0.0
     plan: list[PlanStep] = field(default_factory=list)
     plans: int = 0
+    stopped: bool = False  # the User pressed Stop, or the budget ran out
     id: str = field(default_factory=lambda: uuid4().hex)
 
 
@@ -96,9 +97,13 @@ class Runner:
     async def submit(self, task: Task) -> None:
         self._cancel.clear()
         run = _Run(task_id=task.id, conversation_id=task.conversation_id, cap=self._cap)
+        self._ledger.start_run(task, run.id, run.cap)
+        outcome = Outcome.FAILED  # stays so if the model or a hand raises
         try:
             finding = await self._agent("orchestrator", task.request, run, parent=None)
+            outcome = Outcome.CANCELLED if run.stopped else Outcome.DONE if finding.ok else Outcome.FAILED
         finally:
+            self._ledger.end_run(run.id, outcome, run.spent)
             await self._browser.close(run.id)  # its pages are this Run's alone
         await self._notify(Reply(text=f"{finding.text}\n\n(cost: ${run.spent:.4f})", conversation_id=task.conversation_id))
 
@@ -113,6 +118,7 @@ class Runner:
         await self._emit(run, "plan", "orchestrator", "plan updated", steps=[s.model_dump() for s in run.plan])
 
     async def _stop(self, run: _Run, role: str, parent: str | None, text: str) -> Finding:
+        run.stopped = True
         await self._emit(run, "stop", role, text, parent=parent)
         return Finding(text, ok=False)
 

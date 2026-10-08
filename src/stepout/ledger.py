@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
-from stepout.domain import Event
+from stepout.domain import Event, Outcome, Task
 from stepout.store import Store
 
 
@@ -27,6 +28,23 @@ class Ledger:
                 event.cost_usd,
                 event.at.isoformat(),
             ),
+        )
+
+    def start_run(self, task: Task, run_id: str, cap_usd: float) -> None:
+        """Save the Task (once) and open a Run row. A Run with no outcome yet is running."""
+        self._store.execute(
+            "INSERT OR IGNORE INTO tasks (id, user_id, request, route, conversation_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (task.id, task.user_id, task.request, task.route.value, task.conversation_id, task.created_at.isoformat()),
+        )
+        self._store.execute(
+            "INSERT INTO runs (id, task_id, cap_usd, started_at) VALUES (?, ?, ?, ?)",
+            (run_id, task.id, cap_usd, datetime.now(timezone.utc).isoformat()),
+        )
+
+    def end_run(self, run_id: str, outcome: Outcome, cost_usd: float) -> None:
+        self._store.execute(
+            "UPDATE runs SET outcome = ?, cost_usd = ?, ended_at = ? WHERE id = ?",
+            (outcome.value, cost_usd, datetime.now(timezone.utc).isoformat(), run_id),
         )
 
     def save_message(self, conversation_id: str, role: str, text: str) -> None:

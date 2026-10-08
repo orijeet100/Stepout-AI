@@ -13,7 +13,7 @@ from stepout.store import _MIGRATIONS_DIR, Store
 from tests.support.scripted_model import ScriptedModel
 
 
-def test_a_0002_database_upgrades_to_0003_without_losing_events(tmp_path):
+def test_a_0002_database_upgrades_to_the_latest_without_losing_events(tmp_path):
     path = tmp_path / "old.db"
     conn = sqlite3.connect(path)
     for name in ("0001_init.sql", "0002_event_role_parent.sql"):
@@ -24,7 +24,7 @@ def test_a_0002_database_upgrades_to_0003_without_losing_events(tmp_path):
     conn.close()
 
     store = Store(path)
-    assert store.query("PRAGMA user_version")[0][0] == 3
+    assert store.query("PRAGMA user_version")[0][0] == len(list(_MIGRATIONS_DIR.glob("*.sql")))  # every migration ran
     old = Ledger(store).query()[0]
     assert (old.id, old.role, old.conversation_id) == ("e1", "direct", None)  # kept, and not in any chat
     assert history.list_conversations(store) == []

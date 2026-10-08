@@ -1,0 +1,4 @@
+ALTER TABLE tasks ADD COLUMN conversation_id TEXT;
+ALTER TABLE runs ADD COLUMN cap_usd REAL;
+ALTER TABLE runs ADD COLUMN started_at TEXT;
+ALTER TABLE runs ADD COLUMN ended_at TEXT;
