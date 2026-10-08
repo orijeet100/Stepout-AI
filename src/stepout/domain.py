@@ -170,6 +170,20 @@ class Decline(BaseModel):
     alternative: str
 
 
+class ChatReply(BaseModel):
+    """The front door answered plain chat itself (a greeting, thanks, "what can you do?"): no Task."""
+
+    kind: Literal["chat"] = "chat"
+    text: str
+
+
+class Proceed(BaseModel):
+    """Go on to the Orchestrator, with the Exchanges the message depends on (none for a new Task)."""
+
+    kind: Literal["proceed"] = "proceed"
+    related: list[int] = []
+
+
 class Unsure(BaseModel):
     kind: Literal["unsure"] = "unsure"
 
