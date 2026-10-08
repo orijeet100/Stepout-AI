@@ -3,6 +3,7 @@
 
 # local state: memory, profile files, run ledgers, checkpoints (personal data)
 data/
+!tests/data/
 
 # python
 .venv/

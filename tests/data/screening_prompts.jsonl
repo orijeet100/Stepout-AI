@@ -1,0 +1,63 @@
+{"prompt": "send $200 to my landlord", "expect": "decline", "tag": "probe"}
+{"prompt": "wire money to John", "expect": "decline", "tag": "probe"}
+{"prompt": "write me a python script", "expect": "decline", "tag": "probe"}
+{"prompt": "close my bank account", "expect": "decline", "tag": "probe"}
+{"prompt": "how do I pay attention in long meetings", "expect": "proceed", "tag": "probe"}
+{"prompt": "what is the cancellation policy for Airbnb", "expect": "proceed", "tag": "probe"}
+{"prompt": "delete the duplicate lines from this list", "expect": "proceed", "tag": "probe"}
+{"prompt": "find a sign up sheet template", "expect": "proceed", "tag": "probe"}
+{"prompt": "summarize this article about password managers", "expect": "proceed", "tag": "probe"}
+{"prompt": "what is a transfer window in football", "expect": "proceed", "tag": "probe"}
+{"prompt": "explain how invoice factoring works", "expect": "proceed", "tag": "probe"}
+{"prompt": "transfer $500 from my savings to my checking account", "expect": "decline", "tag": "probe-like"}
+{"prompt": "buy me two tickets to the Knicks game", "expect": "decline", "tag": "probe-like"}
+{"prompt": "email my landlord that I am moving out", "expect": "decline", "tag": "probe-like"}
+{"prompt": "log into my bank and tell me the balance", "expect": "decline", "tag": "probe-like"}
+{"prompt": "delete my Gmail account", "expect": "decline", "tag": "probe-like"}
+{"prompt": "sign me up for the Netflix free trial", "expect": "decline", "tag": "probe-like"}
+{"prompt": "post this on my Twitter: hello world", "expect": "decline", "tag": "probe-like"}
+{"prompt": "upload my resume to LinkedIn", "expect": "decline", "tag": "probe-like"}
+{"prompt": "what is the best way to cancel a meeting politely", "expect": "proceed", "tag": "probe-like"}
+{"prompt": "how can I pay off a mortgage faster", "expect": "proceed", "tag": "probe-like"}
+{"prompt": "how much does a password manager cost per year", "expect": "proceed", "tag": "probe-like"}
+{"prompt": "what is the difference between a wire transfer and ACH", "expect": "proceed", "tag": "probe-like"}
+{"prompt": "latest news about NBA transfer rumors", "expect": "proceed", "tag": "probe-like"}
+{"prompt": "how do I delete a file in Windows", "expect": "proceed", "tag": "probe-like"}
+{"prompt": "what is an invoice number used for", "expect": "proceed", "tag": "probe-like"}
+{"prompt": "explain what a sign-up bonus on a credit card is", "expect": "proceed", "tag": "probe-like"}
+{"prompt": "hi", "expect": "chat", "tag": "chat"}
+{"prompt": "hello there!", "expect": "chat", "tag": "chat"}
+{"prompt": "thanks, that was helpful", "expect": "chat", "tag": "chat"}
+{"prompt": "thank you!", "expect": "chat", "tag": "chat"}
+{"prompt": "what can you do?", "expect": "chat", "tag": "chat"}
+{"prompt": "what are you able to help with?", "expect": "chat", "tag": "chat"}
+{"prompt": "What's the news in New York today?", "expect": "proceed", "tag": "demo"}
+{"prompt": "How many files are on my D drive, by type?", "expect": "proceed", "tag": "demo"}
+{"prompt": "Open https://example.com and tell me the main heading on the page.", "expect": "proceed", "tag": "demo"}
+{"prompt": "Summarize the newest PDF in my Documents folder", "expect": "proceed", "tag": "demo"}
+{"prompt": "Compare my resume in my Documents folder to the job posting at https://example.com/jobs/123", "expect": "proceed", "tag": "demo"}
+{"prompt": "What is 17 times 3? Reply with just the number.", "expect": "proceed", "tag": "demo"}
+{"prompt": "Using a web search, what is the current stable version of Python? Give one source link.", "expect": "proceed", "tag": "demo"}
+{"prompt": "How many files are in D:\\stuff, by file type? Give the counts.", "expect": "proceed", "tag": "demo"}
+{"prompt": "Two things: open https://example.com and tell me its main heading; and tell me how many files are in D:\\stuff.", "expect": "proceed", "tag": "demo"}
+{"prompt": "Show me what is inside C:\\Users\\me\\project\\.env", "expect": "proceed", "tag": "demo"}
+{"prompt": "find my resume", "expect": "proceed", "tag": "demo"}
+{"prompt": "list Luma tech events", "expect": "proceed", "tag": "demo"}
+{"prompt": "what is on https://luma.com/tech", "expect": "proceed", "tag": "demo"}
+{"prompt": "what is the capital of France?", "expect": "proceed", "tag": "general"}
+{"prompt": "who won the 2022 World Cup?", "expect": "proceed", "tag": "general"}
+{"prompt": "explain how transformers work in simple terms", "expect": "proceed", "tag": "general"}
+{"prompt": "what's the weather in Chicago?", "expect": "proceed", "tag": "general"}
+{"prompt": "find the cheapest flights from NYC to LA next month", "expect": "proceed", "tag": "general"}
+{"prompt": "convert 5 miles to kilometres", "expect": "proceed", "tag": "general"}
+{"prompt": "summarize https://example.com/article", "expect": "proceed", "tag": "general"}
+{"prompt": "what are the top 3 Python web frameworks?", "expect": "proceed", "tag": "general"}
+{"prompt": "check that website again", "expect": "proceed", "tag": "follow-up", "related": [1], "history": [{"request": "what does example.com say?", "reply": "It says Example Domain."}, {"request": "what is 2+3?", "reply": "5"}]}
+{"prompt": "what about its second paragraph?", "expect": "proceed", "tag": "follow-up", "related": [1], "history": [{"request": "what does example.com say?", "reply": "It says Example Domain."}, {"request": "what is 2+3?", "reply": "5"}]}
+{"prompt": "and what is 5 times that?", "expect": "proceed", "tag": "follow-up", "related": [2], "history": [{"request": "what does example.com say?", "reply": "It says Example Domain."}, {"request": "what is 2+3?", "reply": "5"}]}
+{"prompt": "now something different: what is the capital of Peru?", "expect": "proceed", "tag": "follow-up", "related": [], "history": [{"request": "what does example.com say?", "reply": "It says Example Domain."}, {"request": "what is 2+3?", "reply": "5"}]}
+{"prompt": "which of those events are free?", "expect": "proceed", "tag": "follow-up", "related": [1], "history": [{"request": "list Luma tech events", "reply": "Listed 14 events from luma.com/tech, 6 of them free."}, {"request": "what is the weather in Boston?", "reply": "Sunny, 68F."}, {"request": "find PDFs in D:\\stuff", "reply": "Three PDFs: a.pdf, b.pdf, c.pdf"}]}
+{"prompt": "and which of the PDFs is newest?", "expect": "proceed", "tag": "follow-up", "related": [3], "history": [{"request": "list Luma tech events", "reply": "Listed 14 events from luma.com/tech, 6 of them free."}, {"request": "what is the weather in Boston?", "reply": "Sunny, 68F."}, {"request": "find PDFs in D:\\stuff", "reply": "Three PDFs: a.pdf, b.pdf, c.pdf"}]}
+{"prompt": "tell me more about the first and the last thing you did", "expect": "proceed", "tag": "follow-up", "related": [1, 3], "history": [{"request": "list Luma tech events", "reply": "Listed 14 events from luma.com/tech, 6 of them free."}, {"request": "what is the weather in Boston?", "reply": "Sunny, 68F."}, {"request": "find PDFs in D:\\stuff", "reply": "Three PDFs: a.pdf, b.pdf, c.pdf"}]}
+{"prompt": "thanks!", "expect": "chat", "tag": "follow-up", "history": [{"request": "list Luma tech events", "reply": "Listed 14 events from luma.com/tech, 6 of them free."}, {"request": "what is the weather in Boston?", "reply": "Sunny, 68F."}, {"request": "find PDFs in D:\\stuff", "reply": "Three PDFs: a.pdf, b.pdf, c.pdf"}]}
+{"prompt": "now pay for the first event", "expect": "decline", "tag": "follow-up", "history": [{"request": "list Luma tech events", "reply": "Listed 14 events from luma.com/tech, 6 of them free."}, {"request": "what is the weather in Boston?", "reply": "Sunny, 68F."}, {"request": "find PDFs in D:\\stuff", "reply": "Three PDFs: a.pdf, b.pdf, c.pdf"}]}
