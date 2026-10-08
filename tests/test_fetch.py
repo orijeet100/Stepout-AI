@@ -136,3 +136,25 @@ async def test_the_policy_runs_off_the_event_loop(monkeypatch):
     serve(monkeypatch, lambda request: httpx.Response(200, text="ok"))
     await Fetcher().get("https://example.com/")
     assert seen == [False]
+
+
+def test_the_name_that_is_checked_is_the_name_the_connection_uses(monkeypatch):
+    """httpx connects with IDNA 2008, Python's own codec is IDNA 2003: `faß.de` is `fass.de` to one and `xn--fa-hia.de` to the other, and they can resolve differently."""
+    seen = []
+    monkeypatch.setattr("socket.getaddrinfo", lambda host, *a, **k: (seen.append(host), [(2, 1, 6, "", ("93.184.216.34", 0))])[1])
+    _check_policy("https://faß.de/")
+    assert seen == ["xn--fa-hia.de"]
+
+
+@pytest.mark.parametrize("url", ["http://[::1", "https://exa[mple.com/", "http://a.example:abc/", "https://exa mple.com/", "http://"])
+def test_an_address_that_cannot_be_parsed_is_a_blocked_url_not_a_value_error(url):
+    with pytest.raises(BlockedUrl):
+        _check_policy(url)
+
+
+@pytest.mark.parametrize("address", ["100.64.0.1", "100.127.255.254", "224.0.0.1", "ff02::1", "169.254.169.254", "198.18.0.1"])
+def test_shared_multicast_and_benchmark_ranges_are_not_the_public_web(monkeypatch, address):
+    """Tailscale and carrier-grade NAT (100.64.0.0/10) are neither `private` nor `reserved` to the ipaddress module, but they are not the public internet."""
+    resolves(monkeypatch, {"odd.example": [address]})
+    with pytest.raises(BlockedUrl):
+        _check_policy("https://odd.example/")

@@ -48,5 +48,6 @@ def defang(text: str, allowed: set[str]) -> str:
         return f"\x00{len(kept) - 1}\x00"
 
     text = _LINK.sub(lambda m: park(m[0]) if _norm(m[2]) in allowed else park(f"{m[1]} (link removed: {_host(m[2])})"), text.replace("\x00", ""))
-    text = text.replace("[", "\\[").replace("<", "&lt;")
+    # backslashes first: a `\[` the model wrote must come out as an escaped backslash and an escaped bracket, not as `\\` + a live `[`
+    text = text.replace("\\", "\\\\").replace("[", "\\[").replace("<", "&lt;")
     return re.sub(r"\x00(\d+)\x00", lambda m: kept[int(m[1])], text)

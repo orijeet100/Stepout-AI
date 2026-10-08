@@ -210,3 +210,14 @@ async def test_without_a_callback_nothing_is_captured_and_with_one_it_stops_when
         assert seen >= 1
         await asyncio.sleep(0.8)
         assert len(frames) == seen  # none after the Run's browser closed
+
+
+async def test_a_malformed_address_is_a_blocked_page_not_a_crash():
+    """A bracket that is not an address made urlparse raise ValueError, which ended the whole Run."""
+    browser = Browser()
+    try:
+        for url in ("http://[::1", "https://exa[mple.com/"):
+            view, shot = await browser.run("r1", "open", url)
+            assert view.startswith("Blocked:") and shot is None
+    finally:
+        await browser.aclose()

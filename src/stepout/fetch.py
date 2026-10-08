@@ -1,6 +1,6 @@
 """Fetcher: get(url) -> FetchedPage. HTTP only, network policy, size limit.
 
-ponytail: resolves the hostname once and checks that address; doesn't guard
+ponytail: resolves the hostname (every address it has) and checks them; doesn't guard
 against DNS rebinding between check and connect. Browser's fuller network
 policy (checked on every request, including ones a page starts itself) is S2.
 """
@@ -11,7 +11,6 @@ import asyncio
 import ipaddress
 import re
 import socket
-from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel
@@ -32,20 +31,23 @@ class BlockedUrl(Exception):
 
 
 def _check_policy(url: str) -> None:
-    parsed = urlparse(url)
+    try:  # the parser the connection will use, so that what is checked is what is connected to (IDNA 2008, not Python's older codec)
+        parsed = httpx.URL(url)
+        host = parsed.raw_host.decode("ascii")
+    except (httpx.InvalidURL, ValueError, UnicodeError) as exc:
+        raise BlockedUrl(f"not a valid address: {url[:80]!r}") from exc
     if parsed.scheme not in ("http", "https"):
         raise BlockedUrl(f"scheme not allowed: {parsed.scheme}")
-    host = parsed.hostname
     if not host:
         raise BlockedUrl("no host")
-    if host == "localhost":
+    if host.lower().rstrip(".") == "localhost":
         raise BlockedUrl("localhost blocked")
     try:  # every address the host has: the connection may use any of them, not only the first
         ips = {ipaddress.ip_address(info[4][0].split("%")[0]) for info in socket.getaddrinfo(host, None)}
     except (socket.gaierror, UnicodeError, ValueError) as exc:
         raise BlockedUrl(f"could not resolve host: {host}") from exc
     for ip in ips:
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+        if not ip.is_global or ip.is_multicast or ip.is_loopback or ip.is_link_local:  # (not is_global also covers carrier-grade NAT, 100.64.0.0/10)
             raise BlockedUrl(f"private/local address blocked: {ip}")
 
 
