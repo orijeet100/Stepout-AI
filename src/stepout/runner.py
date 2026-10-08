@@ -198,6 +198,7 @@ class Runner:
         role = ROLES[role_name]
         notes: list[str] = []
         last = ""  # the hand action that ran last (a stateful hand's repeat only counts straight after itself)
+        repeated = False  # the Role just asked for something it already has: its next call offers no hand tools, so it has to answer
         ran: dict[str, tuple[int, str]] = {}  # hand actions already run -> where their result sits in `notes` and what it says: asking again changes nothing while the Role can still read it
         step: Event | None = None  # the Step event being handled; ctx.emit hangs its events under it
         ctx = RunContext(
@@ -220,7 +221,7 @@ class Runner:
                 model=role.model,
                 system=role.system,
                 user_text=_state(goal, run.plan if orchestrating else [], notes, run.previous if orchestrating else ""),
-                tools=list(role.tools),
+                tools=[] if repeated else list(role.tools),
                 max_searches=0 if run.state.tainted else run.searches,  # a tainted Run is not offered web search
             )
             try:
@@ -263,6 +264,7 @@ class Runner:
                 case _ if cap is not None:
                     if repeat:
                         notes.append(_REPEATED)
+                        repeated = True  # a planted "read it again" loops a Reader until its steps run out and it never writes its Finding
                         continue
                     try:
                         notes.append(await self._unless_stopped(cap.run(action, ctx)))

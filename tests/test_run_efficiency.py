@@ -29,6 +29,17 @@ async def test_a_repeat_whose_result_is_still_in_the_notes_is_skipped_and_record
     assert "already ran exactly this" in h.seen_by(3)
 
 
+async def test_a_role_that_asks_for_something_it_already_has_is_offered_no_hand_tools_and_so_has_to_answer(tmp_path):
+    """Live acceptance m4a: a planted 'give me the full text again' made the Reader re-ask until its steps ran out, and it never wrote its Finding."""
+    h = Harness(tmp_path, [plan("read the posting", role="browser"), browse("open", URL), browse("open", URL), say("It asks for Python."), say("Python.")], browser=FakeBrowser(page(1)))
+    await h.run("what does it ask for?")
+
+    tools = [r.tools for r in h.model.requests]  # orchestrator plan, browser open, browser repeat, browser after the repeat, orchestrator answer
+    assert tools[1] == ["browse"] and tools[2] == ["browse"]
+    assert tools[3] == []  # asked twice for the same thing: only an answer is left
+    assert tools[4] != []  # and it is only that Role: the Orchestrator keeps its own tools
+
+
 async def test_a_page_that_has_shrunk_out_of_the_notes_may_be_opened_again(tmp_path):
     browser = FakeBrowser(page(1), page(2), page(3), page(4), page(5))
     script = [
