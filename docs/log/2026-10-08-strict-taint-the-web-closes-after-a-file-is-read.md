@@ -16,6 +16,8 @@ refs: [docs/plan/v0-finish.md, docs/adr/0010-one-loop-many-roles.md, src/stepout
 
 **Why.** File contents are written by anyone and may carry instructions (LLM01). The system prompt is not a security boundary, so the boundary is in code: the way out of this process is the network, and a Run that has read a file can no longer use it. That holds even if a hostile PDF persuades the Reader or the Orchestrator, even if secret screening misses a secret, and without anyone having to recognise the attack. It is deliberately blunt: a task that needs the web *after* a read is refused and has to be asked again as two tasks. That cost is accepted for now because the safe default matters more than the convenience.
 
+**Since.** Taint across follow-ups was built in C3 ([log](2026-10-08-taint-carries-across-follow-ups-a-run-that-builds-on-a-file-.md)); relaxing to named sites was left out of V0 there.
+
 **Not built here, on purpose** (cycle C3). Relaxing it to "sites the User named"; carrying taint across follow-ups (an Exchange that read a file marks the next Run that links it); the poisoned-PDF test with the outbound-request count; a trace/Ledger event for the moment a Run becomes tainted (the refused step already shows the reason).
 
 **Alternatives.** Approvals (the User confirms each outward action, showing exactly what goes where): the long-term design (ADR 0010), but Approvals do not exist yet. A model-based judgment of whether a request is dangerous: the thing a prompt injection attacks. Closing only `fetch` and `browse` by name: a future web tool would be open by default; the flag makes closed the default for anything that declares it.

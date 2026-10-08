@@ -4,11 +4,11 @@ A task agent you drive from a chat page (Telegram later). An Orchestrator plans 
 
 **The claim to prove:** human interventions per task fall across repeated attempts, against a memory-off control. No model training; improvement comes from recall.
 
-**Status:** M1–M3 built and verified live (Orchestrator, Files, Browser); M4 (file contents) is next. **Start at [`docs/STATUS.md`](docs/STATUS.md)**: state, run commands, architecture diagram, every decision, what remains.
+**Status:** M1–M4 built (Orchestrator, Files, Browser, Reader); the Reader's two demos passed live on invented files; the rest of V0 is in [`docs/plan/v0-finish.md`](docs/plan/v0-finish.md). **Start at [`docs/STATUS.md`](docs/STATUS.md)**: state, run commands, architecture diagram, every decision, what remains.
 
 ```bash
 ./.venv/Scripts/python.exe -m pytest -q                 # offline tests
-./.venv/Scripts/python.exe -m stepout.app web           # chat at http://127.0.0.1:8765 (needs .env with ANTHROPIC_API_KEY; set STEPOUT_PORT for another port)
+./.venv/Scripts/python.exe -m stepout.app web           # chat at http://127.0.0.1:8765 (needs .env with ANTHROPIC_API_KEY; set STEPOUT_PORT for another port: 8765 is often taken when two checkouts run side by side)
 ```
 
 ## Docs

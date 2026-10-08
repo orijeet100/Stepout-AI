@@ -69,7 +69,7 @@ async def run_agent(role, goal, run):               # run = Budget, Taint, Appro
             case _:                    transcript += await execute(action, verdict)
 ```
 
-Rules: every Action of every Role passes the one Gate; Budget, Taint, the Approval list and the Ledger are per Run, not per Role; delegation is one level deep; a Finding is Untrusted content; only the Runner talks to the User; Checkpoints save the active Role stack. V0-basic is read-only, and once a Run has read file contents, web search, fetch and browsing are limited to sites the User named. Every call, return, Action and Verdict streams to the page as the Trace. No computer use in V0. Every specialist has exactly one hand, so a Role can only be steered into what that hand can do.
+Rules: every Action of every Role passes the one Gate; Budget, Taint, the Approval list and the Ledger are per Run, not per Role; delegation is one level deep; a Finding is Untrusted content; only the Runner talks to the User; Checkpoints save the active Role stack. V0-basic is read-only, and once a Run has read file contents, web search, fetch and browsing are closed for the rest of it and for any later Run in the chat that builds on it (V0 is strict; sites the User named would be a later relaxation). Every call, return, Action and Verdict streams to the page as the Trace. No computer use in V0. Every specialist has exactly one hand, so a Role can only be steered into what that hand can do.
 
 ## 3. Seams and adapters
 

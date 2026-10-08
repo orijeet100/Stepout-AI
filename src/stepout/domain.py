@@ -79,7 +79,7 @@ class Exchange(BaseModel):
     request: str
     reply: str  # without the cost footer
     did: str  # one line: what the hands did ("browse open luma.com/discover"); empty if it only answered
-    tainted: bool = False  # always False until the Reader (B4)
+    tainted: bool = False  # its Run held data from the User's files (it read a file, or built on an answer that did): whatever builds on it starts with the web closed
     run_id: str
 
 

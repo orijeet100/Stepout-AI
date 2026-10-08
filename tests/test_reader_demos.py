@@ -39,9 +39,9 @@ def actions(h, task):
     return [(e.role, e.data["action"]["kind"], e.data["verdict"]) for e in h.ledger.query(task.id) if e.kind == "step"]
 
 
-def test_the_orchestrator_is_told_it_may_plan_in_two_parts_when_a_path_comes_from_an_earlier_finding():
+def test_the_orchestrator_is_told_not_to_plan_a_reader_step_before_it_has_the_path():
     system = ROLES["orchestrator"].system
-    assert "needs something an earlier Finding will tell you" in system and "the path of a file for the reader" in system
+    assert "do NOT plan the reader step yet" in system and "Never plan a files step and a reader step in the same plan" in system
 
 
 async def test_demo_a_summarize_the_newest_pdf_in_a_folder(tmp_path):
@@ -77,6 +77,7 @@ async def test_demo_a_summarize_the_newest_pdf_in_a_folder(tmp_path):
         ("orchestrator", "plan", "allow"), ("reader", "read_text", "allow"), ("reader", "answer", "allow"), ("orchestrator", "answer", "allow"),
     ]
     assert h.replies[0].text.startswith("Your newest PDF, new-report.pdf") and "12 percent" in h.replies[0].text
+    assert len(h.model.requests) == 7  # the cheapest honest flow: two plans, no Reader step spent before the path was known
 
 
 async def test_demo_b_compare_my_resume_to_the_job_posting_reading_the_web_first_and_the_file_last(tmp_path):
@@ -111,6 +112,7 @@ async def test_demo_b_compare_my_resume_to_the_job_posting_reading_the_web_first
     final = h.seen_by(9)  # the Orchestrator holds both Findings
     assert "Kubernetes is a plus" in final and "no Kubernetes" in final
     assert h.replies[0].text.startswith("You match Python and SQL")
+    assert len(h.model.requests) == 10  # three plans (the ceiling), two calls per specialist, the answer
 
 
 async def test_demo_b_in_the_wrong_order_the_posting_is_refused_and_the_answer_says_so(tmp_path):

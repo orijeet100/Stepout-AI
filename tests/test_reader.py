@@ -249,6 +249,14 @@ async def test_a_pdf_with_hundreds_of_pages_is_read_to_a_page_cap(reader, tree):
     (tree[0] / "many.pdf").write_bytes(make_pdf([f"p{i}" for i in range(210)]))
     result = await read(reader, tree[0] / "many.pdf")
     assert "(at most 200 are read)" in result.text and "p199" in result.text and "p205" not in result.text
+    assert "40,000" not in result.text.splitlines()[0]  # the text is short: the only thing left unread is the pages past the cap, and the header says that
+
+
+@pytest.mark.parametrize("data", [encrypted(make_pdf(["secret plans"]), "pw"), b"%PDF-1.4\n1 0 obj << /Broken\n garbage \x00\x01"], ids=["encrypted", "broken"])
+async def test_a_pdf_that_could_not_be_opened_does_not_claim_to_be_a_scan(reader, tree, data):
+    (tree[0] / "odd.pdf").write_bytes(data)
+    result = await read(reader, tree[0] / "odd.pdf")
+    assert not result.content and "scanned" not in result.text and "OCR" not in result.text and "Nothing was read" in result.text
 
 
 async def test_a_page_whose_content_is_enormous_is_skipped_not_extracted(reader, tree):

@@ -65,13 +65,14 @@ def _decode(data: bytes) -> str | None:
     return None if sample and odd > len(sample) * 0.1 else text
 
 
-def _pdf(data: bytes) -> tuple[str, str, bool]:
+def _pdf(data: bytes) -> tuple[str | None, str, bool]:
     """-> (text, note, stopped_early): the text of the first pages, up to the window; the note says what was left out or why there is no text.
+    `text` is None when the file could not be opened at all (encrypted, malformed): that is not the same as a page with no text.
     `stopped_early`: extraction stopped before the last page, so the true length of the text is not known."""
     try:
         reader = PdfReader(io.BytesIO(data), strict=False)
         if reader.is_encrypted and not reader.decrypt(""):
-            return "", "it is encrypted and needs a password, so it was not opened", False
+            return None, "it is encrypted and needs a password, so it was not opened", False
         total = len(reader.pages)
         parts, chars, done, skipped = [], 0, 0, 0
         for i in range(min(total, MAX_PDF_PAGES)):
@@ -96,7 +97,7 @@ def _pdf(data: bytes) -> tuple[str, str, bool]:
             note += f"; {skipped} too large to read safely"
         return "\n\n".join(parts), note, done < min(total, MAX_PDF_PAGES) or total > MAX_PDF_PAGES
     except Exception as exc:  # malformed, truncated or hostile: whatever pypdf says, it is not a readable PDF
-        return "", f"it could not be read as a PDF ({type(exc).__name__})", False
+        return None, f"it could not be read as a PDF ({type(exc).__name__})", False
 
 
 class Reader:
@@ -136,6 +137,8 @@ class Reader:
         if data.startswith(b"%PDF-"):
             text, note, stopped_early = _pdf(data)
             kind = f"PDF, {_size(len(data))}, {note}"
+            if text is None:
+                return ReadResult(f"read_text {name}: {kind}. Nothing was read.", False)
             if not text.strip():
                 return ReadResult(f"read_text {name}: {kind}. No text could be extracted from it: it may be scanned images, and the Assistant does not do OCR. Do not guess its contents.", False)
         else:
@@ -150,10 +153,9 @@ class Reader:
         total = len(text)
         screened, secrets = redact(text[:_WINDOW])
         shown = screened[:MAX_CHARS]
-        if stopped_early:  # the real length is unknown: only say what is shown
-            notes = [f"the first {MAX_CHARS:,} characters are shown; the rest was not read"]
-        elif total > MAX_CHARS:
-            notes = [f"the first {MAX_CHARS:,} of {total:,} characters are shown; the rest was not sent"]
+        if total > MAX_CHARS:
+            # stopped early: the real length is unknown, so only say what is shown. (Short text from a long PDF is not cut by characters: the page note says what was not read.)
+            notes = [f"the first {MAX_CHARS:,} characters are shown; the rest was not read" if stopped_early else f"the first {MAX_CHARS:,} of {total:,} characters are shown; the rest was not sent"]
         else:
             notes = [f"{total:,} characters"]
         if secrets:

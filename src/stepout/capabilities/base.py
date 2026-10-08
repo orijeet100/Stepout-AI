@@ -32,7 +32,7 @@ class RunState:
 
     def taint(self, why: str) -> None:
         """File contents have entered this Run. From now on the Gate refuses every capability that reaches the web."""
-        self.tainted = self.tainted or why
+        self.tainted = self.tainted or why or "file contents were read"  # never empty: an empty reason would read as "not tainted"
 
 
 @dataclass

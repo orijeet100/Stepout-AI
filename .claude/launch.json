@@ -5,7 +5,8 @@
       "name": "stepout-web",
       "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "stepout.app", "web"],
-      "port": 8765
+      "port": 8765,
+      "autoPort": true
     }
   ]
 }

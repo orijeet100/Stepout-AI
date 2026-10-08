@@ -16,6 +16,8 @@ import httpx
 from pydantic import BaseModel
 
 _MAX_BYTES = 2_000_000
+_MAX_HOPS = 5
+_REDIRECTS = (301, 302, 303, 307, 308)
 _TAG_RE = re.compile(r"<[^>]+>")
 
 
@@ -51,9 +53,15 @@ def _html_to_text(html: str) -> str:
 
 class Fetcher:
     async def get(self, url: str) -> FetchedPage:
-        _check_policy(url)
-        async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
-            response = await client.get(url, headers={"User-Agent": "stepout/0.1"})
+        async with httpx.AsyncClient(follow_redirects=False, timeout=10.0) as client:
+            for _ in range(_MAX_HOPS + 1):
+                _check_policy(url)  # every hop: a redirect is a new request, and it may point at this machine (the chat's own history API) or a private host
+                response = await client.get(url, headers={"User-Agent": "stepout/0.1"})
+                if response.status_code not in _REDIRECTS or "location" not in response.headers:
+                    break
+                url = str(response.url.join(response.headers["location"]))
+            else:
+                raise BlockedUrl("too many redirects")
             response.raise_for_status()
             content = response.text[:_MAX_BYTES]
         return FetchedPage(url=str(response.url), text=_html_to_text(content))

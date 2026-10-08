@@ -35,8 +35,8 @@ def make_browser(channel) -> Browser:
 
 
 def web_port() -> int:
-    """The web chat's port: STEPOUT_PORT if set, else 8765 (so two checkouts can run side by side)."""
-    return int(os.environ.get("STEPOUT_PORT", "8765"))
+    """The web chat's port: STEPOUT_PORT if set, else PORT (the app's preview tool assigns one when 8765 is taken), else 8765 (so two checkouts can run side by side)."""
+    return int(os.environ.get("STEPOUT_PORT") or os.environ.get("PORT") or "8765")
 
 
 class SavedChannel:

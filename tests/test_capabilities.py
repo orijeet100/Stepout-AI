@@ -66,7 +66,7 @@ async def test_a_registered_capability_runs_through_the_runner(with_echo, tmp_pa
     assert "echo: hi" in model.requests[1].user_text  # its result reached the Role's notes
     assert "already ran exactly this" in model.requests[2].user_text  # the repeat guard held
     steps = [e for e in traced if e.kind == "step"]
-    assert [e.data["summary"] for e in steps] == ["echo hi", "echo hi", "answer"]  # its Trace line
+    assert [e.data["summary"] for e in steps] == ["echo hi", "repeat, not run again: echo hi", "answer"]  # its Trace line; the second is a repeat the guard skipped
     assert all(e.data["verdict"] == "allow" for e in steps)
     note = next(e for e in traced if e.kind == "note")  # ctx.emit hangs its event under the Step that ran
     assert note.parent == steps[0].id and note.role == "orchestrator"
