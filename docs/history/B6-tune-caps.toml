@@ -1,0 +1,12 @@
+id = "B6"
+title = "Tune with real queries"
+lane = "main"
+status = "planned"
+serves = "destination"
+needs = "B4"
+plan = "plan/main-worktree.md"
+aimed_at = "Run the acceptance set of complicated queries live, record cost and steps per query, and set the step caps and the Run cap from the data."
+done_when = [
+  "A table of cost and steps per query is logged",
+  "Step caps and `STEPOUT_TASK_CAP_USD` adjusted where the data says",
+]

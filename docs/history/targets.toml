@@ -1,0 +1,39 @@
+# The target, working backwards. First = furthest away. Each iteration says which rung it serves with `serves = "<key>"`.
+
+[[rung]]
+key = "claim"
+name = "The claim to prove"
+state = "open"
+text = "Human interventions per task fall across repeated attempts, against a memory-off control, at equal or better success. No model training: the improvement comes from recall (ADR 0004)."
+needs = ["Memory (S5)", "Evaluation (S6, S7)", "mem0 comparison (S10)"]
+
+[[rung]]
+key = "v0"
+name = "V0 done"
+state = "open"
+text = "Slices S1-S9 and S1b green, all 17 acceptance scenarios in requirements.md pass, and the Evaluation thresholds are met. One Python process on the laptop (ADR 0002)."
+needs = ["Approvals and pause/resume (S3)", "Telegram (S4)", "persona editor (S9)"]
+
+[[rung]]
+key = "v0-basic"
+name = "V0-basic: one flow that works end to end"
+state = "in progress"
+text = "From the web chat, ask for something in plain English. An Orchestrator plans it, hands each step to a specialist (web, files, browser, file reader) and reports back while you watch every step live. Read-only, $1 per Run. M1-M3 reached; the Reader (M4) is next."
+needs = ["Reader (B4)"]
+
+[[rung]]
+key = "destination"
+name = "The plan of record (agreed 2026-10-07)"
+state = "in progress"
+text = "An assistant you use like an app: separate chats, live progress, a screenshot viewer, a clean look. A new capability is one file plus one line, your message is screened before money is spent, a follow-up carries the right history, and every decision and change is logged. Built by two lanes in two worktrees."
+needs = ["Capability modules (B1b)", "Persistence (B2)", "Front door (B3)", "UI shell and run view (U2, U3)"]
+
+# Beyond the lanes (from roadmap.md); shown under "Next".
+later = [
+  "**S4** Telegram channel",
+  "**S5** Memory: recall, Persona, Notes",
+  "**S6-S7** Evaluation and the security suite",
+  "**S9** persona editor on the page",
+  "**S10** mem0 as a measured challenger",
+  "**S11** organize files (plan, approval, undo journal)",
+]

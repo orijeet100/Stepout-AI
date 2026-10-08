@@ -15,12 +15,16 @@ A way the User reaches the Assistant — Telegram or the web page.
 _Avoid_: platform, integration, interface
 
 **Conversation**:
-The ongoing exchange between the User and the Assistant on one Channel. Replies always go back to the Conversation a Message came from.
-_Avoid_: thread, chat, session
+The ongoing back-and-forth between the User and the Assistant on one Channel. It holds many Tasks, and the User may keep several side by side (the page calls them chats). Replies always go back to the Conversation a Message came from.
+_Avoid_: thread, session
 
 **Message**:
 One unit of text and files sent in a Conversation, in either direction.
 _Avoid_: update, event, chat
+
+**Exchange**:
+A Request and the reply the User saw for it, inside one Conversation.
+_Avoid_: turn, round
 
 **Stale**:
 A Message that waited long enough (the laptop was off) that the Assistant asks "still want this?" before acting on it.
@@ -31,9 +35,17 @@ A Message that waited long enough (the laptop was off) that the Assistant asks "
 What the User asks for in a Message, before the Assistant has accepted it.
 _Avoid_: query, prompt, intent, workflow
 
+**Screening**:
+The check a Request passes before it becomes a Task: Accept, Decline, or a short reply for plain chat. It runs before any Orchestrator money is spent, and also picks out which earlier Exchanges the Request relates to.
+_Avoid_: moderation, guardrail, validation
+
 **Declined**:
-A Request the Assistant will not take on because it is out of scope; it says why and what it can do instead.
+A Request the Assistant will not take on because it is unsafe or out of scope; it says why and what it can do instead.
 _Avoid_: rejected, refused (Refused is for Actions)
+
+**Follow-up**:
+A Message that relates to earlier Exchanges in the same Conversation — not necessarily the latest. The Orchestrator is given those Exchanges, and only those. A Message that relates to none is a new Task and gets no history.
+_Avoid_: reply-to, continuation, thread
 
 **Task**:
 An accepted Request the Assistant is responsible for finishing. It ends with an Outcome.

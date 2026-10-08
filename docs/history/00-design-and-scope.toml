@@ -1,0 +1,64 @@
+id = "0"
+title = "Design and scope"
+lane = "trunk"
+status = "done"
+serves = "claim"
+date = "2026-10-07"
+aimed_at = "Know what to build and why before writing code: the claim to prove, the requirements, the module boundaries, a shared vocabulary, and the decisions that are expensive to reverse."
+done_when = [
+  "Brief, requirements, architecture and roadmap written",
+  "A glossary for each of the two contexts (Assistant, Evaluation)",
+  "An ADR for every hard-to-reverse choice",
+]
+achieved = "The design set was committed in two steps: a first pass (brief, requirements, architecture, roadmap S0-S11, glossaries, ADRs 0001-0006), then a scope change that added laptop files, brain-and-hands and the React page (ADRs 0007-0009). ADRs 0001-0006 are dated 2026-10-06; both commits are 2026-10-07."
+commits = ["dd3bdf9", "01b42c5"]
+changes = [
+  "`docs/brief.md` (deleted in iteration 7), `requirements.md`, `architecture.md`, `roadmap.md` (slices S0-S11)",
+  "`CONTEXT-MAP.md`, `src/stepout/CONTEXT.md`, `tests/eval/CONTEXT.md`: the two glossaries",
+  "Scope change: laptop files (Grants), SQLite decision amended, brain-and-hands, the React page added to the roadmap",
+]
+
+[[decision]]
+what = "Hand-write the parts we measure (router, agent loop, memory, gate, run manager); borrow plumbing (Playwright, the Anthropic SDK, Pydantic, pytest, aiogram). No agent framework."
+why = "The goal is to learn how production agents work; wrapping the core would hide exactly those parts."
+ref = "adr/0001-from-scratch.md"
+
+[[decision]]
+what = "V0 is one Python process on the laptop: no Docker, cloud, containers, email or credentials. Browser tasks use a fresh isolated context; navigation only to http(s) on public hosts."
+why = "Docker was not running and adds little protection while the agent has no file tool; the real risks (prompt injection, bad actions) are handled by the Gate."
+ref = "adr/0002-laptop-only-v0.md"
+
+[[decision]]
+what = "Memory starts as plain files (Persona, History, Notes) behind recall / remember / forget; mem0 comes later as a second store, compared on the golden set."
+why = "Memory is what the headline metric tests, so owning the first version makes every improvement explainable; 'memory off' is just an empty folder."
+ref = "adr/0003-memory-files-first.md"
+
+[[decision]]
+what = "Drop 'replay with zero model calls'. The headline metric is human interventions per task across repeated attempts, against a memory-off control."
+why = "The goal is an assistant that finishes jobs from a phone and improves with experience, not a cost trick. No model is trained; improvement comes from recall."
+ref = "adr/0004-drop-zero-model-replay.md"
+
+[[decision]]
+what = "Two bounded contexts, Assistant and Evaluation. Evaluation drives the Assistant only as a Channel and reads its Ledger."
+why = "The proof must never shape the product, and the Assistant must never grade itself."
+ref = "adr/0005-two-bounded-contexts.md"
+
+[[decision]]
+what = "SQLite for runs and the Ledger (one Store module, user_id on every table, a unique constraint for at-most-once Actions); Markdown for Memory."
+why = "Intending an Action and writing its Checkpoint must be one atomic transaction; JSONL cannot do that, and Postgres is a server for one user. Postgres comes with a second machine or many Users."
+ref = "adr/0006-sqlite-for-runs-and-ledger.md"
+
+[[decision]]
+what = "Every Action and Result is plain serializable data ('brain and hands'), enforced by a round-trip test."
+why = "In V1 the hands (browser, files) can move off the laptop without a redesign."
+ref = "adr/0007-brain-and-hands.md"
+
+[[decision]]
+what = "Laptop files only through Grants (folders the User allows, in `grants.toml`, edited only by the User) and a fixed Off-limits list. Reading file contents Taints the Run."
+why = "'Upload my resume' means the Assistant looks for it itself. If the model or chat could edit Grants, an injected instruction could widen its own reach."
+ref = "adr/0008-laptop-files-grants.md"
+
+[[decision]]
+what = "The web page is React (Vite + TypeScript) in `web/`, served by the Python process over aiohttp."
+why = "A plain HTML page would be thrown away; aiohttp is already installed through aiogram."
+ref = "adr/0009-react-web-page.md"

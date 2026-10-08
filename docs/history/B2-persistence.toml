@@ -1,0 +1,13 @@
+id = "B2"
+title = "Persistence for chats and runs"
+lane = "main"
+status = "planned"
+serves = "destination"
+needs = "X1 (signed off)"
+plan = "plan/main-worktree.md"
+aimed_at = "Chats, messages and runs survive a restart, and the page can read them back."
+done_when = [
+  "A scripted Run, a new Store on the same file, and `history` reads back every chat, message and event",
+  "A 0002 database upgrades to 0003 with no data loss",
+  "`tasks` and `runs` rows are written; `tests/test_contract.py` validates the UI fixtures",
+]

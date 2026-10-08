@@ -1,0 +1,12 @@
+id = "B1b"
+title = "Capability modules (no behaviour change)"
+lane = "main"
+status = "planned"
+serves = "destination"
+plan = "plan/main-worktree.md"
+aimed_at = "A new capability is one new file plus one registration line: its tool schema, action type, executor, Gate rule and one-line blurb live together."
+done_when = [
+  "The 132 existing tests pass without edits (import moves excepted)",
+  "A test registers a fake `echo` capability and runs it through the Runner without importing domain, model, gate, runner or roles",
+  "Every capability has a blurb; the live smoke suite is 6/6 within 10% of its earlier cost",
+]

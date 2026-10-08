@@ -1,0 +1,11 @@
+id = "B1a"
+title = "Isolation guards"
+lane = "main"
+status = "planned"
+serves = "destination"
+plan = "plan/main-worktree.md"
+aimed_at = "Two checkouts can run side by side, and tests can never silently exercise the other checkout's code."
+done_when = [
+  "Tests green; an isolation test fails when a test run is pointed at another checkout's venv",
+  "Two backends run side by side on different ports (`STEPOUT_PORT`)",
+]

@@ -1,0 +1,53 @@
+id = "3"
+title = "The V0-basic game plan, and working agreements"
+lane = "trunk"
+status = "done"
+serves = "v0-basic"
+date = "2026-10-07"
+aimed_at = "Narrow the next phase to one flow that works end to end before adding Memory, Evaluation, Telegram or Approvals."
+done_when = [
+  "A game plan with milestones, demos and risks",
+  "The decisions behind it written down (ADR 0010 amended)",
+]
+achieved = "`docs/game-plan.md`: five Roles, eight safety rules, milestones M1-M4 each with a demo, a risk table. ADR 0010 amended. Project skills and `CLAUDE.md` in place so every session starts from the same working notes."
+commits = ["3d4698b", "b91d65f"]
+changes = [
+  "`docs/game-plan.md` (scope, five Roles, rules, M1-M4, risks); requirements FR38-FR45, architecture, roadmap and glossaries aligned",
+  "Five skills from addyosmani/agent-skills at commit 1401c8b (MIT), routed from `CLAUDE.md`; Graphify as a local tool (its skill and output are git-ignored)",
+  "`docs/third-party.md`: provenance, licences and what was deliberately left out",
+]
+
+[[decision]]
+what = "The Orchestrator writes the Plan as data; there is no separate Planner agent."
+why = "The agent that sees the Findings is the one that must re-plan. A separate Planner adds a model call and a hand-off that loses information."
+ref = "adr/0010-one-loop-many-roles.md"
+
+[[decision]]
+what = "Reading file contents is its own Role (Reader) and returns Findings; the Orchestrator never holds raw file text."
+why = "File text reaching the model should happen in one visible, budgeted, Taint-setting step."
+ref = "adr/0010-one-loop-many-roles.md"
+
+[[decision]]
+what = "V0-basic is read-only: typing, submitting, uploading, downloading, moving and deleting are refused until Approvals exist (S3)."
+why = "No Approvals yet, so nothing that changes the world."
+ref = "game-plan.md"
+
+[[decision]]
+what = "One $1 Budget per Run, shared by every Role, and at most 3 web searches."
+why = "Orchestration adds model calls; a shared cap bounds the cost."
+ref = "game-plan.md"
+
+[[decision]]
+what = "After a file's contents have been read, web access is limited to sites the User named in the request."
+why = "A hostile document could otherwise leak what was read through the query string of a URL."
+ref = "adr/0010-one-loop-many-roles.md"
+
+[[decision]]
+what = "The browser is a fresh, headless Chrome; never the User's everyday Chrome."
+why = "Their logged-in tabs would be reachable by whatever a hostile page talks the model into."
+ref = "adr/0010-one-loop-many-roles.md"
+
+[[decision]]
+what = "Third-party skills are installed only if used, after being read, and recorded with their licence."
+why = "Skills steer the agent, and every skill's description sits in context each session."
+ref = "third-party.md"

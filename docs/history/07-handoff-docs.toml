@@ -1,0 +1,30 @@
+id = "7"
+title = "Handoff docs: STATUS.md"
+lane = "trunk"
+status = "done"
+serves = "v0-basic"
+date = "2026-10-07"
+aimed_at = "One place a new chat or agent starts: current state, run and test commands, the architecture as built, every decision, what remains, the known gaps."
+done_when = [
+  "A new session can start from one file",
+  "No duplicate or stale per-slice result files left on GitHub",
+]
+achieved = "`docs/STATUS.md` written; README cut to a pointer; game plan, roadmap, requirements and CLAUDE.md updated to point at it. The per-slice result files and the original brief were deleted."
+commits = ["d62811b"]
+changes = [
+  "`docs/STATUS.md`: state, commands, diagram, decision table, remaining work, open questions, known gaps, gotchas",
+  "Deleted `docs/results/{s1,m1,m2,m3}.md` and `docs/brief.md`; the full text is still in git: `git show d62811b^:docs/results/m2.md`",
+]
+found = [
+  "Folding the result files into one status page lost detail: the deviations from plan, the live cost tables and some known gaps survive only in git history. Iterations 1-6 of this history restore them.",
+]
+
+[[decision]]
+what = "STATUS.md is the reality; `architecture.md` is the target design."
+why = "A design document that is edited to match every change stops being a design. STATUS.md is rewritten at each handoff."
+ref = "STATUS.md"
+
+[[decision]]
+what = "Per-slice result files were folded into STATUS.md and deleted."
+why = "The User wanted a concise GitHub with no duplicate docs."
+ref = "STATUS.md"

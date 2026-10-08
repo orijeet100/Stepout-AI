@@ -1,0 +1,52 @@
+id = "6"
+title = "M3: the Browser agent, and a leaner loop"
+lane = "trunk"
+status = "done"
+serves = "v0-basic"
+date = "2026-10-07"
+tests = 132
+aimed_at = "Game-plan M3, the 'open this URL and tell me what is on it' demo: a real page works; `file://` and `localhost` are blocked; screenshots appear in the Trace."
+done_when = [
+  "A demo on a real page",
+  "`file://` and localhost blocked, including requests a page starts itself",
+  "Screenshots appear in the Trace",
+]
+achieved = "In real Chrome with two local servers, the 'private' server received zero requests by direct link, redirect, redirect chain, page link, image, `fetch()` or WebSocket. A new live smoke suite (6 simple tasks across every Role, real API, Chrome and disk) passed 6/6 in 37 s for about $0.11. 132 offline tests, including real Chrome. Not yet confirmed by eye: the screenshot thumbnail in the web chat."
+commits = ["c3e6f2a", "f792b14", "012b47a", "bd24d7f"]
+changes = [
+  "`browser.py`: the installed Chrome, headless, through Playwright (no download); one fresh context per Run (no cookies, downloads or service workers); ops are `open` a URL, `click` a numbered link, read `more`",
+  "Every request, including redirects and page-started requests, passes the Fetcher's network policy; a JPEG screenshot per page",
+  "`BrowseAction`, a `browse` tool, the Browser Role (Sonnet 5), the Runner closes the browser at the end of a Run even on failure",
+  "Screenshots are served only by exact run id and number (no path traversal) and shown as thumbnails in the live Trace",
+  "A plan now starts its own first step (one Sonnet call fewer per Task); every Role's state ends with 'results are above, answer if enough'",
+  "`tests/test_live.py` (`pytest -m eval`): the live smoke suite, skipped by default",
+]
+found = [
+  "Specialists repeated an identical first call; ending each state with 'the results are above, answer if enough' removed it. A simple task went from 4-5 model calls to 3-4 (browser plus files: 9-10 down to 7).",
+]
+open = [
+  "The screenshot thumbnail has not been checked by eye in the web chat (route and tests pass; the page builds).",
+  "Stop during a page load is untested; there is no retry after a navigation timeout.",
+  "Screenshots accumulate in `data/runs/` with no cleanup.",
+  "A subresource redirect (for example a CDN hop) is dropped, not followed; DNS is checked once per host and port per Run.",
+]
+
+[[decision]]
+what = "Use the installed Chrome through Playwright, headless, with a fresh context per Run. Read-only: the agent can open a URL, click a numbered link or read more; it cannot type, press buttons or submit forms."
+why = "No browser download, and the User's everyday Chrome and logins stay out of reach."
+ref = "src/stepout/browser.py"
+
+[[decision]]
+what = "Redirects are never followed by the browser: `route.fetch(max_redirects=0)`, and each redirect hop is checked by us before any request is made. Page WebSockets and media are blocked. DNS verdicts are cached per host and port."
+why = "Playwright follows redirects itself, which would let a public page bounce the browser to a private address."
+ref = "src/stepout/browser.py"
+
+[[decision]]
+what = "Only a Role's newest two page views stay in full in its notes; older ones shrink to address and title."
+why = "Page views are the heaviest content in a Role's notes, and the notes are resent on every call."
+ref = "src/stepout/runner.py"
+
+[[decision]]
+what = "A plan starts its own first step, and repeated identical hand actions are not re-run."
+why = "One Sonnet call fewer per Task; the model is told 'results are above' instead of being asked again."
+ref = "src/stepout/runner.py"

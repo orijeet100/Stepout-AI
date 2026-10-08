@@ -15,6 +15,12 @@ __pycache__/
 # generated diagrams (archify); regenerate from candidate.json
 .archify/
 
+# wayfinder planning map and tickets (working files; decisions land in docs/log/)
+.scratch/
+
+# Claude Desktop session worktrees (the lanes run here; never commit them)
+.claude/worktrees/
+
 # graphify: generated graph output, and its skill (regenerate with `graphify install --project`)
 graphify-out/
 .claude/skills/graphify/

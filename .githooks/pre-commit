@@ -1,0 +1,8 @@
+#!/bin/sh
+# Blocks a commit that changes code without a docs/log entry. Enable once per clone:
+#   git config core.hooksPath .githooks
+# (worktrees share the setting). Escape hatch for a typo-only commit: STEPOUT_LOG=skip git commit ...
+[ "$STEPOUT_LOG" = "skip" ] && exit 0
+PY=.venv/Scripts/python.exe
+[ -x "$PY" ] || PY=python
+exec "$PY" scripts/log.py check --staged

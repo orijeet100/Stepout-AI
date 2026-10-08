@@ -1,0 +1,38 @@
+id = "1"
+title = "S1: the domain core"
+lane = "trunk"
+status = "done"
+serves = "v0"
+date = "2026-10-07"
+tests = 20
+aimed_at = "Roadmap slice S1: a question typed in the terminal is answered; a forbidden request is declined with no model spend; a lookup is answered by fetch or search with the cost shown."
+done_when = [
+  "A lookup request is answered by fetch/search, with the cost shown",
+  "'Pay this invoice' is declined with zero model spend",
+  "Actions and Results survive a serialization round-trip",
+]
+achieved = "Worked live against the real API, from the terminal and the web chat: 'pay this invoice' declined for $0; 'what does 2 + 3 equal?' answered for $0.019; 'top news in New York City today' returned seven current stories for $0.26 (over half the $0.50 Task cap). 20 offline tests with a scripted model."
+commits = ["6ce21b1"]
+changes = [
+  "`domain.py` (Actions and Results as plain data), `gate.py` (screen / check), `intake.py` (routing with a Haiku fallback), `runner.py` (fetch / search loop on Sonnet 5)",
+  "`fetch.py` (Fetcher with a network policy), `store.py` + `ledger.py` (SQLite), `model.py` (port + Anthropic adapter), `channels/cli.py`, `app.py` (composition root)",
+  "Tests: gate, intake, runner, app, fetch and the serialization round-trip",
+]
+found = [
+  "Live: a request with no tools sent `tools=null`, which the API rejects, so the cheap routing call failed for short requests. The offline suite never hit it. Fixed in iteration 2 with a regression test.",
+]
+open = [
+  "The news answer had no source links (FR4): citations were dropped. Fixed in iteration 4.",
+  "The $0.50 Task cap is checked only before a call, so one expensive search can overshoot it.",
+  "The Windows console showed a replacement character for non-ASCII dashes in the CLI.",
+]
+
+[[decision]]
+what = "Pricing is a hard-coded $/Mtok table (`model.PRICING`)."
+why = "No agent framework (ADR 0001); the numbers were checked against current list prices (Haiku 4.5 $1/$5, Sonnet 5 $3/$15, web search $10 per 1000 uses) instead of guessed."
+ref = "src/stepout/model.py"
+
+[[decision]]
+what = "Runner and app tests use fake Fetcher and Channel doubles; the Fetcher is tested on its own with a monkeypatched DNS lookup and `httpx.MockTransport`."
+why = "The Fetcher's network policy correctly blocks localhost, so a real loopback server cannot test it without weakening the policy."
+ref = "tests/test_fetch.py"
