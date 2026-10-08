@@ -98,7 +98,15 @@ Stop takes effect at the next step (up to ~20 s inside a long search) · a searc
 Windows-only paths (`files.py`). Run tests with the venv Python. In generated Python, write Windows paths with `\\` (a bare `\D` is a `SyntaxWarning`; CI-style check: `pytest -W error::SyntaxWarning`). Use `-X utf8` when printing arrows to the console. The live suite and the web chat spend real money: say so before running them. `.archify/` holds generated diagrams (local only).
 
 ## Lane: Main
-Not started. Next: B1a (isolation guards) and B1b (capability modules) — [`plan/main-worktree.md`](plan/main-worktree.md). Owner of this section: the Main lane.
+Owner of this section: the Main lane · hand-off: [`plan/main-worktree.md`](plan/main-worktree.md) · branch `claude/main-worktree-plan-ebf573`.
+
+| Iteration | State |
+|---|---|
+| **B1a** isolation guards | **done 2026-10-07** · `STEPOUT_PORT` (default 8765) · pytest `pythonpath = ["src", "."]`, `testpaths = ["tests"]` · `tests/test_isolation.py` · `scripts/owners.py --lane main\|ui <branch>` (merge agent runs it per lane) · log: [`b1a-isolation-guards`](log/2026-10-07-b1a-isolation-guards.md), [`unlisted-paths-belong-to-main`](log/2026-10-07-unlisted-paths-belong-to-main.md) |
+| **B1b** capability modules | next |
+
+**Offline tests:** 142 passed, 6 deselected (after B1a). **Setup in a worktree:** `py -3.13 -m venv .venv` then `.venv\Scripts\python.exe -m pip install -e ".[dev]"`. In Git Bash, `python` may be MSYS2's, whose venv has `bin/` instead of `Scripts/`: use `py` or PowerShell.
+**Ceiling noticed, not fixed:** `Store.__init__` runs a migration script and sets `user_version` in separate steps, so two processes opening one *new* database file at the same moment can both run an `ALTER` and leave it unusable (`duplicate column name`). One process per database file is the design (ADR 0006) and each worktree has its own `data/`; B2's migration 0003 is the place to make it atomic if wanted.
 
 ## Lane: UI
 Not started. Next: U1 (design direction, chosen with the User) — [`plan/ui-worktree.md`](plan/ui-worktree.md). Owner of this section: the UI lane.
