@@ -79,7 +79,7 @@ async def test_an_expectation_the_app_does_not_meet_fails_the_run_and_the_report
 async def test_live_without_a_key_stops_before_any_call(tmp_path, monkeypatch, capsys):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr(acceptance, "load_dotenv", lambda: None)  # a developer's real .env must not hand a test a key
-    monkeypatch.setattr(acceptance, "AnthropicModel", never)
+    monkeypatch.setattr(acceptance, "default_model", never)
     monkeypatch.setattr(acceptance, "Browser", never)
     out = tmp_path / "report.json"
 
@@ -155,7 +155,7 @@ async def test_the_report_is_rewritten_as_each_query_ends(tmp_path, monkeypatch)
 
 
 async def test_offline_passes_all_eight_with_real_hands_and_writes_the_report(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(acceptance, "AnthropicModel", never)  # offline starts no model and no Chrome
+    monkeypatch.setattr(acceptance, "default_model", never)  # offline starts no model and no Chrome
     monkeypatch.setattr(acceptance, "Browser", never)
     out = tmp_path / "deep" / "report.json"
 
@@ -180,7 +180,7 @@ async def test_offline_passes_all_eight_with_real_hands_and_writes_the_report(tm
 
 def test_the_real_pieces_the_live_branch_builds_construct_without_a_network_or_chrome(monkeypatch, tmp_path):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "not-a-real-key")  # a client is built; no request is made
-    acceptance.AnthropicModel(), acceptance.Fetcher(), acceptance.Browser(shots=tmp_path)  # the exact calls execute() makes when live
+    acceptance.default_model(), acceptance.Fetcher(), acceptance.Browser(shots=tmp_path)  # the exact calls execute() makes when live
 
 
 async def test_the_live_branch_wires_the_same_app_around_what_it_is_given_and_closes_the_browser(tmp_path, monkeypatch):
@@ -200,7 +200,7 @@ async def test_the_live_branch_wires_the_same_app_around_what_it_is_given_and_cl
     monkeypatch.setenv("ANTHROPIC_API_KEY", "not-a-real-key")
     monkeypatch.setattr(acceptance, "load_dotenv", lambda: None)
     ids = [r["id"] for r in acceptance.load_rows()]
-    monkeypatch.setattr(acceptance, "AnthropicModel", lambda: stand_ins.setdefault("all", offline.world(ids, os.path.realpath(made[0]), url))[0])  # (model, fetcher, browser)
+    monkeypatch.setattr(acceptance, "default_model", lambda: stand_ins.setdefault("all", offline.world(ids, os.path.realpath(made[0]), url))[0])  # (model, fetcher, browser)
     monkeypatch.setattr(acceptance, "Fetcher", lambda: stand_ins["all"][1])
     browser = ClosingBrowser(*[offline.posting_page(url)] * 5)
     monkeypatch.setattr(acceptance, "Browser", lambda shots: browser)

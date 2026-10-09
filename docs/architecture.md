@@ -78,7 +78,7 @@ A seam is only real when two adapters exist (production + test counts).
 | Seam | Adapters | Dependency kind |
 |---|---|---|
 | **Channel** — `messages() → stream of Message` · `send(reply)` · `trace(event)` (live view of the Run) · `cancel` flag (Stop) | Telegram (S4), React web (S9), CLI (S1), Simulated user (Evaluation, S6) | external, owned translation |
-| **Model** — `call(request) → response` (response carries tokens and money spent) | provider adapter (S1), scripted model (tests, S1) | true external → mocked in tests |
+| **Model** — `call(request) → response` (response carries tokens and money spent) | provider adapter (S1), Pydantic AI adapter for any provider ([ADR 0011](adr/0011-pydantic-ai-as-the-plumbing.md)), scripted model (tests, S1) | true external → mocked in tests |
 | **Memory store** (internal to Memory) | Markdown files (S5), mem0 (S10) | local; the rules stay above the seam |
 
 **Deliberately not seams** (one adapter, tested with a local stand-in instead):

@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Sequence
 
 from dotenv import load_dotenv
 
@@ -20,7 +21,8 @@ from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.intake import ChatReading, CommandReading, DeclinedReading, FailedReading, Intake, NewTask
 from stepout.ledger import Ledger
-from stepout.model import AnthropicModel
+from stepout.pydantic_model import PydanticModel, default_model
+from stepout.roles import HAIKU, SONNET
 from stepout.runner import Runner
 from stepout.screening import HaikuScreener
 from stepout.store import Store
@@ -35,11 +37,12 @@ def make_browser(channel) -> Browser:
     return Browser(shots=SHOTS_PATH, on_frame=getattr(channel, "live_frame", None))
 
 
-def startup_notes() -> list[str]:
-    """What is not set up yet, each with its fix: said at start, and again at first use by the thing that is missing."""
+def startup_notes(keys: Sequence[str] = ("ANTHROPIC_API_KEY",)) -> list[str]:
+    """What is not set up yet, each with its fix: said at start, and again at first use by the thing that is missing. `keys`: the provider keys the chosen models need."""
     notes = []
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        notes.append("No ANTHROPIC_API_KEY: put it in the .env file next to the app (copy .env.example to .env and fill it in), then restart. Until then every message gets this answer.")
+    for var in keys:
+        if not os.environ.get(var):
+            notes.append(f"No {var}: put it in the .env file next to the app (copy .env.example to .env and fill it in), then restart. Until then every message gets this answer.")
     if not GRANTS_PATH.exists():
         notes.append(f"No {GRANTS_PATH}: the Files agent can't see your disk. Copy grants.example.toml there to allow it.")
     return notes
@@ -93,11 +96,14 @@ async def run(channel, intake: Intake, runner: Runner) -> None:
 
 async def main() -> None:
     load_dotenv()
-    for note in startup_notes():
+    model = default_model()
+    other = isinstance(model, PydanticModel)  # a tier is re-pointed in the environment (STEPOUT_STRONG_MODEL / STEPOUT_CHEAP_MODEL)
+    if other:
+        print(f"Models: strong = {model.target(SONNET)}, cheap = {model.target(HAIKU)}")
+    for note in startup_notes(model.key_vars() if other else ("ANTHROPIC_API_KEY",)):
         print(note)
     store = Store(DB_PATH)
     ledger = Ledger(store)
-    model = AnthropicModel()
     fetcher = Fetcher()
     if "web" in sys.argv[1:]:
         # ponytail: imported here only until the UI lane's U2b (channels/web.py) is merged; then it moves to the top with WebChannel

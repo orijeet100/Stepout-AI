@@ -24,7 +24,7 @@ from stepout.roles import HAIKU, SONNET, SPECIALISTS
 # $ per million tokens: (input, output). Web search billed separately, per use.
 PRICING = {
     HAIKU: (1.00, 5.00),
-    SONNET: (3.00, 15.00),
+    SONNET: (2.00, 10.00),  # Sonnet 5's list price; its introductory rate was made permanent in August 2026. Check Anthropic's pricing page when it changes
 }
 WEB_SEARCH_COST_PER_USE = 10.00 / 1000
 
@@ -112,21 +112,31 @@ def _sources(content) -> str:
     return "\n\nSources:\n" + "\n".join(f"- [{title}]({url})" for url, title in list(cited.items())[:8])
 
 
+def client_tools(request: ModelRequest) -> list[dict]:
+    """The tools every provider is offered as plain functions (name, description, input_schema). `web_search` is not one: only some providers run it for us."""
+    return [_CONTROL_TOOLS.get(name) or capabilities.get(name).tool for name in request.tools if name != "web_search"] + request.tool_defs
+
+
+def call_to_action(name: str, args: dict, one_off: frozenset[str] = frozenset()):
+    """A model's tool call as our Action (or a ToolCall for a one-off tool); None if `name` is not a tool we offered. Shared by every provider adapter."""
+    if (parsed := capabilities.parse(name, args)) is not None:
+        return parsed
+    match name:
+        case "plan":
+            return PlanAction(steps=args["steps"])
+        case "delegate":
+            return DelegateAction(step=args["step"])
+        case "answer":
+            return AnswerAction(text=args["text"])
+    if name in one_off:
+        return ToolCall(name=name, input=dict(args))
+    return None
+
+
 def _action(content, one_off: frozenset[str] = frozenset()) -> Action:
     tool = next((b for b in content if b.type == "tool_use"), None)
-    if tool is not None:
-        args = tool.input
-        if (parsed := capabilities.parse(tool.name, args)) is not None:
-            return parsed
-        match tool.name:
-            case "plan":
-                return PlanAction(steps=args["steps"])
-            case "delegate":
-                return DelegateAction(step=args["step"])
-            case "answer":
-                return AnswerAction(text=args["text"])
-        if tool.name in one_off:
-            return ToolCall(name=tool.name, input=dict(args))
+    if tool is not None and (action := call_to_action(tool.name, tool.input, one_off)) is not None:
+        return action
     text = "".join(b.text for b in content if b.type == "text")
     return AnswerAction(text=text + _sources(content))
 

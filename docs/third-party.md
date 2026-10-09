@@ -18,6 +18,9 @@ Skills are instructions that steer the agent, so each was read or scanned before
 | What | Source | Version | Licence | Where |
 |---|---|---|---|---|
 | pypdf: text from PDFs, for the Reader | [py-pdf/pypdf](https://github.com/py-pdf/pypdf), PyPI `pypdf` | 6.19.0 (`pypdf>=6.19`) | BSD-3-Clause (read from the package's own metadata); pure Python, no dependencies | `pyproject.toml`; used only in `src/stepout/reader.py` |
+| Pydantic AI (slim): the model layer under any provider, for OpenRouter and other models | [pydantic/pydantic-ai](https://github.com/pydantic/pydantic-ai), PyPI `pydantic-ai-slim` with extras `anthropic` and `openai` | 2.54.0 (`>=2.54,<3`) | MIT (read from the package metadata); `openai` 3.27 is Apache-2.0, `genai-prices` 0.1.10 (its price table) is MIT | `pyproject.toml`; used in `src/stepout/pydantic_model.py` |
+
+**Review notes.** Pydantic AI ([ADR 0011](adr/0011-pydantic-ai-as-the-plumbing.md)): a well-known maintained library (the Pydantic team); it releases several times a week and moved from 1.x to 2.x within a year, so it is pinned `>=2.54,<3` and adopted one slice at a time. It only talks to the providers we configure; OpenTelemetry output is off unless instrumentation is switched on. Prices for a re-pointed model come from `genai-prices`, a bundled table, so they can lag a provider's list price: an unknown model fails the Run rather than counting as free.
 
 **Review notes.** pypdf parses files written by anyone, so it runs in a worker thread with a time limit, after a 10 MB file budget and a page cap, and extraction of a page is skipped if its decompressed content is huge (the library's own docs warn that extraction needs memory for the whole content stream). pypdf also enforces its own per-stream limits (75 MB by default). Not verified: how to tighten those limits per reader (`pypdf.Configuration` exists, but the page that should document it was not found, so the defaults are used).
 
