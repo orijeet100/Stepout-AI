@@ -7,8 +7,8 @@ Status: accepted · 2026-10-09 · Refines [0001](0001-from-scratch.md) (its "rev
 | Slice | What moves | Status |
 |---|---|---|
 | 1 | The Model port gets a second adapter on `pydantic_ai.direct.model_request`; tiers are re-pointed by `STEPOUT_STRONG_MODEL` / `STEPOUT_CHEAP_MODEL` | done |
-| 2 | `web_search` becomes a client-side tool that goes through the Gate like every other (it is Anthropic's server-side tool today, and skips the Gate) | next |
-| 3 | Each capability's tool becomes one typed function (schema, validation and Action from the signature; today three copies per tool) | |
+| 2 | `web_search` becomes an ordinary capability that goes through the Gate like every other; a small `Searcher` hand makes one provider search per call (it was a server-side tool inside the model call, and skipped the Gate) | done |
+| 3 | Each capability's tool becomes one typed function (schema, validation and Action from the signature; today three copies per tool) | next |
 | 4 | The loop: one Pydantic AI `Agent` per Role, the Gate as a hook, `AgentRun.cancel()` for Stop, `UsageLimits(cost_limit)` for the $1 cap, a typed `Finding` for hand-offs | |
 | 5 | Pause/resume and Approvals (B5) with deferred tool calls and our SQLite | |
 

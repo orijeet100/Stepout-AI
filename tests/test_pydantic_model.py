@@ -47,15 +47,25 @@ async def test_a_request_without_tools_offers_none():
     assert info.function_tools == [] and info.model_request_parameters.native_tools == []
 
 
-async def test_web_search_is_capped_by_the_remaining_searches():
-    _, info = await ask(tools=["web_search", "fetch"], max_searches=2)
-    assert [t.name for t in info.function_tools] == ["fetch"]
-    assert info.model_request_parameters.native_tools == [WebSearchTool(max_uses=2)]
+async def test_the_providers_search_runs_only_when_asked_for_and_is_capped():
+    _, info = await ask(search=True, max_searches=1)
+    assert info.function_tools == [] and info.model_request_parameters.native_tools == [WebSearchTool(max_uses=1)]
 
 
-async def test_web_search_is_dropped_once_the_searches_are_used_up():
-    _, info = await ask(tools=["web_search", "fetch"], max_searches=0)
-    assert [t.name for t in info.function_tools] == ["fetch"] and info.model_request_parameters.native_tools == []
+async def test_web_search_is_an_ordinary_function_tool_for_a_role():
+    _, info = await ask(tools=["web_search", "fetch"])
+    assert [t.name for t in info.function_tools] == ["web_search", "fetch"] and info.model_request_parameters.native_tools == []
+    assert info.function_tools[0].metadata == {"reaches_web": True}
+
+
+async def test_a_search_on_a_provider_that_cannot_search_fails_instead_of_answering_from_memory():
+    class NoSearch(FunctionModel):
+        supported_native_tools = classmethod(lambda cls: frozenset())
+
+    model = PydanticModel({HAIKU: NoSearch(lambda messages, info: reply(text("made up")), model_name="claude-haiku-4-5")})
+    with pytest.raises(Failure) as caught:
+        await model.call(ModelRequest(model=HAIKU, system="s", user_text="u", search=True))
+    assert caught.value.kind == "no_search"
 
 
 async def test_tool_calls_become_actions():

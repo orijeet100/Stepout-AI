@@ -3,6 +3,7 @@ import asyncio
 import httpx
 import pytest
 
+from stepout.capabilities.web_search import WebSearchAction
 from stepout.domain import AnswerAction, BrowseAction, DelegateAction, FetchAction, FilesAction, PlanAction, PlanStep, Reply, Task
 from stepout.fetch import BlockedUrl, FetchedPage
 from stepout.ledger import Ledger
@@ -165,10 +166,19 @@ async def test_a_zero_budget_makes_no_model_call(tmp_path, monkeypatch):
     assert len(h.model.requests) == 0 and "budget" in h.replies[0].text.lower()
 
 
-async def test_searches_left_shrinks_as_they_are_used(tmp_path):
-    h = Harness(tmp_path, [plan("a"), say("found", searches=2), say("done")])
-    await h.run()
-    assert [r.max_searches for r in h.model.requests] == [3, 3, 1]
+def web_search(query, cost=0.001):
+    return ModelResponse(action=WebSearchAction(query=query), cost_usd=cost)
+
+
+async def test_a_web_search_is_a_step_whose_own_model_call_is_charged_to_the_run(tmp_path):
+    # The third response is the Searcher's call, made inside the web_search step; then the Direct agent's Finding, then the Orchestrator's answer.
+    h = Harness(tmp_path, [plan("a"), web_search("the news"), say("found it [a](https://a.example)", cost=0.01), say("The news is X."), say("done")])
+    task = await h.run()
+    assert [r.search for r in h.model.requests] == [False, False, True, False, False]
+    assert "found it [a](https://a.example)" in h.seen_by(3)  # the Direct agent reads what the search found
+    steps = [e for e in h.ledger.query(task.id) if e.kind == "step" and e.data["action"]["kind"] == "web_search"]
+    assert len(steps) == 1 and steps[0].data["summary"] == "web_search the news" and steps[0].data["verdict"] == "allow"
+    assert h.replies[0].cost_usd == pytest.approx(0.001 * 4 + 0.01)
 
 
 async def test_stop_ends_the_run_between_steps(tmp_path):
@@ -220,7 +230,7 @@ async def test_a_failed_fetch_is_reported_to_the_agent_not_raised(tmp_path, erro
 
 
 async def test_an_agent_that_never_finishes_fails_its_step(tmp_path):
-    h = Harness(tmp_path, [plan("a")] + [fetch("https://example.com")] * 4 + [say("could not")])
+    h = Harness(tmp_path, [plan("a")] + [fetch("https://example.com")] * 5 + [say("could not")])
     task = await h.run()
     ret = next(e for e in h.ledger.query(task.id) if e.kind == "return")
     assert ret.data["ok"] is False and "couldn't finish" in ret.data["summary"]

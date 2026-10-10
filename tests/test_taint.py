@@ -16,7 +16,7 @@ from stepout.files import Files, Grant
 from stepout.model import ModelResponse
 from stepout.reader import Reader
 from tests.support.pdfs import make_pdf
-from tests.test_runner import FakeBrowser, FakeFetcher, Harness, browse, delegate, fetch, say
+from tests.test_runner import FakeBrowser, FakeFetcher, Harness, browse, delegate, fetch, say, web_search
 
 
 def norm(p) -> str:
@@ -115,9 +115,26 @@ async def test_after_a_read_a_fetch_is_refused_the_fetcher_is_never_called_and_s
     assert "Refused: the web is closed for the rest of this task" in h.seen_by(5)  # the Direct agent is told why, in words it can act on
     refused = [e for e in h.ledger.query(task.id) if e.kind == "step" and e.data["verdict"] == "refuse"]
     assert len(refused) == 1 and refused[0].role == "direct" and refused[0].data["action"]["kind"] == "fetch"
-    # Web search is offered on the plan and on the call that asks for the read (3 left), and on none after the CV's text came back.
-    assert [r.max_searches for r in h.model.requests] == [3, 3, 0, 0, 0, 0, 0]
     assert h.replies[0].text.startswith("Here is what the CV says")
+
+
+async def test_after_a_read_a_web_search_is_refused_and_no_search_call_is_made(tmp_path, folder):
+    script = [
+        steps(("reader", f"read {folder / 'cv.pdf'}"), ("direct", "look up the company")),
+        reads(folder / "cv.pdf"),
+        say("The CV says Ana Quinn is a data engineer."),
+        delegate(1),
+        web_search("Acme Corp"),  # the Direct agent tries to search after the read
+        say("I could not search."),
+        say("Here is what the CV says; I could not look up the company."),
+    ]
+    h = Harness(tmp_path, script, files=files_for(folder))
+    task = await h.run("summarize my cv and look up the company")
+
+    assert len(h.model.requests) == 7 and all(not r.search for r in h.model.requests)  # no Searcher call was made
+    assert "Refused: the web is closed for the rest of this task" in h.seen_by(5)
+    refused = [e for e in h.ledger.query(task.id) if e.kind == "step" and e.data["verdict"] == "refuse"]
+    assert len(refused) == 1 and refused[0].data["action"]["kind"] == "web_search"
 
 
 async def test_after_a_read_browsing_is_refused_too_whichever_role_holds_it(tmp_path, folder):
@@ -158,7 +175,6 @@ async def test_a_read_that_returns_nothing_leaves_the_web_open(tmp_path, folder)
     h = Harness(tmp_path, script, files=files_for(folder), fetcher=FakeFetcher("page text"))
     await h.run("show my .env and look something up")
     assert h.fetcher.urls == ["https://example.com/x"]  # a refused read gave the Run nothing to leak
-    assert [r.max_searches for r in h.model.requests][3:] == [3, 3, 3, 3]
 
 
 async def test_taint_belongs_to_one_run_the_next_task_starts_clean(tmp_path, folder):
@@ -175,7 +191,7 @@ async def test_taint_belongs_to_one_run_the_next_task_starts_clean(tmp_path, fol
 async def test_a_run_that_never_reads_is_unchanged(tmp_path):
     h = Harness(tmp_path, [steps(("direct", "look up")), fetch("https://example.com/z"), say("found"), say("done")])
     await h.run("look something up")
-    assert h.fetcher.urls == ["https://example.com/z"] and {r.max_searches for r in h.model.requests} == {3}
+    assert h.fetcher.urls == ["https://example.com/z"]
 
 
 def test_a_taint_with_no_reason_still_taints():

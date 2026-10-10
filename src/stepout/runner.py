@@ -25,6 +25,7 @@ from stepout.links import defang, links_in, urls
 from stepout.model import Model, ModelRequest
 from stepout.reader import Reader
 from stepout.roles import ROLES
+from stepout.search import Searcher
 
 _MAX_PLANS = 3  # the first plan plus two re-plans
 _REPEATED = "You already ran exactly this and the result will not change. Try something different, or answer."
@@ -48,7 +49,6 @@ class _Run:
     task_id: str
     conversation_id: str
     cap: float  # $ for the whole Run
-    searches: int = 3  # web searches left
     spent: float = 0.0
     plan: list[PlanStep] = field(default_factory=list)
     plans: int = 0
@@ -115,7 +115,7 @@ class Runner:
         self._notify = notify
         self._files = files or Files()  # no Grants = no access
         self._browser = browser or Browser()  # starts Chrome only when a page is first opened
-        self._hands = {"fetch": fetcher, "files": self._files, "browse": self._browser, "read_text": Reader(self._files)}  # by capability name
+        self._hands = {"fetch": fetcher, "files": self._files, "browse": self._browser, "read_text": Reader(self._files), "web_search": Searcher(model)}  # by capability name
         self._trace = trace
         self._cancel = cancel or asyncio.Event()  # set by the Channel when the User presses Stop
         self._cap = float(os.environ.get("STEPOUT_TASK_CAP_USD", "1.00"))
@@ -201,6 +201,9 @@ class Runner:
         repeated = False  # the Role just asked for something it already has: its next call offers no hand tools, so it has to answer
         ran: dict[str, tuple[int, str]] = {}  # hand actions already run -> where their result sits in `notes` and what it says: asking again changes nothing while the Role can still read it
         step: Event | None = None  # the Step event being handled; ctx.emit hangs its events under it
+        def charge(usd: float) -> None:  # money a capability spent itself (the Searcher's model call) counts against this Run's cap
+            run.spent += usd
+
         ctx = RunContext(
             run_id=run.id,
             role=role_name,
@@ -208,6 +211,7 @@ class Runner:
             cancelled=self._cancel.is_set,
             emit=lambda kind, summary, **data: self._emit(run, kind, role_name, summary, parent=step.id, **data),
             state=run.state,
+            charge=charge,
         )
         for _ in range(role.max_steps):
             if self._cancel.is_set():
@@ -222,14 +226,12 @@ class Runner:
                 system=role.system,
                 user_text=_state(goal, run.plan if orchestrating else [], notes, run.previous if orchestrating else ""),
                 tools=[] if repeated else list(role.tools),
-                max_searches=0 if run.state.tainted else run.searches,  # a tainted Run is not offered web search
             )
             try:
                 response = await self._unless_stopped(self._model.call(request))
             except _Stopped:
                 return await self._stop(run, role_name, parent, "Stopped by you.")
             run.spent += response.cost_usd
-            run.searches -= response.searches
 
             action = response.action
             verdict = gate.check(action, role.actions, ctx)

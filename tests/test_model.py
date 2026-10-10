@@ -40,15 +40,17 @@ async def test_request_without_tools_omits_the_tools_field():
     assert "tools" not in kwargs
 
 
-async def test_web_search_is_capped_by_the_remaining_searches():
-    _, kwargs = await ask(tools=["web_search", "fetch"], max_searches=2)
-    assert [t["name"] for t in kwargs["tools"]] == ["web_search", "fetch"]
-    assert kwargs["tools"][0]["max_uses"] == 2
+async def test_the_providers_search_is_offered_only_when_asked_for_and_is_capped():
+    _, kwargs = await ask(search=True, max_searches=1)
+    assert kwargs["tools"] == [{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}]
+    _, kwargs = await ask(search=True, max_searches=0)
+    assert "tools" not in kwargs
 
 
-async def test_web_search_is_dropped_once_the_searches_are_used_up():
-    _, kwargs = await ask(tools=["web_search", "fetch"], max_searches=0)
-    assert [t["name"] for t in kwargs["tools"]] == ["fetch"]
+async def test_web_search_is_an_ordinary_function_tool_for_a_role():
+    _, kwargs = await ask(tools=["web_search", "fetch"])
+    assert [t["name"] for t in kwargs["tools"]] == ["web_search", "fetch"] and all("type" not in t for t in kwargs["tools"])
+    assert kwargs["tools"][0]["input_schema"]["required"] == ["query"]
 
 
 async def test_tool_calls_become_actions():

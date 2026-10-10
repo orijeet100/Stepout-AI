@@ -56,10 +56,11 @@ class ModelRequest(BaseModel):
     model: str
     system: str
     user_text: str
-    tools: list[str] = []  # "web_search" or a client tool name; none = a plain completion
+    tools: list[str] = []  # control tool or capability names, offered as function tools; none = a plain completion
     tool_defs: list[dict] = []  # one-off tools, sent as they are; a call to one comes back as a ToolCall (the front door's `screen`)
     temperature: float | None = None  # None = the API default (1.0). Models released after Opus 4.6 reject any other value with a 400: of ours only HAIKU (4.5) accepts one, SONNET (5) does not
-    max_searches: int = 3  # web searches this Run may still use
+    search: bool = False  # let the provider run its own web search in this call (only the Searcher asks); `max_searches` caps it
+    max_searches: int = 3  # web searches this call may run, when `search` is set
 
 
 class ToolCall(BaseModel):
@@ -89,14 +90,14 @@ def _cost(model: str, input_tokens: int, output_tokens: int, web_searches: int) 
     )
 
 
+# The basic version: 20260209+ defaults to dynamic filtering via code execution, which Haiku can't use. `max_uses` is added per request.
+_NATIVE_SEARCH = {"type": "web_search_20250305", "name": "web_search"}
+
+
 def _tool_defs(request: ModelRequest) -> list[dict]:
-    defs = []
-    for name in request.tools:
-        tool = _CONTROL_TOOLS.get(name) or capabilities.get(name).tool
-        if name != "web_search":
-            defs.append(tool)
-        elif request.max_searches > 0:  # the provider runs searches; this Run's remaining count caps them
-            defs.append({**tool, "max_uses": request.max_searches})
+    defs = [_CONTROL_TOOLS.get(name) or capabilities.get(name).tool for name in request.tools]
+    if request.search and request.max_searches > 0:  # the provider runs the search; the Searcher's call asks for one
+        defs.append({**_NATIVE_SEARCH, "max_uses": request.max_searches})
     return defs + request.tool_defs
 
 
@@ -113,8 +114,8 @@ def _sources(content) -> str:
 
 
 def client_tools(request: ModelRequest) -> list[dict]:
-    """The tools every provider is offered as plain functions (name, description, input_schema). `web_search` is not one: only some providers run it for us."""
-    return [_CONTROL_TOOLS.get(name) or capabilities.get(name).tool for name in request.tools if name != "web_search"] + request.tool_defs
+    """The tools every provider is offered as plain functions (name, description, input_schema)."""
+    return [_CONTROL_TOOLS.get(name) or capabilities.get(name).tool for name in request.tools] + request.tool_defs
 
 
 def call_to_action(name: str, args: dict, one_off: frozenset[str] = frozenset()):

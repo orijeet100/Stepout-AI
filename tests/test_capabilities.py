@@ -119,10 +119,11 @@ def test_every_role_tool_is_a_capability_or_a_control_tool():
     assert {t for role in ROLES.values() for t in role.tools} <= known
 
 
-def test_a_tool_the_provider_runs_has_no_action_and_is_not_one_a_role_may_take():
-    search = capabilities.get("web_search")
-    assert search.action is None and capabilities.parse("web_search", {}) is None
-    assert ROLES["direct"].actions == {"fetch", "answer"}
+def test_web_search_is_an_ordinary_capability_a_role_may_take_and_the_gate_sees():
+    from stepout.capabilities.web_search import WebSearchAction
+
+    assert capabilities.parse("web_search", {"query": "x"}) == WebSearchAction(query="x")
+    assert ROLES["direct"].actions == {"web_search", "fetch", "answer"}
 
 
 def test_plan_roles_come_from_the_role_table():

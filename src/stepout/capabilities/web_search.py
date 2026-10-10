@@ -1,13 +1,43 @@
-"""web_search: the provider's own search tool. It runs on the provider's side, so it has a blurb and a schema but no Action and no `run`."""
+"""web_search: look something up on the web. The hand is `stepout.search.Searcher` (one cheap model call that uses the provider's own search tool)."""
 
 from __future__ import annotations
 
-from stepout.capabilities.base import Capability
+from typing import Literal
+
+from pydantic import BaseModel
+
+from stepout.capabilities.base import TEXT_CHARS, Capability, RunContext, tool_schema
+
+MAX_SEARCHES = 3  # per Run
+
+
+class WebSearchAction(BaseModel):
+    kind: Literal["web_search"] = "web_search"
+    query: str
 
 
 class WebSearch(Capability):
     name = "web_search"
     blurb = "Searches the web for current facts, a few searches per run; answers carry their source links."
-    # The basic version: 20260209+ defaults to dynamic filtering via code execution, which Haiku can't use. `max_uses` is added per request.
-    tool = {"type": "web_search_20250305", "name": "web_search"}
-    reaches_web = True  # it never reaches the Gate as an Action; the Runner stops offering it to a tainted Run
+    tool = tool_schema(
+        "web_search",
+        f"Search the web for current information. Returns a short summary with source links. At most {MAX_SEARCHES} searches per task.",
+        query={"type": "string"},
+    )
+    action = WebSearchAction
+    reaches_web = True  # the Gate closes it once a file has been read, like fetch and browse
+
+    def summary(self, action: WebSearchAction) -> str:
+        return f"web_search {action.query}"
+
+    def repeat_guard(self, action: WebSearchAction) -> bool:
+        return True
+
+    async def run(self, action: WebSearchAction, ctx: RunContext) -> str:
+        used = ctx.state.scratch.get(self.name, 0)
+        if used >= MAX_SEARCHES:
+            return f"No searches left for this task ({MAX_SEARCHES} used). Work from what you have."
+        ctx.state.scratch[self.name] = used + 1
+        text, cost = await ctx.hands[self.name].search(action.query)
+        ctx.charge(cost)  # the search was a model call of its own
+        return f"web_search {action.query}:\n{text[:TEXT_CHARS]}"

@@ -49,7 +49,6 @@ async def test_a_run_given_a_tainted_exchange_has_the_web_closed_from_its_first_
     assert browser.calls == []  # the page was never opened
     (refused,) = refusals(h)
     assert refused.data["action"]["kind"] == "browse" and "an earlier answer it builds on (#1) used the contents of your files" in refused.data["summary"]
-    assert all(r.max_searches == 0 for r in h.model.requests)  # and web search is not offered either
 
 
 async def test_a_run_given_only_untainted_exchanges_is_not_tainted(tmp_path):
@@ -58,7 +57,6 @@ async def test_a_run_given_only_untainted_exchanges_is_not_tainted(tmp_path):
     await follow_up(h, [x(1, tainted=False), x(2, tainted=False)])
 
     assert [c[1:3] for c in browser.calls] == [("open", URL)] and refusals(h) == []
-    assert h.model.requests[0].max_searches > 0
 
 
 async def test_the_orchestrator_is_told_which_earlier_answers_used_the_users_files():

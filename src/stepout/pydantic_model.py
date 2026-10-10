@@ -8,7 +8,6 @@ A Role's `model` is a logical id (`roles.SONNET`, `roles.HAIKU`). `targets` says
 
 from __future__ import annotations
 
-import logging
 import os
 from typing import Mapping
 
@@ -24,8 +23,6 @@ from stepout.domain import AnswerAction
 from stepout.failure import Failure
 from stepout.model import PRICING, WEB_SEARCH_COST_PER_USE, AnthropicModel, ModelRequest, ModelResponse, call_to_action, client_tools
 from stepout.roles import HAIKU, SONNET
-
-_log = logging.getLogger(__name__)
 
 # Which environment variable holds the key for each provider prefix of a model string ("openrouter:openai/gpt-5.2").
 _KEY_VARS = {"anthropic": "ANTHROPIC_API_KEY", "openrouter": "OPENROUTER_API_KEY", "openai": "OPENAI_API_KEY", "google-gla": "GEMINI_API_KEY"}
@@ -48,7 +45,6 @@ class PydanticModel:
     def __init__(self, targets: Mapping[str, str | PaiModel] | None = None) -> None:
         self._targets = dict(targets or {})
         self._built: dict[str, PaiModel] = {}
-        self._warned: set[str] = set()
 
     def target(self, logical: str) -> str | PaiModel:
         return self._targets.get(logical, f"anthropic:{logical}")
@@ -77,12 +73,10 @@ class PydanticModel:
             for t in client_tools(request)
         ]
         native = []
-        if "web_search" in request.tools and request.max_searches > 0:
-            if WebSearchTool in type(model).supported_native_tools():
-                native.append(WebSearchTool(max_uses=request.max_searches))
-            elif request.model not in self._warned:  # ponytail: the Direct agent then has fetch only; search becomes a client tool in a later slice
-                self._warned.add(request.model)
-                _log.warning("%s cannot run web search: the agent behind %s gets its other tools only", type(model).__name__, request.model)
+        if request.search and request.max_searches > 0:
+            if WebSearchTool not in type(model).supported_native_tools():  # answering "from a search" without one would be made up
+                raise Failure("no_search", f"The model provider behind {request.model} cannot search the web, so a search cannot run on it. Pick a model that can, or ask without it.")
+            native.append(WebSearchTool(max_uses=request.max_searches))
         settings = {"max_tokens": 4096, "parallel_tool_calls": False}  # one Action per turn: the Runner runs one, so a second call would be dropped silently
         if request.temperature is not None:  # never send null: only set it when asked
             settings["temperature"] = request.temperature

@@ -11,7 +11,7 @@ def test_each_role_holds_one_kind_of_hand():
     from stepout.roles import ROLES
 
     assert ROLES["orchestrator"].actions == {"plan", "delegate", "answer"}
-    assert ROLES["direct"].actions == {"fetch", "answer"}
+    assert ROLES["direct"].actions == {"web_search", "fetch", "answer"}  # the web: it looks things up and reads pages
     assert ROLES["files"].actions == {"files", "answer"}
     assert ROLES["browser"].actions == {"browse", "answer"}
     assert ROLES["reader"].actions == {"read_text", "answer"}  # the only role that can open a file, and it holds nothing else

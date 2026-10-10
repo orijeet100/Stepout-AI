@@ -45,15 +45,16 @@ class RunContext:
     cancelled: Callable[[], bool]  # True once the User pressed Stop
     emit: Callable[..., Awaitable[Any]]  # emit(kind, summary, **data): a Trace event under the Step that is running
     state: RunState = field(default_factory=RunState)  # the same object for every Role in the Run
+    charge: Callable[[float], None] = lambda usd: None  # add money a capability spent itself (a model call of its own) to this Run's spend
 
 
 class Capability:
     name: str  # the tool name the model sees; also the Action's `kind`
     blurb: str  # one line: what it can and cannot do (feeds Screening and the decline reply)
     tool: dict  # JSON schema offered to the model
-    action: type[BaseModel] | None = None  # the Pydantic Action (`kind == name`); None when the provider runs it (web_search)
+    action: type[BaseModel] | None = None  # the Pydantic Action (`kind == name`); None when the provider runs the tool itself (none today)
     stateful: bool = False  # True if what it returns depends on what it did before (the browser's current page): a repeat is then skipped only straight after the identical call
-    reaches_web: bool = False  # True if it can send or fetch anything over the network: closed by the Gate (and, for web_search, not offered) once the Run is tainted
+    reaches_web: bool = False  # True if it can send or fetch anything over the network: closed by the Gate once the Run is tainted
 
     async def run(self, action: Any, ctx: RunContext) -> str:
         """Do it; return the text that goes into the Role's notes."""
