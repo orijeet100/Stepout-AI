@@ -2,7 +2,7 @@
 
 .app { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); height: 100dvh; background: var(--sidebar); font-size: var(--fs-sm); line-height: var(--lh); }
 .app h1 { margin: 0; font-size: var(--fs-md); font-weight: 500; }
-.app button, .app textarea { font: inherit; color: inherit; }
+:where(.app button, .app textarea) { font: inherit; color: inherit; } /* zero specificity: a component's own colour wins */
 .app a { color: var(--accent); text-underline-offset: 0.15em; }
 .app :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .muted { color: var(--muted); font-size: var(--fs-xs); }
@@ -66,7 +66,7 @@
 /* messages: yours is a bubble on the right; the assistant has a tile and no bubble */
 .user { align-self: flex-end; width: fit-content; max-width: min(80%, 56ch); margin: 0; padding: var(--sp-2) 14px; overflow-wrap: anywhere; white-space: pre-wrap; background: linear-gradient(to bottom right, var(--surface-2), var(--fill)); border: 1px solid var(--border); border-radius: var(--r-2xl) var(--r-2xl) var(--r-lg) var(--r-2xl); box-shadow: var(--shadow-card); }
 .user--new { animation: fade-up 250ms var(--ease-spring) both; }
-@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(var(--rise, 6px)); } }
 .turn { display: flex; align-items: flex-start; gap: var(--sp-3); min-width: 0; }
 .turn__tile { display: flex; flex: none; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; margin-top: calc((var(--fs-sm) * var(--lh) - 1.75rem) / 2); color: var(--muted); background: color-mix(in srgb, var(--fill) 60%, transparent); border-radius: var(--r-lg); box-shadow: 0 0 0 1px var(--border); }
 .turn__body { display: flex; flex: 1; flex-direction: column; gap: var(--sp-2); min-width: 0; }
@@ -178,8 +178,24 @@ a.page__url { color: var(--accent); }
 .reply--note { padding-left: var(--sp-3); border-left: 2px solid var(--border); }
 .note__cap { display: block; margin-bottom: 2px; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
 
+/* the empty chat: a greeting centred in the panel, and four suggestions above the composer */
+.greeting { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 var(--sp-4); pointer-events: none; text-align: center; }
+.greeting__title { --rise: 10px; margin: 0; font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.025em; line-height: 1.2; animation: fade-up 500ms var(--ease-spring) 350ms both; }
+.greeting__sub { --rise: 10px; margin: var(--sp-3) 0 0; max-width: 32rem; color: var(--muted); font-size: var(--fs-md); text-wrap: balance; animation: fade-up 500ms var(--ease-spring) 500ms both; }
+@media (min-width: 768px) { .greeting__title { font-size: var(--fs-2xl); } }
+.suggestions { display: flex; gap: 10px; padding-bottom: var(--sp-1); overflow-x: auto; scrollbar-width: none; }
+.suggestion { --rise: 16px; flex: none; min-width: 200px; padding: var(--sp-3) var(--sp-4); color: var(--muted); text-align: left; white-space: nowrap; background: color-mix(in srgb, var(--surface) 30%, transparent); border: 1px solid var(--border); border-radius: var(--r-xl); cursor: pointer; font-size: var(--fs-xs); line-height: 1.6; animation: fade-up 400ms var(--ease-spring) both; transition: transform 200ms var(--ease), background 200ms var(--ease), color 200ms var(--ease), box-shadow 200ms var(--ease); }
+.suggestion:hover:not(:disabled) { transform: translateY(-2px); color: var(--text); background: color-mix(in srgb, var(--surface) 60%, transparent); box-shadow: var(--shadow-card); }
+.suggestion:disabled { cursor: not-allowed; opacity: 0.6; }
+@media (min-width: 640px) {
+  .suggestions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .suggestion { min-width: 0; padding: var(--sp-4); white-space: normal; font-size: var(--fs-sm); }
+}
+
 /* composer */
-.composer { display: flex; align-items: flex-end; gap: var(--sp-2); width: calc(100% - var(--sp-4)); max-width: var(--measure); margin: 0 auto var(--sp-3); padding: var(--sp-2); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-composer); }
+.dock { display: flex; flex-direction: column; gap: var(--sp-4); width: 100%; max-width: var(--measure); margin: 0 auto; padding: 0 var(--sp-2) var(--sp-3); }
+@media (min-width: 768px) { .dock { padding: 0 var(--sp-4) var(--sp-4); } }
+.composer { display: flex; align-items: flex-end; gap: var(--sp-2); width: 100%; padding: var(--sp-2); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-composer); }
 .composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); } /* the composer carries the focus: a 2px accent edge, and no second ring inside it */
 .composer textarea:focus-visible { outline: none; }
 .composer textarea { flex: 1; min-width: 0; max-height: 40vh; padding: var(--sp-1) var(--sp-2); background: none; border: 0; outline: 0; resize: none; field-sizing: content; }

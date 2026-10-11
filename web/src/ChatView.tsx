@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Greeting from './Greeting'
 import Icon from './Icon'
 import Reply from './Reply'
 import RunBlock from './RunBlock'
@@ -65,15 +66,13 @@ export default function ChatView({ items, empty = 'new', starting = false, runSt
   if (!hasItems) {
     return (
       <div className="thread">
-        <div className="scroll">
-          {empty === 'loading' ? (
-            <p className="empty">Loading…</p>
-          ) : empty === 'failed' ? (
-            <p className="empty">Nothing to show yet. Use “Retry now” above.</p>
-          ) : (
-            <p className="empty">Ask something. It plans the steps, shows each one as it happens, and tells you what it cost.</p>
-          )}
-        </div>
+        {empty === 'new' ? (
+          <Greeting />
+        ) : (
+          <div className="scroll">
+            <p className="empty">{empty === 'loading' ? 'Loading…' : 'Nothing to show yet. Use “Retry now” above.'}</p>
+          </div>
+        )}
       </div>
     )
   }

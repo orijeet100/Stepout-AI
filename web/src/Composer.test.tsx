@@ -52,4 +52,25 @@ describe('Composer', () => {
     const { box } = setup({ busy: true })
     expect(box.placeholder).toMatch(/queued/)
   })
+
+  it('offers no suggestions unless asked to', () => {
+    setup()
+    expect(screen.queryByRole('group', { name: 'Suggested questions' })).toBeNull()
+  })
+
+  it('offers four suggested questions, and a click sends that text as it is', () => {
+    const { onSend } = setup({ suggest: true })
+    const group = screen.getByRole('group', { name: 'Suggested questions' })
+    expect(group.querySelectorAll('button')).toHaveLength(4)
+    fireEvent.click(screen.getByRole('button', { name: "What's the news in New York today?" }))
+    expect(onSend).toHaveBeenCalledExactlyOnceWith("What's the news in New York today?")
+  })
+
+  it('cannot send a suggestion while the connection is down', () => {
+    const { onSend } = setup({ suggest: true, online: false })
+    const first = screen.getAllByRole('button').find((b) => b.className.includes('suggestion')) as HTMLButtonElement
+    expect(first.disabled).toBe(true)
+    fireEvent.click(first)
+    expect(onSend).not.toHaveBeenCalled()
+  })
 })

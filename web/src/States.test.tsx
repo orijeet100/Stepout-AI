@@ -59,18 +59,20 @@ describe('while it waits', () => {
     expect(screen.getByText('Loading chats…')).toBeTruthy()
     expect(screen.getByText('Loading…')).toBeTruthy()
     expect(screen.queryByText('No chats yet.')).toBeNull()
-    expect(screen.queryByText(/Ask something/)).toBeNull()
+    expect(screen.queryByText(/What can I help with/)).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Suggested questions' })).toBeNull() // no suggestions while it is only unread
     open()
     expect(await screen.findByRole('button', { name: /Which events are free\?/ })).toBeTruthy() // the list is in; the chat is still being read
     expect(screen.getByText('Loading…')).toBeTruthy()
-    expect(screen.queryByText(/Ask something/)).toBeNull()
+    expect(screen.queryByText(/What can I help with/)).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Suggested questions' })).toBeNull()
   })
 
   it('a chat the backend has nothing stored for is an empty chat, not a chat that loads forever', async () => {
     routes = { '/api/conversations': LIST } // its detail is a 404
     render(<App />)
     open()
-    expect(await screen.findByText(/Ask something/)).toBeTruthy()
+    expect(await screen.findByText(/What can I help with/)).toBeTruthy()
     expect(screen.queryByText('Loading…')).toBeNull()
   })
 
@@ -79,7 +81,8 @@ describe('while it waits', () => {
     render(<App />)
     open()
     expect(await screen.findByText('No chats yet.')).toBeTruthy()
-    expect(screen.getByText(/Ask something/)).toBeTruthy()
+    expect(screen.getByText(/What can I help with/)).toBeTruthy()
+    expect(screen.getByRole('group', { name: 'Suggested questions' })).toBeTruthy() // an empty chat offers four things to try
   })
 })
 

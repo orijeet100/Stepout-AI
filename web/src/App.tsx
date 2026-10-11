@@ -78,7 +78,7 @@ export default function App() {
             </div>
           )}
           <ChatView key={selected ?? 'draft'} items={items} starting={!!selected && starting(state, selected, items)} empty={waiting ? (error ? 'failed' : 'loading') : 'new'} runState={(r) => runState(state, r)} runCap={(r) => runCap(state, r)} onStop={stop} onOpenShot={(run, index) => setViewer({ run, index })} />
-          <Composer online={conn === 'open'} busy={state.status.state === 'running'} onSend={send} />
+          <Composer online={conn === 'open'} busy={state.status.state === 'running'} suggest={items.length === 0 && !waiting} onSend={send} />
         </div>
       </main>
       <ShotViewer

@@ -77,6 +77,7 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: 'Which events are free?' })).toBeTruthy()
     expect(await screen.findByText('Two of them.', { selector: '.reply p' })).toBeTruthy()
     expect(screen.getByText('$0.05')).toBeTruthy() // the reply's cost
+    expect(screen.queryByRole('group', { name: 'Suggested questions' })).toBeNull() // a chat with messages offers none
     expect(screen.getByText('1 step · $0.01 · 1 s')).toBeTruthy() // the run's summary: steps · cost · elapsed, from its events
     expect(screen.getByRole('button', { name: 'New chat' })).toBeTruthy()
     const row = screen.getByRole('button', { name: /Which events are free\?/ }) // the sidebar row is a named button
