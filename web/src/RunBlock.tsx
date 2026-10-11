@@ -9,6 +9,7 @@ const VERDICT: Record<Verdict, { label: string; icon: 'check' | 'ban' | 'ask' }>
   refuse: { label: 'Refused', icon: 'ban' },
   ask: { label: 'Asks you', icon: 'ask' },
 }
+const STATE_ICON: Record<Exclude<RunState, 'running'>, 'checkcircle' | 'ban' | 'xcircle'> = { done: 'checkcircle', stopped: 'ban', overbudget: 'xcircle', failed: 'xcircle' }
 const STATE_LABEL: Record<RunState, string> = { running: 'Working…', done: '', stopped: 'Stopped by you', overbudget: 'Over budget', failed: 'Failed' }
 
 const stepsOf = (done: number, total: number) => `${done} of ${total} step${total === 1 ? '' : 's'}`
@@ -62,7 +63,9 @@ export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: P
     <div className="runblock">
       <details className={`run run--${state}`} open={running}>
         <summary>
-          <span className={`dot dot--${state}`} aria-hidden="true" />
+          <span className={`run__state run__state--${state}`} aria-hidden="true">
+            {state === 'running' ? <span className="dot dot--running" /> : <Icon name={STATE_ICON[state]} />}
+          </span>
           <span className="run__sum">{summary}</span>
           <span className="run__chev"><Icon name="down" /></span>
         </summary>
@@ -80,21 +83,29 @@ export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: P
           )}
           <BrowserPanel runId={run.id} live={running && hasBrowserStep(run)} shots={shots} onOpen={onOpenShot} />
           {plan.length > 0 && (
-            <ol className="plan" aria-label="Plan">
-              {plan.map((s, i) => (
-                <li key={i} className={`plan__${s.status}`}>
-                  <span className={`glyph glyph--${s.status}`} role="img" aria-label={s.status}>
-                    {s.status === 'done' && <Icon name="check" size={12} />}
-                    {s.status === 'failed' && <Icon name="x" size={12} />}
-                  </span>
-                  <span className="chip">{s.role}</span> {s.goal}
-                </li>
-              ))}
-            </ol>
+            <section className="run__section">
+              <p className="run__label" aria-hidden="true">Plan</p>
+              <ol className="plan" aria-label="Plan">
+                {plan.map((s, i) => (
+                  <li key={i} className={`plan__${s.status}`}>
+                    <span className={`glyph glyph--${s.status}`} role="img" aria-label={s.status}>
+                      {s.status === 'done' && <Icon name="check" size={12} />}
+                      {s.status === 'failed' && <Icon name="x" size={12} />}
+                    </span>
+                    <span className="chip">{s.role}</span> {s.goal}
+                  </li>
+                ))}
+              </ol>
+            </section>
           )}
-          <ul className="steps" aria-label="Steps">
-            {lines.map((e) => <Line key={e.id} e={e} />)}
-          </ul>
+          {lines.length > 0 && (
+            <section className="run__section">
+              <p className="run__label" aria-hidden="true">Steps</p>
+              <ul className="steps" aria-label="Steps">
+                {lines.map((e) => <Line key={e.id} e={e} />)}
+              </ul>
+            </section>
+          )}
         </div>
       </details>
       {/* under the card, not in it: a finished run's pages are reachable without opening the summary */}

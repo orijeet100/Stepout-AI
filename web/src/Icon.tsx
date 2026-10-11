@@ -26,6 +26,18 @@ const paths = {
   send: <path d="M12 19V5M5 12l7-7 7 7" />,
   stop: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" />,
   check: <path d="M20 6 9 17l-5-5" />,
+  checkcircle: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  xcircle: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m15 9-6 6M9 9l6 6" />
+    </>
+  ),
   x: <path d="M18 6 6 18M6 6l12 12" />,
   down: <path d="m6 9 6 6 6-6" />,
   arrowdown: <path d="M12 5v14M19 12l-7 7-7-7" />,
