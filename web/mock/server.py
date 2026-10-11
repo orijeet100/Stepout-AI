@@ -4,7 +4,8 @@
 
 History (GET /api/...) is built from the fixtures. A `send` over /ws picks a recorded run by keyword, then replays its
 events with the recorded gaps (times scaled by --speed, each gap capped at 4 s), under fresh ids, as the real server
-would stream them. `stop` ends the replay at the next event. One run at a time; messages sent meanwhile are queued.
+would stream them; the reply's words come first as `delta` traces (live only, never saved), then the finished message. `stop` ends the replay at the
+next event. One run at a time; messages sent meanwhile are queued.
 The security rules are the real channel's (Host check, Origin and JSON content type on POST, 32-hex ids, no CORS), so
 the dev proxy is tested against them. Replays live in memory only: restart the mock and they are gone.
 

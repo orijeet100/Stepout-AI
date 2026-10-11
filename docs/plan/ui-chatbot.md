@@ -1,6 +1,6 @@
 # UI plan — the page looks and feels like the Vercel "Chatbot" template
 
-Status: **plan of record for the `ui-enhancements` branch, written 2026-10-11 before any code** · lane: UI (`web/**` only) · wire contract: unchanged ([`../ui-contract.md`](../ui-contract.md)) · rules of the lane: [`ui-worktree.md`](ui-worktree.md) · log: `python scripts/log.py list --lane ui`
+Status: **built 2026-10-11, slices S0 to S8 on the `ui-enhancements` branch; written before any code, results at the end (section 9)** · lane: UI (`web/**` only) · wire contract: unchanged ([`../ui-contract.md`](../ui-contract.md)) · rules of the lane: [`ui-worktree.md`](ui-worktree.md) · log: `python scripts/log.py list --lane ui`
 
 **Job.** The page (U1-U5, "Ink") works but is plain. Rebuild its look as the Vercel Chatbot template (github.com/vercel/chatbot, formerly "AI Chatbot"; live demo https://chatbot.ai-sdk.dev/demo, which is where chat.vercel.ai moved: `chat.vercel.ai` answers 404 today). The **look** is re-implemented in our own CSS and React (no Next.js, no AI SDK, no Tailwind, no shadcn, no new dependency). Every Stepout-specific thing stays: the streamed reply, the run view, the live browser view and screenshot viewer, history across reload, new chat, the drawer, both themes, reduced motion, keyboard use, the contrast check, and the security rules for model output.
 
@@ -118,3 +118,37 @@ A model picker, attachments, share/visibility, a "Deploy" button, a user menu or
 ## 8. Evidence the report must contain
 
 Branch tip commit; per-slice table; test counts (unit before 131; Playwright flows before 29; contrast pairs before 94); before/after screenshots in both themes; a live run from port 8790 with a sampler on the reply text that shows it **growing**; Stop; reload with history intact; narrow width; dark; reduced motion; spend (at most about $0.15); what still differs from the template and why; what could not be checked.
+
+## 9. Result (2026-10-11)
+
+| Slice | Commit | Log entry |
+|---|---|---|
+| S0 plan, references | `e0978bb` | [the page's look becomes the template's](../log/2026-10-11-the-page-s-look-becomes-the-vercel-chatbot-template-s-plan-o.md) |
+| S1 tokens and type | `0084ca8` | [S1](../log/2026-10-11-s1-tokens-and-type-are-the-vercel-chatbot-template-s-neutral.md) |
+| S2 shell, header, sidebar | `dfc9b68` | [S2](../log/2026-10-11-s2-the-shell-header-and-sidebar-of-the-template-inset-panel-.md) |
+| S3 the thread | `0bb07f9` | [S3](../log/2026-10-11-s3-the-thread-of-the-template-bubble-one-tile-per-answer-mar.md) |
+| S4 greeting, suggestions | `e8cc976` | [S4](../log/2026-10-11-s4-the-empty-chat-greets-you-and-offers-four-things-to-try.md) |
+| S5 composer | `414515b` | [S5](../log/2026-10-11-s5-the-composer-of-the-template-rounded-card-tall-text-area-.md) |
+| S6 run card | `1c60e0f` | [S6](../log/2026-10-11-s6-the-run-card-is-the-template-s-tool-card-state-icon-upper.md) |
+| S7 sheet and rail | `96704bb` | [S7](../log/2026-10-11-s7-the-chat-list-is-a-bottom-sheet-on-a-phone-and-folds-to-a.md) |
+| S8 mock streams, real check | `a105bd0`, then the closing commit (see `git log`) | [the mock streams](../log/2026-10-11-the-mock-streams-the-reply-as-delta-frames-and-a-flow-proves.md), [verification](../log/2026-10-11-s8-verified-for-real-the-page-on-the-real-backend-streaming-s.md) |
+
+**After** (same data as the "before" shots; light, dark; the phone; the rail):
+[empty, light](../log/assets/chatbot-after-light-empty.jpg) · [empty, dark](../log/assets/chatbot-after-dark-empty.jpg) · [conversation, light](../log/assets/chatbot-after-light-conversation.jpg) · [conversation, dark](../log/assets/chatbot-after-dark-conversation.jpg) · [run open, light](../log/assets/chatbot-after-light-run-expanded.jpg) · [run open, dark](../log/assets/chatbot-after-dark-run-expanded.jpg) · [phone, empty](../log/assets/chatbot-after-dark-mobile-empty.jpg) · [phone, chat list](../log/assets/chatbot-after-dark-mobile-sheet.jpg) · [rail](../log/assets/chatbot-after-dark-rail.jpg) · [a real run, light](../log/assets/chatbot-after-live-news-light.jpg) · [a real chat, dark](../log/assets/chatbot-after-live-news-dark.jpg).
+
+### What still differs from the template, and why
+
+| Difference | Why |
+|---|---|
+| Muted text, the focus ring and status colours are a little stronger than the template's | its values fail WCAG AA; the contrast gate is a must-keep (118 pairs) |
+| No model picker, attachments, visibility selector, "Deploy" button, user menu, delete or share, message actions (copy, vote, edit) | none exists in Stepout (section 7) |
+| The sidebar keeps the "Stepout" name next to the mark and a Collapse button; rows show titles only and have no "more" menu | the product has a name; no per-chat actions exist |
+| No Ctrl+B shortcut and no hover swap of the mark for the toggle on the rail | not asked for; the toggle is a button |
+| The header stays when the sidebar is folded (it holds the chat's title and the Running pill) | the template drops it because it holds only buttons |
+| The reply is react-markdown with our CSS: no code-block header or copy button, no syntax colours, math or diagrams | Streamdown is a Next.js-era dependency; the reply's safety rules (no HTML, no images, safe links) are enforced by `Reply.tsx` and unchanged |
+| No caret on the streaming text; entrances are CSS keyframes on the template's spring curve, not framer-motion | no dependency for motion CSS does |
+| The bottom sheet closes by Esc, the scrim or choosing a chat, not by dragging | no gesture library; the grabber is a visual cue as in the template |
+| Suggested questions and greeting copy are Stepout's | its own four hands |
+| Sparkles tile uses the Lucide shape | the template's is a custom icon of the same idea |
+
+**Not checked:** a real phone or tablet; Firefox or Safari (the page already needs `light-dark()` and `field-sizing`, which are recent in both); the page against a streamed reply that has read a file (no `delta` is sent for such a Run, by contract).

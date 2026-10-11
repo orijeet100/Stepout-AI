@@ -237,6 +237,6 @@ a.page__url { color: var(--accent); }
   .steps__cost { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .app *, .app *::before, .app *::after { animation: none !important; transition: none !important; }
+  .app, .app *, .app *::before, .app *::after { animation: none !important; transition: none !important; }
   .shimmer { color: var(--muted); background: none; } /* the words stand still, in the muted colour */
 }
