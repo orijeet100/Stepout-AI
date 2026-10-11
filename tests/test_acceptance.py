@@ -1,6 +1,6 @@
 """The acceptance harness (scripts/acceptance.py), offline: it passes its eight queries with the scripted model, writes its report, and its checks can fail.
 
-What the live model does with the queries is the merge agent's run (`python scripts/acceptance.py --live`, which spends money). These pin the harness,
+What the live model does with the queries is a paid run (`python scripts/acceptance.py --live`). These pin the harness,
 so that a green live run means something and a red one is believable. The negative controls come first: each shows a check that can say no.
 """
 
@@ -184,7 +184,7 @@ def test_the_real_pieces_the_live_branch_builds_construct_without_a_network_or_c
 
 
 async def test_the_live_branch_wires_the_same_app_around_what_it_is_given_and_closes_the_browser(tmp_path, monkeypatch):
-    """--live with the scripted stand-ins in place of Claude, the network and Chrome (a real live run is the merge agent's, and costs money)."""
+    """--live with the scripted stand-ins in place of Claude, the network and Chrome (a real live run costs money)."""
     from tests.support import acceptance_offline as offline
     from tests.test_runner import FakeBrowser
 

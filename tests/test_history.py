@@ -108,7 +108,7 @@ async def test_a_conversation_through_the_app_is_saved_and_survives_a_restart(tm
 
 
 async def test_a_browser_run_reads_back_whole_from_a_new_store(tmp_path):
-    """B2's done-when: a scripted Run, a new Store on the same file, and history returns the chat, its messages, its Run and every event."""
+    """A scripted Run, a new Store on the same file, and history returns the chat, its messages, its Run and every event."""
     page = ("URL: https://example.com\nTitle: Example\nText: Example Domain", "abc/1.jpg")
     script = [plan("read it", role="browser"), browse("open", "https://example.com"), say("Heading: Example Domain"), say("It says Example Domain.")]
     reopened = await serve(tmp_path, [ask("c1", "read https://example.com")], script, browser=FakeBrowser(page))

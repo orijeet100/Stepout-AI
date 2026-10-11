@@ -1,6 +1,6 @@
 """The wire types of docs/ui-contract.md v1, as Pydantic models: what the page and the backend promise each other.
 
-This file and that document move together: a change to either needs the other and a `contract` entry in docs/log/.
+This file and that document move together: a change to either needs the other.
 `extra="forbid"` is deliberate: a field a test fixture has and these models lack is drift, and the test should say so.
 (The page, for its part, must ignore unknown fields and kinds; additive changes are free.)
 """

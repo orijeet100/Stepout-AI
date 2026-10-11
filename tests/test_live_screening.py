@@ -2,8 +2,8 @@
 
     python -X utf8 -m pytest -m eval -s tests/test_live_screening.py
 
-The merge agent runs it (after telling the User). The bars are proposed (docs/plan/main-worktree.md, B3): after the first run, tune
-them in tests/support/screening_eval.py and log the change. `-s` prints every row and what the model decided.
+Run it after changing the front door's prompt or model (it spends money). The bars are in tests/support/screening_eval.py:
+tune them from a live run. `-s` prints every row and what the model decided.
 """
 
 import asyncio

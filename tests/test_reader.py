@@ -281,7 +281,7 @@ async def test_reading_that_takes_too_long_is_stopped(reader, tree, monkeypatch)
 async def test_secrets_are_hidden_in_text_and_in_pdf_and_counted(reader, tree):
     key = "sk-" + "ant-api03-" + "a1B2c3D4e5F6g7H8i9J0"
     (tree[0] / "notes.txt").write_text(f"call Ana\npassword: hunter2\nkey {key}\n")
-    (tree[0] / "cfg.pdf").write_bytes(make_pdf([f"db_password=s3cr3t and the user is ana"]))
+    (tree[0] / "cfg.pdf").write_bytes(make_pdf(["db_password=s3cr3t and the user is ana"]))
     text = (await read(reader, tree[0] / "notes.txt")).text
     assert "2 secret-looking values replaced with [redacted]" in text and "hunter2" not in text and key not in text and "call Ana" in text
     pdf = (await read(reader, tree[0] / "cfg.pdf")).text

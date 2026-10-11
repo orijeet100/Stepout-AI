@@ -1,6 +1,6 @@
 """web/mock/real_backend.py must keep working as the backend's API moves: it runs, answers a normal message, declines a payment, and links a follow-up.
 
-It broke silently when B3 changed Intake and Runner.submit, because nothing ran it. Run with the other mock tests: python -m pytest web/mock -q
+It once broke silently when Intake and Runner.submit changed, because nothing ran it. Run with the other mock tests: python -m pytest web/mock -q
 """
 
 import asyncio

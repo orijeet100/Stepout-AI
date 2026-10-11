@@ -17,7 +17,7 @@ AT = "2026-10-07T12:00:00+00:00"
 
 def test_every_ui_fixture_is_a_list_of_valid_server_frames():
     if not FIXTURES:
-        pytest.skip("no web/fixtures yet: the UI lane's U2 adds them")
+        pytest.skip("no web/fixtures found")
     for path in FIXTURES:
         try:
             TypeAdapter(list[ServerFrame]).validate_python(json.loads(path.read_text(encoding="utf-8")))
@@ -26,7 +26,7 @@ def test_every_ui_fixture_is_a_list_of_valid_server_frames():
 
 
 def test_the_fixture_check_passes_a_good_fixture_and_names_a_bad_one(tmp_path, monkeypatch):
-    # The real check skips until the UI lane adds web/fixtures; this shows it would catch drift once they exist.
+    # This shows the fixture check would catch drift in a fixture.
     good = tmp_path / "good.json"
     good.write_text(json.dumps([{"type": "hello", "v": 1}, {"type": "message", "id": "m", "conversation_id": "c", "role": "user", "text": "hi", "at": AT}]))
     bad = tmp_path / "bad.json"

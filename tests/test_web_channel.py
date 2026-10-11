@@ -7,7 +7,6 @@ model is fake.
 
 import asyncio
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 
 import aiohttp
@@ -32,7 +31,7 @@ SERVER_FRAMES = TypeAdapter(list[ServerFrame])
 
 
 class FixtureHistory:
-    """A HistoryReader over the UI lane's fixtures: what the page was built against."""
+    """A HistoryReader over web/fixtures: what the page was built against."""
 
     def __init__(self) -> None:
         self.chats = {}

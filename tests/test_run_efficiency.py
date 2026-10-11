@@ -1,6 +1,6 @@
 """Waste in a Run, measured with the scripted model: a repeat the guard skips, and how many model calls a two-part plan takes.
 
-From the live C2 run: the Browser agent asked for `open <same page>` three more times after a click and two `more`. The guard did stop the page
+From a live run: the Browser agent asked for `open <same page>` three more times after a click and two `more`. The guard did stop the page
 loading again, but it recorded each as an allowed step, and the model asked because the first view had shrunk out of its notes.
 """
 

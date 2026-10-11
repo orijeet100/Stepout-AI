@@ -1,8 +1,8 @@
 """Fetcher: get(url) -> FetchedPage. HTTP only, network policy, size limit.
 
 ponytail: resolves the hostname (every address it has) and checks them; doesn't guard
-against DNS rebinding between check and connect. Browser's fuller network
-policy (checked on every request, including ones a page starts itself) is S2.
+against DNS rebinding between check and connect. The Browser has its own fuller
+network policy (checked on every request, including ones a page starts itself).
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """End-to-end fixtures: a real Chrome drives the built page (vite preview) against the mock backend.
 
-Run:  python -m pytest web/e2e -q      (the Main lane's pytest only collects tests/, so these do not mix with its run)
+Run:  python -m pytest web/e2e -q      (the backend's pytest only collects tests/, so these do not mix with its run)
 Needs: `npm install` in web/ and the installed Chrome. Everything runs on free ports and is stopped afterwards; saved
 screenshots go to pytest's tmp dir, never into git.
 """

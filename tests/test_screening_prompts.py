@@ -7,7 +7,6 @@ import pytest
 from stepout.domain import ChatReply, Decline, Proceed
 from tests.support.screening_eval import evaluate, exchanges_of, load_rows, summarize
 
-LOG = Path(__file__).resolve().parents[1] / "docs" / "log" / "2026-10-07-front-door-v0-one-haiku-call.md"
 ROWS = load_rows()
 
 
@@ -29,11 +28,9 @@ def test_the_demo_queries_are_all_expected_to_proceed():
     assert len(demos) >= 9 and all(r["expect"] == "proceed" for r in demos)
 
 
-def test_the_probe_prompts_are_exactly_the_ones_the_log_records():
+def test_the_probe_prompts_are_the_ones_that_beat_the_regex_decline_list():
     probe = [r for r in ROWS if r["tag"] == "probe"]
-    assert len(probe) == 11  # the 7 false declines and the 4 named misses
-    log = LOG.read_text(encoding="utf-8")
-    assert all(f"`{r['prompt']}`" in log for r in probe)  # copied from the entry, not paraphrased
+    assert len(probe) == 11  # the 7 false declines and the 4 named misses (ADR 0012)
     assert {r["expect"] for r in probe if r["prompt"] in ("send $200 to my landlord", "wire money to John", "write me a python script", "close my bank account")} == {"decline"}
     assert sum(r["expect"] == "proceed" for r in probe) == 7
 

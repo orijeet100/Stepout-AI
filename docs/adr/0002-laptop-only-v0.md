@@ -1,6 +1,6 @@
 # 0002 — V0 runs on the laptop only; no Docker
 
-Date: 2026-10-06 · Status: accepted · Amended 2026-10-07: laptop-file tasks arrive in V0 as a local tool (S8) — see [0008](0008-laptop-files-grants.md)
+Date: 2026-10-06 · Status: accepted · Amended 2026-10-07: laptop-file tasks arrive in V0 as a local tool — see [0008](0008-laptop-files-grants.md)
 
 **Decision.** V0 is one Python process on the owner's laptop. No always-on hub, cloud browser, containers, webhook channels, email, or credentials. Browser tasks use a fresh isolated Playwright context (no host profile, temp downloads). Messages sent while the laptop is off wait on Telegram (up to 24 h) and are processed on wake; any older than 30 min get "still want this?".
 

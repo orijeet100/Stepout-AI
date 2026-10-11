@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 from stepout import history
 from stepout.channels.cli import CliChannel
-from stepout.channels.web import WebChannel
+from stepout.channels.web import StoreHistory, WebChannel
 from stepout.browser import Browser
 from stepout.domain import Reply, Task
 from stepout.failure import UNEXPECTED
@@ -89,7 +89,7 @@ async def run(channel, intake: Intake, runner: Runner) -> None:
                 case NewTask(request=request, previous=previous, cost_usd=cost):
                     task = Task(user_id=message.user_id, request=request, conversation_id=cid)
                     await runner.submit(task, previous, screening_cost=cost)
-        except Exception as exc:  # one failed request (API error, bad key) must not end the session
+        except Exception:  # one failed request (API error, bad key) must not end the session
             logging.exception("request failed")
             await channel.send(Reply(text=UNEXPECTED, conversation_id=cid))
 
@@ -106,9 +106,6 @@ async def main() -> None:
     ledger = Ledger(store)
     fetcher = Fetcher()
     if "web" in sys.argv[1:]:
-        # ponytail: imported here only until the UI lane's U2b (channels/web.py) is merged; then it moves to the top with WebChannel
-        from stepout.channels.web import StoreHistory
-
         channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store))  # the channel reads history from the app's own Store
         print(f"Stepout web chat: http://127.0.0.1:{await channel.start()}  (Ctrl+C to stop)")
     else:

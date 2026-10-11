@@ -1,5 +1,5 @@
 /* Design tokens: the look of the Vercel "Chatbot" template (github.com/vercel/chatbot), made in plain CSS.
-   Plan and the numbers' sources: docs/plan/ui-chatbot.md. It is monochrome: there is no accent colour, the primary
+   Decision and the values' sources: docs/adr/0014-the-page-follows-the-vercel-chatbot-look.md. It is monochrome: there is no accent colour, the primary
    control is "foreground on background" (a black send button in light, a white one in dark). Colour is only status.
    Every colour is light-dark(light, dark) and the two sets are the template's, converted from oklch (not inverted).
    Three values are nudged from the template so text passes WCAG AA: --muted (the template's is 4.1:1 in light),

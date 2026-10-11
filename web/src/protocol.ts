@@ -68,7 +68,7 @@ const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFin
 const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const optStr = (v: unknown) => (isStr(v) ? v : undefined)
 
-// Until the Main lane drops the footer (sync X2) the page strips "\n\n(cost: $0.0932)" and reads the cost from it.
+// Replies saved before the cost footer was dropped still end with "\n\n(cost: $0.0932)": the page strips it and reads the cost from it.
 const FOOTER = /\n\n\(cost: \$(\d+(?:\.\d+)?)\)\s*$/
 export function splitCostFooter(text: string): { text: string; cost: number | null } {
   const m = FOOTER.exec(text)

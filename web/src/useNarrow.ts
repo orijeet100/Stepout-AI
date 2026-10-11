@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
-// Under this width the chat list is a drawer (U5). Keep in step with the media query in App.css.
+// Under this width the chat list is a drawer. Keep in step with the media query in App.css.
 const NARROW = '(max-width: 899px)'
 
 const subscribe = (onChange: () => void) => {

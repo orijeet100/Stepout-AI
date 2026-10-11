@@ -1,4 +1,4 @@
-"""Checks for the mock and its fixtures.  Run:  python -m pytest web/mock -q   (the Main lane's pytest only collects tests/)."""
+"""Checks for the mock and its fixtures.  Run:  python -m pytest web/mock -q   (the backend's pytest only collects tests/)."""
 
 from __future__ import annotations
 

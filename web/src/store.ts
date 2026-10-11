@@ -1,4 +1,4 @@
-// Page state: one reducer fed by WebSocket frames and API responses. No state library (U2 rule).
+// Page state: one reducer fed by WebSocket frames and API responses. No state library.
 import type { Chat, Frame, Message, RunInfo, Status, Trace } from './protocol'
 
 export type Run = {

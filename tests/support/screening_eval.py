@@ -14,7 +14,7 @@ from stepout.domain import Exchange
 
 PROMPTS = Path(__file__).resolve().parents[1] / "data" / "screening_prompts.jsonl"
 
-# Proposed bars (docs/plan/main-worktree.md, B3): tune after the first live run and log the change.
+# Bars for the live front-door eval: tune them from a live run.
 MIN_AGREEMENT = 0.90
 MAX_MEAN_COST = 0.003  # dollars per screening
 MAX_FALSE_DECLINES_ON_DEMOS = 0

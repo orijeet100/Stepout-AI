@@ -2,7 +2,7 @@
 
 Real Files hand over a real folder (invented names), real PDFs generated in the test and read by the real pypdf, the real Gate and Runner.
 Demo A: "Summarize the newest PDF in <folder>". Demo B: "Compare my resume in <folder> to the job posting at <URL>".
-What the model would decide is for the live check (the merge agent); these pin what the code does with those decisions.
+What the model would decide is for the live check; these pin what the code does with those decisions.
 """
 
 import os
@@ -14,7 +14,7 @@ from stepout.files import Files, Grant
 from stepout.model import ModelResponse
 from stepout.roles import ROLES
 from tests.support.pdfs import make_pdf
-from tests.test_runner import FakeBrowser, Harness, browse, delegate, plan, say
+from tests.test_runner import FakeBrowser, Harness, browse, plan, say
 
 
 def norm(p) -> str:

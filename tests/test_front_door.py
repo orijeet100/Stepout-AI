@@ -1,4 +1,4 @@
-"""B3's done-when, offline: the whole loop with the real HaikuScreener over a scripted model, so every model call can be counted and read.
+"""The front door, offline: the whole loop with the real HaikuScreener over a scripted model, so every model call can be counted and read.
 
 What the live model decides (is this a decline? which exchanges does it link?) is measured by the eval in tests/test_live_screening.py.
 These tests pin what the code does with a decision.
