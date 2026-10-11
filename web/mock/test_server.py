@@ -178,6 +178,26 @@ def test_send_replays_a_run_under_fresh_ids():
     drive(0, scenario)
 
 
+def test_the_reply_streams_as_delta_frames_that_are_live_only_and_add_up_to_the_reply():
+    async def scenario(c):
+        cid = await new_chat(c)
+        ws = await c.ws_connect("/ws", headers=origin(c))
+        await frames_until(ws, lambda s: len(s) == 2)
+        await ws.send_json({"type": "send", "conversation_id": cid, "text": "What is 2 + 3?"})
+        got = await frames_until(ws, lambda s: bool(s) and s[-1]["type"] == "status" and s[-1]["state"] == "idle" and any(f["type"] == "message" and f["role"] == "assistant" for f in s))
+        deltas = [f for f in got if f["type"] == "trace" and f["kind"] == "delta"]
+        reply = next(f for f in got if f["type"] == "message" and f["role"] == "assistant")
+        assert deltas and all(d["role"] == "orchestrator" and d["cost_usd"] == 0 and d["data"].keys() == {"text"} for d in deltas)
+        assert "".join(d["data"]["text"] for d in deltas).strip() == reply["text"].strip()  # the words are the reply
+        assert got.index(deltas[-1]) < got.index(reply)  # and all of them come before the finished message
+        run = reply["run_id"]
+        events = await (await c.get(f"/api/runs/{run}/events")).json()
+        assert not any(e["kind"] == "delta" for e in events)  # live only: never saved, never replayed
+        await ws.close()
+
+    drive(0, scenario)
+
+
 def test_bad_send_frames_are_ignored():
     async def scenario(c):
         cid = await new_chat(c)

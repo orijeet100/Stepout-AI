@@ -31,6 +31,7 @@ from stepout.channels.web import LiveView  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 FRAME_EVERY = 0.25  # seconds: the real Browser sends at most four a second
+STREAM_EVERY = 0.15  # seconds between three-word chunks of a streamed reply, before --speed
 HEX32 = re.compile(r"[0-9a-f]{32}")
 WORKER = web.AppKey("worker", asyncio.Task)
 MAX_GAP = 4.0  # seconds, before --speed
@@ -146,12 +147,23 @@ class Mock:
                     if f["kind"] == "shot":
                         self.page = (FIXTURES / "shots" / f["data"]["shot"]).read_bytes()  # ... and now it has
                 else:
+                    if f["role"] == "assistant" and f["run_id"]:
+                        await self.stream(conv, run, f["text"], cancel)  # the words first, as the real backend streams them
                     await self.emit(conv, {**f, "id": ids[f["id"]], "conversation_id": conv, "run_id": run, "cost_usd": round(spent, 4), "at": now()})
         finally:
             if pump:
                 pump.cancel()
             self.active = None
             self.live.end(run)  # the Run is over: its streams finish
+
+    async def stream(self, conv: str, run: str, text: str, cancel: asyncio.Event) -> None:
+        """The reply as it is being written: `delta` traces (docs/ui-contract.md), live only, three words at a time. They are not saved
+        and not replayed from history; the finished message that follows replaces them."""
+        words = re.findall(r"\S+\s*", text)
+        for i in range(0, len(words), 3):
+            if await self.sleep(STREAM_EVERY, cancel):
+                return
+            await self.broadcast(self.trace(conv, run, None, "delta", "orchestrator", {"text": "".join(words[i : i + 3])}, 0.0))
 
     async def pump(self, run: str) -> None:
         """The Browser's on_frame, replayed: the current page, about four times a second, while the Run runs."""
