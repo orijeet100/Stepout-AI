@@ -12,10 +12,10 @@ def test_a_new_chat_greets_and_offers_four_questions_and_a_click_sends_that_one(
     cards = group.get_by_role("button")
     expect(cards).to_have_count(4)
 
-    # they sit above the composer, in a 2 by 2 grid at this width
-    boxes = [cards.nth(i).bounding_box() for i in range(4)]
-    assert boxes[0]["y"] == boxes[1]["y"] and boxes[2]["y"] > boxes[0]["y"], boxes
-    assert boxes[3]["y"] + boxes[3]["height"] <= page.locator(".composer").bounding_box()["y"], "suggestions overlap the composer"
+    # they sit above the composer, in a 2 by 2 grid at this width (layout positions: they are still rising in, which moves the painted ones)
+    top = [cards.nth(i).evaluate("el => el.offsetTop") for i in range(4)]
+    assert top[0] == top[1] and top[2] == top[3] and top[2] > top[0], top
+    assert cards.nth(3).evaluate("el => el.offsetTop + el.offsetHeight") <= page.locator(".composer").evaluate("el => el.offsetTop"), "suggestions overlap the composer"
 
     text = cards.nth(0).inner_text()
     cards.nth(0).click()
