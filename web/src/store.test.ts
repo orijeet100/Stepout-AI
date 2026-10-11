@@ -174,14 +174,21 @@ describe('streaming', () => {
 
   it('the words of a reply add up per Run and show after its Run, and are not events of the Run', () => {
     const s = run(initial, ...frames(msg('m1', 'user', 'hi', 1), trace('e1', 'r1', 'step', 2), delta('d1', 3, 'Hel'), delta('d2', 4, 'lo')))
-    expect(s.streams.r1).toBe('Hello')
+    expect(s.streams.r1.text).toBe('Hello')
     expect(s.runs.r1.events).toHaveLength(1)
     expect(timeline(s, C).at(-1)).toEqual({ kind: 'stream', runId: 'r1', text: 'Hello' })
   })
 
+  it('shows the words of a direct answer, whose Run the page does not know yet (it has no step until the call ends)', () => {
+    const s = run(initial, ...frames(msg('m1', 'user', 'hi', 1), delta('d1', 2, 'Hel'), delta('d2', 3, 'lo')))
+    expect(s.runs).toEqual({})
+    expect(timeline(s, C).map((i) => i.kind)).toEqual(['message', 'stream'])
+    expect(timeline(s, 'd'.repeat(32))).toEqual([]) // another chat does not show it
+  })
+
   it('a reset drops what came before it', () => {
     const s = run(initial, ...frames(trace('e1', 'r1', 'step', 2), delta('d1', 3, 'Let me plan.'), delta('d2', 4, '', true), delta('d3', 5, 'The answer')))
-    expect(s.streams.r1).toBe('The answer')
+    expect(s.streams.r1.text).toBe('The answer')
   })
 
   it('the finished reply replaces the words, and is what the thread then shows', () => {
