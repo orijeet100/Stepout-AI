@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from stepout.capabilities.base import TEXT_CHARS, Capability, RunContext, tool_schema
+from stepout.capabilities.base import TEXT_CHARS, Capability, RunContext, tool_from
 
 MAX_SEARCHES = 3  # per Run
 
@@ -19,10 +19,9 @@ class WebSearchAction(BaseModel):
 class WebSearch(Capability):
     name = "web_search"
     blurb = "Searches the web for current facts, a few searches per run; answers carry their source links."
-    tool = tool_schema(
-        "web_search",
+    tool = tool_from(
+        WebSearchAction,
         f"Search the web for current information. Returns a short summary with source links. At most {MAX_SEARCHES} searches per task.",
-        query={"type": "string"},
     )
     action = WebSearchAction
     reaches_web = True  # the Gate closes it once a file has been read, like fetch and browse

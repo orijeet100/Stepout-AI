@@ -6,14 +6,14 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from stepout.capabilities.base import TEXT_CHARS, Capability, RunContext, tool_schema
+from stepout.capabilities.base import TEXT_CHARS, Capability, RunContext, tool_from
 
 
 class FilesAction(BaseModel):
     """Look at the User's disk: names, sizes, dates, counts. Never contents."""
 
     kind: Literal["files"] = "files"
-    op: Literal["list", "find", "count"]
+    op: Literal["list", "count", "find"]
     path: str
     pattern: str | None = None
 
@@ -21,15 +21,11 @@ class FilesAction(BaseModel):
 class Files(Capability):
     name = "files"
     blurb = "Lists folders, counts files by type and finds files by name on the User's disk, inside their grants; never opens a file or reads its contents."
-    tool = tool_schema(
-        "files",
+    tool = tool_from(
+        FilesAction,
         "Look at the user's disk: names, sizes, dates and counts only, never file contents. op 'list' shows one folder; "
         "'count' totals a whole folder tree by file extension; 'find' searches a folder tree for names containing the pattern "
         "(or matching a * glob; several quoted or comma-separated terms match any of them), newest first. Paths are Windows paths such as D:\\Documents.",
-        required=["op", "path"],
-        op={"type": "string", "enum": ["list", "count", "find"]},
-        path={"type": "string"},
-        pattern={"type": "string"},
     )
     action = FilesAction
 

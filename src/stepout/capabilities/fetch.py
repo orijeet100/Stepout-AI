@@ -7,7 +7,7 @@ from typing import Literal
 import httpx
 from pydantic import BaseModel
 
-from stepout.capabilities.base import TEXT_CHARS, Capability, RunContext, tool_schema
+from stepout.capabilities.base import TEXT_CHARS, Capability, RunContext, tool_from
 from stepout.fetch import BlockedUrl
 
 
@@ -19,7 +19,7 @@ class FetchAction(BaseModel):
 class Fetch(Capability):
     name = "fetch"
     blurb = "Reads one public web page whose address is known, as text; no logins, scripts or forms."
-    tool = tool_schema("fetch", "Read one web page whose URL you already know. Returns its text.", url={"type": "string"})
+    tool = tool_from(FetchAction, "Read one web page whose URL you already know. Returns its text.")
     action = FetchAction
     reaches_web = True
 

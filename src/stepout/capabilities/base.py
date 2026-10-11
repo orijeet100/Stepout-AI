@@ -23,6 +23,21 @@ def tool_schema(name: str, description: str, required: list[str] | None = None, 
     return {"name": name, "description": description, "input_schema": {"type": "object", "properties": props, "required": required or list(props)}}
 
 
+def tool_from(action: type[BaseModel], description: str) -> dict:
+    """The same schema, derived from the Action class so the two cannot disagree: the name is its `kind`, the parameters are its other fields, a field with no default is required.
+    An `X | None` field is offered as X (leaving it out is how the model says "none"). A constraint the model should know but a call must not be rejected for goes in `json_schema_extra`."""
+    schema = action.model_json_schema()
+    props = {k: v for k, v in schema["properties"].items() if k != "kind"}
+    for p in props.values():
+        p.pop("title", None)
+        p.pop("default", None)
+        if "anyOf" in p:
+            (inner,) = [a for a in p.pop("anyOf") if a != {"type": "null"}]
+            p.update(inner)
+    required = [r for r in schema.get("required", []) if r != "kind"]
+    return {"name": action.model_fields["kind"].default, "description": description, "input_schema": {"type": "object", "properties": props, "required": required}}
+
+
 @dataclass
 class RunState:
     """What every Role of one Run shares, and what capabilities may read or change: counters and flags that outlive a single Step."""

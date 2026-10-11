@@ -8,8 +8,8 @@ Status: accepted · 2026-10-09 · Refines [0001](0001-from-scratch.md) (its "rev
 |---|---|---|
 | 1 | The Model port gets a second adapter on `pydantic_ai.direct.model_request`; tiers are re-pointed by `STEPOUT_STRONG_MODEL` / `STEPOUT_CHEAP_MODEL` | done |
 | 2 | `web_search` becomes an ordinary capability that goes through the Gate like every other; a small `Searcher` hand makes one provider search per call (it was a server-side tool inside the model call, and skipped the Gate) | done |
-| 3 | Each capability's tool becomes one typed function (schema, validation and Action from the signature; today three copies per tool) | next |
-| 4 | The loop: one Pydantic AI `Agent` per Role, the Gate as a hook, `AgentRun.cancel()` for Stop, `UsageLimits(cost_limit)` for the $1 cap, a typed `Finding` for hand-offs | |
+| 3 | A capability's tool schema is derived from its Action class (`tool_from`), so the two cannot disagree. Needed no library: the Action class already was the typed definition; the function form arrives with the loop in slice 4 | done |
+| 4 | The loop: one Pydantic AI `Agent` per Role, the Gate as a hook, `AgentRun.cancel()` for Stop, `UsageLimits(cost_limit)` for the $1 cap, a typed `Finding` for hand-offs | next |
 | 5 | Pause/resume and Approvals (B5) with deferred tool calls and our SQLite | |
 
 **Stays ours, whatever the library does:** the Gate's rules and the taint rule, the hands and their own limits (Fetcher, Browser, Files, Reader, redaction), the Ledger and Trace, the front door, the web channel, every Role's prompt. These are the parts the project measures and defends ([0001](0001-from-scratch.md)); the library replaces plumbing under them.

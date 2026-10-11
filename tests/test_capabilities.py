@@ -143,3 +143,28 @@ def test_the_action_union_round_trips_every_capability_action():
     assert {type(s) for s in samples} <= set(capabilities.action_types())
     for action in samples:
         assert adapter.validate_json(adapter.dump_json(action)) == action
+
+
+def test_a_tool_is_derived_from_its_action_class_so_the_two_cannot_disagree():
+    from typing import Literal
+
+    from pydantic import BaseModel, Field
+
+    from stepout.capabilities.base import tool_from
+
+    class Probe(BaseModel):
+        kind: Literal["probe"] = "probe"
+        op: Literal["a", "b"]
+        name: str | None = None
+        n: int | None = Field(None, json_schema_extra={"minimum": 1})
+
+    assert tool_from(Probe, "Do it.") == {
+        "name": "probe",
+        "description": "Do it.",
+        "input_schema": {
+            "type": "object",
+            "required": ["op"],  # no default = required; `kind` is the tool's name, not a parameter
+            "properties": {"op": {"enum": ["a", "b"], "type": "string"}, "name": {"type": "string"}, "n": {"minimum": 1, "type": "integer"}},
+        },
+    }
+    assert Probe(op="a", n=0).n == 0  # the minimum is told to the model, not enforced on the call

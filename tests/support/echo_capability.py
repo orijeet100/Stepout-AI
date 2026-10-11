@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from stepout.capabilities.base import Capability, RunContext, tool_schema
+from stepout.capabilities.base import Capability, RunContext, tool_from
 
 
 class EchoAction(BaseModel):
@@ -20,7 +20,7 @@ class EchoAction(BaseModel):
 class Echo(Capability):
     name = "echo"
     blurb = "Repeats a sentence back; touches nothing."
-    tool = tool_schema("echo", "Repeat the text back.", text={"type": "string"})
+    tool = tool_from(EchoAction, "Repeat the text back.")
     action = EchoAction
 
     def summary(self, action: EchoAction) -> str:

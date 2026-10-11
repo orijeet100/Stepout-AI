@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from stepout.capabilities.base import Capability, RunContext, tool_schema
+from stepout.capabilities.base import Capability, RunContext, tool_from
 
 _KEEP_PAGES = 2  # page views a Role keeps in full
 _PAGE_HEAD = re.compile(r"URL: (.*)\nTitle: (.*)")  # how every page view starts (stepout.browser)
@@ -19,20 +19,16 @@ class BrowseAction(BaseModel):
     kind: Literal["browse"] = "browse"
     op: Literal["open", "click", "more"]
     url: str | None = None
-    link: int | None = None
+    link: int | None = Field(None, json_schema_extra={"minimum": 1})  # told to the model in the schema, not checked: a bad number is the Browser's to report
 
 
 class Browse(Capability):
     name = "browse"
     blurb = "Reads web pages in a real headless browser, read-only: opens an address, follows a numbered link, reads on; cannot log in, type, submit or download."
-    tool = tool_schema(
-        "browse",
+    tool = tool_from(
+        BrowseAction,
         "Read web pages in a headless browser, read-only. op 'open' loads a url; 'click' follows a numbered link from "
         "the page you last opened; 'more' shows the next part of the current page's text.",
-        required=["op"],
-        op={"type": "string", "enum": ["open", "click", "more"]},
-        url={"type": "string"},
-        link={"type": "integer", "minimum": 1},
     )
     action = BrowseAction
     reaches_web = True
