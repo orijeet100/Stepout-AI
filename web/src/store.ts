@@ -229,3 +229,14 @@ export function timeline(s: State, chatId: string): Item[] {
   }
   return items
 }
+
+/**
+ * Your last message in this chat was taken from the queue and nothing of its Run has reached the page yet (the front door
+ * takes about a second): the thread says the assistant is starting. `active` stays null until the Run's first event, so a
+ * null `active` could be another chat's message that was just taken; a queued message of this chat is waiting, not starting.
+ */
+export function starting(s: State, chatId: string, items: Item[]): boolean {
+  const last = items.at(-1)
+  const ours = s.status.active === null || s.status.active.conversation_id === chatId
+  return s.status.state === 'running' && ours && last?.kind === 'message' && last.message.role === 'user' && !last.queued
+}

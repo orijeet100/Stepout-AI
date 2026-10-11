@@ -28,6 +28,7 @@ const paths = {
   check: <path d="M20 6 9 17l-5-5" />,
   x: <path d="M18 6 6 18M6 6l12 12" />,
   down: <path d="m6 9 6 6 6-6" />,
+  arrowdown: <path d="M12 5v14M19 12l-7 7-7-7" />,
   ban: (
     <>
       <circle cx="12" cy="12" r="9" />

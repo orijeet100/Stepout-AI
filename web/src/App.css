@@ -54,21 +54,48 @@
 .pill { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 2px var(--sp-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; }
 .panel { position: relative; display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; background: var(--bg); border-top: 1px solid var(--border); border-left: 1px solid var(--border); border-top-left-radius: 12px; }
 .banner { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); background: var(--warn-soft); border-bottom: 1px solid var(--border); color: var(--text); font-size: var(--fs-sm); }
-.scroll { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-5) var(--sp-3); }
-.col { display: flex; flex-direction: column; gap: var(--sp-4); max-width: var(--measure); margin: 0 auto; }
+.thread { position: relative; display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: var(--sp-5) 0; }
+.col { display: flex; flex-direction: column; gap: 1.25rem; max-width: var(--measure); margin: 0 auto; padding: 0 var(--sp-2); }
+@media (min-width: 768px) { .col { gap: 1.75rem; padding: 0 var(--sp-4); } }
 .empty { max-width: 28rem; margin: 20vh auto 0; color: var(--muted); text-align: center; }
+.jump { position: absolute; bottom: var(--sp-4); left: 50%; z-index: 2; display: inline-flex; align-items: center; height: 1.75rem; padding: 0 14px; color: var(--muted); background: color-mix(in srgb, var(--surface) 90%, transparent); border: 1px solid var(--border); border-radius: 999px; box-shadow: var(--shadow-float); backdrop-filter: blur(16px); cursor: pointer; opacity: 0; pointer-events: none; transform: translateX(-50%) scale(0.9); transition: opacity 200ms var(--ease), transform 200ms var(--ease); }
+.jump.is-on { opacity: 1; pointer-events: auto; transform: translateX(-50%) scale(1); }
+.jump:hover { color: var(--text); }
 
-/* messages */
-.user { align-self: flex-start; max-width: 85%; margin: 0; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border-radius: var(--r-lg); overflow-wrap: anywhere; white-space: pre-wrap; }
-.reply { overflow-wrap: anywhere; }
+/* messages: yours is a bubble on the right; the assistant has a tile and no bubble */
+.user { align-self: flex-end; width: fit-content; max-width: min(80%, 56ch); margin: 0; padding: var(--sp-2) 14px; overflow-wrap: anywhere; white-space: pre-wrap; background: linear-gradient(to bottom right, var(--surface-2), var(--fill)); border: 1px solid var(--border); border-radius: var(--r-2xl) var(--r-2xl) var(--r-lg) var(--r-2xl); box-shadow: var(--shadow-card); }
+.user--new { animation: fade-up 250ms var(--ease-spring) both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } }
+.turn { display: flex; align-items: flex-start; gap: var(--sp-3); min-width: 0; }
+.turn__tile { display: flex; flex: none; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; margin-top: calc((var(--fs-sm) * var(--lh) - 1.75rem) / 2); color: var(--muted); background: color-mix(in srgb, var(--fill) 60%, transparent); border-radius: var(--r-lg); box-shadow: 0 0 0 1px var(--border); }
+.turn__body { display: flex; flex: 1; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.working { margin: 0; font-weight: 500; }
+.shimmer { display: inline-block; color: transparent; background: linear-gradient(90deg, var(--muted) 35%, var(--text) 50%, var(--muted) 65%) 100% 0 / 250% 100% no-repeat; -webkit-background-clip: text; background-clip: text; animation: shimmer 1.4s linear infinite; }
+@keyframes shimmer { to { background-position: 0 0; } }
+
+/* the reply's markdown (react-markdown: no raw HTML, no images; see Reply.tsx) */
+.reply { min-width: 0; overflow-wrap: anywhere; }
 .reply > :first-child { margin-top: 0; }
-.reply p { margin: 0 0 var(--sp-2); }
-.reply ol, .reply ul { margin: 0 0 var(--sp-2); padding-left: 1.4em; }
+.reply > :last-child { margin-bottom: 0; }
+.reply p { margin: 0 0 var(--sp-3); }
+.reply h1, .reply h2, .reply h3, .reply h4 { margin: var(--sp-5) 0 var(--sp-2); font-weight: 600; }
+.reply h1 { font-size: var(--fs-xl); }
+.reply h2 { font-size: 1.25rem; }
+.reply h3 { font-size: 1.0625rem; }
+.reply h4 { font-size: var(--fs-lg); }
+.reply ol, .reply ul { margin: 0 0 var(--sp-3); padding-left: 1.5rem; }
 .reply li + li { margin-top: var(--sp-1); }
-.reply code { padding: 0 4px; background: var(--fill); border-radius: var(--r-sm); font-family: var(--font-mono); font-size: 0.9em; }
-.reply pre { overflow: auto; padding: var(--sp-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); }
-.reply pre code { padding: 0; background: none; }
-.reply small { display: block; font-family: var(--font-mono); }
+.reply a { font-weight: 500; text-decoration: underline; text-underline-offset: 0.2em; }
+.reply blockquote { margin: 0 0 var(--sp-3); padding-left: var(--sp-4); border-left: 3px solid var(--border-side); color: var(--muted); }
+.reply code { padding: 2px 6px; background: var(--fill); border-radius: var(--r-sm); font-family: var(--font-mono); font-size: 0.9em; }
+.reply pre { overflow: auto; margin: 0 0 var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); }
+.reply pre code { padding: 0; background: none; font-size: var(--fs-xs); }
+.reply table { display: block; overflow: auto; margin: 0 0 var(--sp-3); border-collapse: collapse; }
+.reply th, .reply td { padding: 6px var(--sp-3); text-align: left; border: 1px solid var(--border); }
+.reply th { background: var(--surface-2); font-weight: 600; }
+.reply hr { margin: var(--sp-4) 0; border: 0; border-top: 1px solid var(--border); }
+.reply small { display: block; margin-top: var(--sp-1); font-family: var(--font-mono); }
 
 /* run block (U3 builds on this) */
 .runblock { display: grid; gap: var(--sp-2); min-width: 0; } /* the card, and under it the pages its browser saved */
@@ -173,4 +200,5 @@ a.page__url { color: var(--accent); }
 }
 @media (prefers-reduced-motion: reduce) {
   .app *, .app *::before, .app *::after { animation: none !important; transition: none !important; }
+  .shimmer { color: var(--muted); background: none; } /* the words stand still, in the muted colour */
 }
