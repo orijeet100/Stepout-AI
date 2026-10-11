@@ -28,5 +28,5 @@ class CliChannel:
         print(reply.text + (f"\n\n(cost: ${reply.cost_usd:.4f})" if reply.cost_usd else ""))  # the terminal has no cost field to show
 
     async def trace(self, event: Event) -> None:
-        if event.kind != "plan":  # plan snapshots are for the web checklist; the step lines say the same
+        if event.kind not in ("plan", "delta"):  # plan snapshots are for the web checklist, and the reply arrives whole here
             print(f"  · {event.role}: {event.data['summary']}")

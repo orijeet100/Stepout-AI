@@ -20,6 +20,7 @@ export type State = {
   loaded: Record<string, true> // chats whose detail has been read (until then an empty thread would be a guess)
   messages: Record<string, Message[]> // by conversation id, oldest first
   runs: Record<string, Run>
+  streams: Record<string, string> // a Run's reply as it is being written, by run id: live only, gone when the finished reply arrives
   status: Status
   error: string | null
 }
@@ -34,6 +35,7 @@ export const initial: State = {
   loaded: {},
   messages: {},
   runs: {},
+  streams: {},
   status: { state: 'idle', active: null, queued: [] },
   error: null,
 }
@@ -100,17 +102,20 @@ export function reducer(s: State, a: Action): State {
       const f = a.frame
       if (f.type === 'message') {
         const { type: _type, ...m } = f
+        const { [m.run_id ?? '']: _done, ...streams } = s.streams // the finished reply replaces the words shown so far
         return {
           ...s,
+          streams: m.role === 'assistant' ? streams : s.streams,
           chats: touch(s.chats, m.conversation_id, m.at, m),
           messages: { ...s.messages, [m.conversation_id]: mergeById(s.messages[m.conversation_id] ?? [], [m]) },
         }
       }
       if (f.type === 'trace') {
         const { type: _type, ...e } = f
+        if (e.kind === 'delta') return { ...s, streams: { ...s.streams, [e.run_id]: e.data.reset ? '' : (s.streams[e.run_id] ?? '') + (e.data.text ?? '') } }
         return { ...s, chats: touch(s.chats, e.conversation_id, e.at), runs: addEvents(s.runs, [e]) }
       }
-      if (f.type === 'status') return { ...s, status: { state: f.state, active: f.active, queued: f.queued } }
+      if (f.type === 'status') return { ...s, status: { state: f.state, active: f.active, queued: f.queued }, streams: f.state === 'idle' ? {} : s.streams }
       return s
     }
     case 'chats': {
@@ -175,6 +180,7 @@ export function runCap(s: State, r: Run): number | null {
 export type Item =
   | { kind: 'message'; message: Message; queued?: boolean; note?: boolean }
   | { kind: 'run'; run: Run }
+  | { kind: 'stream'; runId: string; text: string } // the reply being written, until the finished one arrives
 
 /**
  * A chat in reading order: your message, then its Run, then the reply. Messages sent while a Run was busy
@@ -196,6 +202,12 @@ export function timeline(s: State, chatId: string): Item[] {
   }
   for (const run of Object.values(s.runs)) {
     if (run.conversationId === chatId && run.events.length) rows.push({ key: ms(run.startedAt), rank: rank.run, item: { kind: 'run', run } })
+  }
+  for (const [runId, text] of Object.entries(s.streams)) {
+    const run = s.runs[runId]
+    if (text && run?.conversationId === chatId && !messages.some((m) => m.role === 'assistant' && m.run_id === runId)) {
+      rows.push({ key: ms(run.startedAt) + 0.5, rank: rank.assistant, item: { kind: 'stream', runId, text } })
+    }
   }
   return rows.sort((x, y) => x.key - y.key || x.rank - y.rank).map((r) => r.item)
 }

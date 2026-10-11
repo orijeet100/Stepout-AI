@@ -31,6 +31,8 @@ Status: **v0 verified from the code (2026-10-07); v1 frozen at sync X1 on 2026-1
 | `stop` | the Role that stopped | `summary` (`Stopped by you.` or the budget message) |
 | `error` | the Role that was acting | `summary` (the plain line the User is also given as the reply), `cause` (`auth` `no_key` `credit` `rate_limit` `overloaded` `server_error` `timeout` `connection` `rejected` `malformed` `chrome` `internal`), `type` (the exception class: for the Ledger, not for display), `status` (HTTP, if any). Added 2026-10-08, additive: emitted just before a Run ends `failed` |
 
+| `delta` | `orchestrator` | `text` (the next words of the reply), or `reset: true` (what came so far was not the answer: drop it). Added 2026-10-11, additive: live only, never saved or replayed; the finished reply still arrives as a `message`, which replaces the words shown. Not sent for a Run that has read a file. |
+
 `screening` events exist in the Ledger but are not streamed. A trace carries no run id, event id, parent or time yet (the run id is inside `shot`).
 
 ## v1 — frozen at X1

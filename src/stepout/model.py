@@ -10,6 +10,8 @@ use is rejected by newer models); a text-only reply is treated as the answer.
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Literal, Protocol
 
 import anthropic
@@ -134,6 +136,24 @@ def call_to_action(name: str, args: dict, one_off: frozenset[str] = frozenset())
     return None
 
 
+def _partial_text(partial_json: str) -> str:
+    """The `text` string of a JSON object that is still being written, as far as it has arrived: a half-written escape waits for its other half."""
+    start = re.search(r'"text"\s*:\s*"', partial_json)
+    if start is None:
+        return ""
+    raw, i = partial_json[start.end() :], 0
+    while i < len(raw) and raw[i] != '"':
+        if raw[i] == "\\":
+            need = 6 if raw[i + 1 : i + 2] == "u" else 2
+            if i + need > len(raw):
+                break
+            i += need
+        else:
+            i += 1
+    body = re.sub(r"\\u[dD][89abAB][0-9a-fA-F]{2}$", "", raw[:i])  # the first half of a surrogate pair waits for the second
+    return json.loads('"' + body + '"')
+
+
 def _action(content, one_off: frozenset[str] = frozenset()) -> Action:
     tool = next((b for b in content if b.type == "tool_use"), None)
     if tool is not None and (action := call_to_action(tool.name, tool.input, one_off)) is not None:
@@ -169,25 +189,24 @@ def _explain(exc: anthropic.APIError) -> Failure:
 
 
 class AnthropicModel:
+    streams = True  # `call` can hand the words of a reply to `on_text` as they arrive
+
     def __init__(self) -> None:
         self._client = anthropic.AsyncAnthropic()
 
-    async def call(self, request: ModelRequest) -> ModelResponse:
+    async def call(self, request: ModelRequest, on_text=None) -> ModelResponse:
         if not self._client.api_key:  # the SDK would only fail later, inside the request, with a TypeError
             raise Failure("no_key", "There is no Anthropic API key. Put ANTHROPIC_API_KEY=... in the .env file (copy .env.example), then restart the app.")
         # Omit `tools` entirely when unused: tools=None is sent as null and the API rejects it.
         defs = _tool_defs(request)
+        if on_text is not None:  # by default a tool call's arguments are buffered and arrive whole; this asks for the reply's words as they are written
+            defs = [{**d, "eager_input_streaming": True} if d.get("name") == "answer" else d for d in defs]
         extra = {"tools": defs} if defs else {}
         if request.temperature is not None:  # never send null: only set it when asked
             extra["extra_body"] = {"temperature": request.temperature}  # in the body: SDK 1.x has no `temperature` argument on create() (a TypeError); the body takes it on every version
+        params = dict(model=request.model, max_tokens=4096, system=request.system, messages=[{"role": "user", "content": request.user_text}], **extra)
         try:
-            response = await self._client.messages.create(
-                model=request.model,
-                max_tokens=4096,
-                system=request.system,
-                messages=[{"role": "user", "content": request.user_text}],
-                **extra,
-            )
+            response = await self._client.messages.create(**params) if on_text is None else await self._stream(params, on_text)
         except anthropic.APIError as exc:
             raise _explain(exc) from exc
         try:
@@ -198,3 +217,21 @@ class AnthropicModel:
             return ModelResponse(action=_action(response.content, one_off), cost_usd=cost, searches=searches)
         except (AttributeError, KeyError, TypeError, ValueError, ValidationError) as exc:  # a body that is not a message, or a tool call missing its arguments
             raise Failure("malformed", "Anthropic's reply could not be understood. Try again; if it repeats, tell the developer.") from exc
+
+    async def _stream(self, params: dict, on_text):
+        """The same request, streamed. The words of a text reply, and the growing `text` of the `answer` tool, go to `on_text` as they arrive;
+        the finished message comes back exactly as `create` would give it, so nothing after this changes."""
+        tool, sent, partial = None, 0, ""
+        async with self._client.messages.stream(**params) as stream:
+            async for event in stream:
+                if event.type == "content_block_start":
+                    tool, sent, partial = (event.content_block.name if event.content_block.type == "tool_use" else None), 0, ""
+                elif event.type == "text":
+                    await on_text(event.text)
+                elif event.type == "input_json" and tool == "answer":
+                    partial += event.partial_json  # not the SDK's `snapshot`: it leaves a string out until its closing quote has arrived
+                    words = _partial_text(partial)
+                    if len(words) > sent:
+                        await on_text(words[sent:])
+                        sent = len(words)
+            return await stream.get_final_message()

@@ -90,7 +90,7 @@ describe('run state and cap', () => {
 describe('timeline', () => {
   it('reads your message, its run, then the reply', () => {
     const s = run(initial, ...frames(msg('u1', 'user', 'q', 1), trace('e1', 'r1', 'plan', 2), trace('e2', 'r1', 'step', 3), msg('a1', 'assistant', 'answer', 4, 'r1')))
-    expect(timeline(s, C).map((i) => (i.kind === 'run' ? 'run' : i.message.id))).toEqual(['u1', 'run', 'a1'])
+    expect(timeline(s, C).map((i) => (i.kind === 'run' ? 'run' : i.kind === 'stream' ? 'stream' : i.message.id))).toEqual(['u1', 'run', 'a1'])
   })
 
   it('a message queued behind a busy run sits after the first reply, not before it', () => {
@@ -106,7 +106,7 @@ describe('timeline', () => {
         msg('a2', 'assistant', 'second answer', 11, 'r2'),
       ),
     )
-    expect(timeline(s, C).map((i) => (i.kind === 'run' ? i.run.id : i.message.id))).toEqual(['u1', 'r1', 'a1', 'u2', 'r2', 'a2'])
+    expect(timeline(s, C).map((i) => (i.kind === 'run' ? i.run.id : i.kind === 'stream' ? 'stream' : i.message.id))).toEqual(['u1', 'r1', 'a1', 'u2', 'r2', 'a2'])
   })
 
   it('a reply with no run (a decline) is just a message', () => {
@@ -165,5 +165,35 @@ describe('api responses', () => {
     const loaded = reducer(live, { type: 'detail', id: C, title: 'T', messages: [{ id: 'm1', conversation_id: C, role: 'user', text: 'old', run_id: null, cost_usd: null, at: t(1) }], runs: [] })
     expect(loaded.messages[C].map((m) => m.id)).toEqual(['m1', 'm2'])
     expect(loaded.chats[C].title).toBe('T')
+  })
+})
+
+describe('streaming', () => {
+  const delta = (id: string, s: number, text: string, reset = false) => trace(id, 'r1', 'delta', s, reset ? { reset: true } : { text })
+  const idle: Frame = { type: 'status', state: 'idle', active: null, queued: [] }
+
+  it('the words of a reply add up per Run and show after its Run, and are not events of the Run', () => {
+    const s = run(initial, ...frames(msg('m1', 'user', 'hi', 1), trace('e1', 'r1', 'step', 2), delta('d1', 3, 'Hel'), delta('d2', 4, 'lo')))
+    expect(s.streams.r1).toBe('Hello')
+    expect(s.runs.r1.events).toHaveLength(1)
+    expect(timeline(s, C).at(-1)).toEqual({ kind: 'stream', runId: 'r1', text: 'Hello' })
+  })
+
+  it('a reset drops what came before it', () => {
+    const s = run(initial, ...frames(trace('e1', 'r1', 'step', 2), delta('d1', 3, 'Let me plan.'), delta('d2', 4, '', true), delta('d3', 5, 'The answer')))
+    expect(s.streams.r1).toBe('The answer')
+  })
+
+  it('the finished reply replaces the words, and is what the thread then shows', () => {
+    const s = run(initial, ...frames(msg('m1', 'user', 'hi', 1), trace('e1', 'r1', 'step', 2), delta('d1', 3, 'Hel'), msg('m2', 'assistant', 'Hello there', 6, 'r1')))
+    expect(s.streams).toEqual({})
+    const items = timeline(s, C)
+    expect(items.some((i) => i.kind === 'stream')).toBe(false)
+    expect(items.at(-1)).toMatchObject({ kind: 'message', message: { text: 'Hello there' } })
+  })
+
+  it('words left over when the page goes idle are dropped', () => {
+    const s = run(initial, ...frames(trace('e1', 'r1', 'step', 2), delta('d1', 3, 'Hel'), idle))
+    expect(s.streams).toEqual({})
   })
 })

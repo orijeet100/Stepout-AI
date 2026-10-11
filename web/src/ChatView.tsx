@@ -66,6 +66,13 @@ export default function ChatView({ items, empty = 'new', runState, runCap, onSto
       <div className="col" ref={thread}>
         {items.map((item) => {
           if (item.kind === 'run') return <RunBlock key={item.run.id} run={item.run} state={runState(item.run)} cap={runCap(item.run)} now={now} onStop={onStop} onOpenShot={onOpenShot && ((i) => onOpenShot(item.run.id, i))} />
+          if (item.kind === 'stream') {
+            return (
+              <div key={`stream-${item.runId}`} className="reply">
+                <Reply text={item.text} />
+              </div>
+            )
+          }
           const { message } = item
           if (message.role === 'user') {
             return (

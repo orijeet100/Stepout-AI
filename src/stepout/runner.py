@@ -173,6 +173,10 @@ class Runner:
             await self._trace(event)
         return event
 
+    async def _delta(self, run: _Run, words: str = "", reset: bool = False) -> None:
+        """A live piece of the reply for the page. Not an Event the Ledger keeps: the finished reply is saved when the Run ends."""
+        await self._trace(Event(task_id=run.task_id, run_id=run.id, conversation_id=run.conversation_id, kind="delta", role="orchestrator", data={"text": words, **({"reset": True} if reset else {})}))
+
     async def _emit_plan(self, run: _Run) -> None:
         await self._emit(run, "plan", "orchestrator", "plan updated", steps=[s.model_dump() for s in run.plan])
 
@@ -227,10 +231,16 @@ class Runner:
                 user_text=_state(goal, run.plan if orchestrating else [], notes, run.previous if orchestrating else ""),
                 tools=[] if repeated else list(role.tools),
             )
+            # The reply's words go out as they are written, but only for the Orchestrator (its answer is the reply) and only while the Run has read no
+            # file: a tainted reply passes through `defang` before the User sees it, and words sent early would not.
+            streaming = orchestrating and not run.state.tainted and self._trace is not None and getattr(self._model, "streams", False)
             try:
-                response = await self._unless_stopped(self._model.call(request))
+                call = self._model.call(request, on_text=lambda words: self._delta(run, words)) if streaming else self._model.call(request)
+                response = await self._unless_stopped(call)
             except _Stopped:
                 return await self._stop(run, role_name, parent, "Stopped by you.")
+            if streaming and not isinstance(response.action, AnswerAction):
+                await self._delta(run, reset=True)  # words that came before a tool call were not the answer
             run.spent += response.cost_usd
 
             action = response.action

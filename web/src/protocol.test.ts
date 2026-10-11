@@ -59,3 +59,12 @@ describe('parseDetail', () => {
     expect(parseDetail({ title: 'no id' })).toBeNull()
   })
 })
+
+describe('delta frames', () => {
+  const frame = (data: unknown) => ({ type: 'trace', id: 'd1', conversation_id: 'c', run_id: 'r', kind: 'delta', role: 'orchestrator', data, cost_usd: 0, at: '2026-10-11T10:00:00Z' })
+  it('carries the words, or a reset', () => {
+    expect(parseFrame(frame({ text: 'Hel' }))).toMatchObject({ type: 'trace', kind: 'delta', data: { text: 'Hel' } })
+    expect(parseFrame(frame({ text: '', reset: true }))).toMatchObject({ data: { reset: true } })
+    expect(parseFrame(frame({ text: 5, reset: 'yes' }))).toMatchObject({ data: { text: undefined, reset: undefined } }) // untrusted: only strings and `true`
+  })
+})

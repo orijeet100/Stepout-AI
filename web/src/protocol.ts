@@ -14,6 +14,8 @@ export type TraceData = {
   shot?: string
   url?: string
   title?: string
+  text?: string // `delta`: the next words of the reply
+  reset?: boolean // `delta`: drop what came so far
 }
 
 export type Message = {
@@ -108,6 +110,8 @@ function parseData(v: unknown): TraceData {
     shot: optStr(v.shot),
     url: optStr(v.url),
     title: optStr(v.title),
+    text: optStr(v.text),
+    reset: v.reset === true ? true : undefined,
   }
 }
 
