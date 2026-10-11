@@ -12,16 +12,17 @@ const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
 const tokens = { light: {}, dark: {} }
 for (const [, name, l, d] of css.matchAll(/--([\w-]+): light-dark\((#\w{6}), (#\w{6})\)/g)) { tokens.light[name] = l; tokens.dark[name] = d }
 
-const grounds = ['bg', 'surface', 'surface-2', 'sidebar', 'active', 'user-bg'] // every fill text can sit on
+const grounds = ['bg', 'surface', 'surface-2', 'fill', 'sidebar', 'active', 'hover'] // every fill text can sit on (a bubble runs surface-2 to fill)
 const pairs = [
   ...grounds.flatMap((g) => [['text', g, 4.5], ['muted', g, 4.5]]),
-  ...['bg', 'surface', 'surface-2', 'sidebar'].flatMap((g) => [['accent', g, 4.5], ['ok', g, 4.5], ['warn', g, 4.5], ['err', g, 4.5]]), // links and status text
+  ...['bg', 'surface', 'sidebar'].map((g) => ['accent', g, 4.5]), // links, and the strong fill of the send button
+  ...grounds.flatMap((g) => [['ok', g, 4.5], ['warn', g, 4.5], ['err', g, 4.5]]), // status text and icons
   ['accent-hover', 'bg', 4.5], ['accent-hover', 'surface', 4.5],
   ['on-accent', 'accent', 4.5], ['on-accent', 'accent-hover', 4.5],
-  ['accent', 'accent-soft', 4.5], ['text', 'accent-soft', 4.5], ['muted', 'accent-soft', 4.5],
   ['warn', 'warn-soft', 4.5], ['err', 'err-soft', 4.5], ['text', 'warn-soft', 4.5], ['text', 'err-soft', 4.5], ['muted', 'err-soft', 4.5], ['muted', 'warn-soft', 4.5],
-  ...['bg', 'surface', 'sidebar', 'surface-2'].map((g) => ['border-strong', g, 3]), // the edge of a button or the composer
-  ['accent', 'bg', 3], ['accent', 'surface', 3], // the focus ring and a filled meter bar
+  ...['bg', 'surface', 'sidebar', 'surface-2', 'active'].map((g) => ['border-strong', g, 3]), // the edge of a button or a control
+  ...['bg', 'surface', 'sidebar', 'surface-2'].map((g) => ['ring', g, 3]), // the focus ring
+  ['accent', 'bg', 3], ['accent', 'surface', 3], // a filled meter bar
 ]
 let bad = 0
 for (const mode of ['light', 'dark']) {

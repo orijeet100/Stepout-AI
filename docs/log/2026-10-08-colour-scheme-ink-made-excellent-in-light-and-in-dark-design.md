@@ -2,7 +2,7 @@
 date: 2026-10-08
 kind: decision
 lane: ui
-status: accepted
+status: superseded
 title: "Colour scheme: Ink made excellent in light and in dark, designed not inverted"
 tags: [design,colour,contrast,tokens]
 refs: [web/src/design/tokens.css, web/src/App.css, web/scripts/check-contrast.mjs, docs/plan/v0-finish.md, docs/log/2026-10-07-look-is-direction-c-ink-graphite-mono-run-detail-run-green.md]

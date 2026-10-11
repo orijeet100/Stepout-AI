@@ -2,7 +2,7 @@
 date: 2026-10-07
 kind: decision
 lane: ui
-status: accepted
+status: superseded
 title: Look is direction C (Ink): graphite, mono run detail, run-green
 tags: [design,u1,tokens]
 refs: [web/src/design/tokens.css, web/scripts/check-contrast.mjs, docs/log/2026-10-07-u1-three-design-directions-as-a-gallery-route.md]

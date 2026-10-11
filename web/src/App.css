@@ -1,11 +1,11 @@
 /* The page, on the Ink tokens (design/tokens.css). No raw colours here. */
 
-.app { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); height: 100dvh; font-size: var(--fs-md); line-height: var(--lh); }
+.app { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); height: 100dvh; font-size: var(--fs-sm); line-height: var(--lh); }
 .app h1 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
 .app button, .app textarea { font: inherit; color: inherit; }
 .app a { color: var(--accent); text-underline-offset: 0.15em; }
 .app :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.muted { color: var(--muted); font-size: var(--fs-sm); }
+.muted { color: var(--muted); font-size: var(--fs-xs); }
 .app ::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); }
 
 /* buttons */
@@ -54,20 +54,20 @@
 .empty { max-width: 28rem; margin: 20vh auto 0; color: var(--muted); text-align: center; }
 
 /* messages */
-.user { align-self: flex-start; max-width: 85%; margin: 0; padding: var(--sp-2) var(--sp-3); background: var(--user-bg); border-radius: var(--r-lg); overflow-wrap: anywhere; white-space: pre-wrap; }
+.user { align-self: flex-start; max-width: 85%; margin: 0; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border-radius: var(--r-lg); overflow-wrap: anywhere; white-space: pre-wrap; }
 .reply { overflow-wrap: anywhere; }
 .reply > :first-child { margin-top: 0; }
 .reply p { margin: 0 0 var(--sp-2); }
 .reply ol, .reply ul { margin: 0 0 var(--sp-2); padding-left: 1.4em; }
 .reply li + li { margin-top: var(--sp-1); }
-.reply code { padding: 0 4px; background: var(--user-bg); border-radius: var(--r-sm); font-family: var(--font-mono); font-size: 0.9em; }
+.reply code { padding: 0 4px; background: var(--fill); border-radius: var(--r-sm); font-family: var(--font-mono); font-size: 0.9em; }
 .reply pre { overflow: auto; padding: var(--sp-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); }
 .reply pre code { padding: 0; background: none; }
 .reply small { display: block; font-family: var(--font-mono); }
 
 /* run block (U3 builds on this) */
 .runblock { display: grid; gap: var(--sp-2); min-width: 0; } /* the card, and under it the pages its browser saved */
-.run { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: 0 1px 2px var(--shade), 0 4px 12px -6px var(--shade); font-family: var(--font-mono); font-size: var(--fs-sm); }
+.run { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-card); font-family: var(--font-mono); font-size: var(--fs-sm); }
 .run > summary { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); cursor: pointer; list-style: none; }
 .run[open] > summary { border-radius: var(--r-md) var(--r-md) 0 0; }
 .run > summary::-webkit-details-marker { display: none; }
@@ -147,7 +147,7 @@ a.page__url { color: var(--accent); }
 .note__cap { display: block; margin-bottom: 2px; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* composer */
-.composer { display: flex; align-items: flex-end; gap: var(--sp-2); width: calc(100% - var(--sp-4)); max-width: var(--measure); margin: 0 auto var(--sp-3); padding: var(--sp-2); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-lg); box-shadow: 0 1px 2px var(--shade), 0 4px 12px -6px var(--shade); }
+.composer { display: flex; align-items: flex-end; gap: var(--sp-2); width: calc(100% - var(--sp-4)); max-width: var(--measure); margin: 0 auto var(--sp-3); padding: var(--sp-2); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-composer); }
 .composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); } /* the composer carries the focus: a 2px accent edge, and no second ring inside it */
 .composer textarea:focus-visible { outline: none; }
 .composer textarea { flex: 1; min-width: 0; max-height: 40vh; padding: var(--sp-1) var(--sp-2); background: none; border: 0; outline: 0; resize: none; field-sizing: content; }
