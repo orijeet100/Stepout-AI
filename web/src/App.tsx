@@ -25,10 +25,27 @@ export default function App() {
   const menu = useRef<HTMLButtonElement>(null)
   const wasOpen = useRef(false)
   useEffect(() => {
-    if (open) side.current?.querySelector<HTMLElement>('button')?.focus()
+    if (open) side.current?.querySelector<HTMLElement>('.newchat')?.focus()
     else if (wasOpen.current) menu.current?.focus()
     wasOpen.current = open
   }, [open])
+
+  // Desktop only: the chat list can fold to a narrow rail of icons (the template's collapsible sidebar). A per-viewer convenience, kept in this browser.
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('stepout.sidebar') === 'collapsed'
+    } catch {
+      return false
+    }
+  })
+  const toggleRail = () => {
+    setCollapsed(!collapsed)
+    try {
+      localStorage.setItem('stepout.sidebar', collapsed ? 'open' : 'collapsed')
+    } catch {
+      // private window or blocked storage: it still works for this visit
+    }
+  }
 
   const chats = chatList(state)
   const waiting = selected ? !state.loaded[selected] : !state.listed && !state.draft // nothing to show yet, because it has not been read yet
@@ -42,7 +59,7 @@ export default function App() {
         ? 'Connecting…'
         : `Disconnected. Reconnecting${attempt > 1 ? ` (attempt ${attempt})` : ''}…`
   return (
-    <div className="app" data-drawer={open ? 'open' : 'closed'} onKeyDown={(e) => e.key === 'Escape' && open && setDrawer(false)}>
+    <div className="app" data-drawer={open ? 'open' : 'closed'} data-rail={collapsed ? 'collapsed' : 'open'} onKeyDown={(e) => e.key === 'Escape' && open && setDrawer(false)}>
       <a className="skip" href="#message" inert={open}>Skip to the message box</a>
       <Sidebar
         ref={side}
@@ -50,6 +67,8 @@ export default function App() {
         chats={chats}
         listed={state.listed}
         failed={!!error}
+        collapsed={collapsed}
+        onToggle={toggleRail}
         selected={selected}
         onSelect={(id) => {
           select(id)

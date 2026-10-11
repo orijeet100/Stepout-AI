@@ -3,16 +3,21 @@ import Icon from './Icon'
 import type { Chat } from './protocol'
 import { chatGroups, type ChatState } from './store'
 
-type Props = { chats: (Chat & { state: ChatState })[]; listed: boolean; failed: boolean; selected: string | null; onSelect: (id: string) => void; onNew: () => void; inert?: boolean; ref?: Ref<HTMLElement> }
+type Props = { chats: (Chat & { state: ChatState })[]; listed: boolean; failed: boolean; selected: string | null; onSelect: (id: string) => void; onNew: () => void; collapsed?: boolean; onToggle?: () => void; inert?: boolean; ref?: Ref<HTMLElement> }
 
-export default function Sidebar({ chats, listed, failed, selected, onSelect, onNew, inert, ref }: Props) {
+export default function Sidebar({ chats, listed, failed, selected, onSelect, onNew, collapsed = false, onToggle, inert, ref }: Props) {
   return (
     <aside id="chats" ref={ref} className="side" aria-label="Chats" inert={inert}>
       <div className="side__head">
         <Icon name="message" />
         <strong>Stepout</strong>
+        {onToggle && (
+          <button className="btn btn--icon btn--ghost rail" type="button" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={onToggle}>
+            <Icon name="panel" />
+          </button>
+        )}
       </div>
-      <button className="newchat" type="button" aria-label="New chat" onClick={onNew}>
+      <button className="newchat" type="button" aria-label="New chat" title={collapsed ? 'New chat' : undefined} onClick={onNew}>
         <Icon name="compose" />
         <span>New chat</span>
       </button>

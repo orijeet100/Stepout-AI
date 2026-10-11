@@ -65,6 +65,7 @@
   /* layout */
   --measure: 56rem;       /* the message column and the composer, side padding included */
   --sidebar-w: 16rem;
+  --rail-w: 3rem;         /* the sidebar folded to its icons */
   --header-h: 3.5rem;
 }
 

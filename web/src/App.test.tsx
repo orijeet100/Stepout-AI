@@ -233,6 +233,19 @@ describe('App', () => {
     ])
   })
 
+  it('folds the sidebar to a rail and unfolds it, remembering the choice in this browser', async () => {
+    localStorage.removeItem('stepout.sidebar')
+    await connected()
+    const app = document.querySelector('.app')!
+    expect(app.getAttribute('data-rail')).toBe('open')
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(app.getAttribute('data-rail')).toBe('collapsed')
+    expect(localStorage.getItem('stepout.sidebar')).toBe('collapsed')
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }))
+    expect(app.getAttribute('data-rail')).toBe('open')
+    expect(localStorage.getItem('stepout.sidebar')).toBe('open')
+  })
+
   it('sends a message as a v1 `send` frame for the open chat', async () => {
     const ws = await connected()
     const box = screen.getByLabelText('Message')

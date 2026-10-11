@@ -209,14 +209,28 @@ a.page__url { color: var(--accent); }
 .send:disabled { color: color-mix(in srgb, var(--muted) 55%, transparent); background: var(--fill); cursor: not-allowed; }
 @media (pointer: coarse) { .send { width: 2.75rem; height: 2.75rem; border-radius: var(--r-2xl); } }
 
-/* narrow: the chat list becomes a drawer (keep 899px in step with useNarrow.ts) */
+/* desktop: the chat list folds to a rail of icons (the template's collapsible sidebar) */
+.rail { margin-left: auto; }
+@media (min-width: 900px) {
+  .app { transition: grid-template-columns 300ms var(--ease-spring); }
+  .app[data-rail='collapsed'] { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
+  .app[data-rail='collapsed'] .side { align-items: center; padding-inline: 0; overflow: hidden; }
+  .app[data-rail='collapsed'] .side__head { padding: 0; }
+  .app[data-rail='collapsed'] .side__head > :not(.rail), .app[data-rail='collapsed'] .side__nav, .app[data-rail='collapsed'] .newchat span { display: none; }
+  .app[data-rail='collapsed'] .rail { margin: 0; }
+  .app[data-rail='collapsed'] .newchat { justify-content: center; width: 2rem; padding: 0; }
+}
+
+/* narrow: the chat list becomes a bottom sheet with a grabber, as the template's does (keep 899px in step with useNarrow.ts) */
 @media (max-width: 899px) {
   .app { grid-template-columns: minmax(0, 1fr); }
   .panel { border: 0; border-radius: 0; }
   .menu { display: inline-flex; }
-  .side { position: fixed; inset: 0 auto 0 0; z-index: 30; width: min(20rem, 86vw); visibility: hidden; transform: translateX(-100%); transition: transform var(--dur) var(--ease), visibility 0s linear var(--dur); }
-  .app[data-drawer='open'] .side { visibility: visible; transform: none; box-shadow: 8px 0 32px rgb(0 0 0 / 0.3); transition-delay: 0s; }
-  .app[data-drawer='open'] .scrim { display: block; position: fixed; inset: 0; z-index: 20; background: rgb(0 0 0 / 0.5); }
+  .rail { display: none; }
+  .side { position: fixed; inset: auto 0 0 0; z-index: 30; height: 70dvh; border-top: 1px solid var(--border); border-radius: var(--r-2xl) var(--r-2xl) 0 0; visibility: hidden; transform: translateY(100%); transition: transform 300ms var(--ease-spring), visibility 0s linear 300ms; }
+  .side::before { content: ''; flex: none; align-self: center; width: 2.5rem; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--text) 20%, transparent); }
+  .app[data-drawer='open'] .side { visibility: visible; transform: none; box-shadow: var(--shadow-float); transition-delay: 0s; }
+  .app[data-drawer='open'] .scrim { display: block; position: fixed; inset: 0; z-index: 20; background: rgb(0 0 0 / 0.5); backdrop-filter: blur(2px); }
 }
 @media (max-width: 760px) {
   .steps li { grid-template-columns: auto minmax(0, 1fr) auto; }

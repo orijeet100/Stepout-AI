@@ -42,4 +42,14 @@ describe('Sidebar', () => {
     rerender(<Sidebar {...base} chats={[]} listed={false} failed />)
     expect(screen.getByText('Your chats could not be loaded.')).toBeTruthy()
   })
+
+  it('has a toggle that folds it to a rail, named for what it will do', () => {
+    const onToggle = vi.fn()
+    const { rerender } = render(<Sidebar {...base} chats={[chat('a', 'First', 0)]} onToggle={onToggle} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(onToggle).toHaveBeenCalled()
+    rerender(<Sidebar {...base} chats={[chat('a', 'First', 0)]} onToggle={onToggle} collapsed />)
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'New chat' }).getAttribute('title')).toBe('New chat') // an icon alone in the rail: it has a tooltip
+  })
 })
