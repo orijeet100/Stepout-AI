@@ -45,7 +45,7 @@ def say(text: str, cost: float = 0.004) -> ModelResponse:
 
 
 def web_script(url: str, goal_a: str, goal_b: str, found: str, final: str) -> list[ModelResponse]:
-    plan = PlanAction(steps=[PlanStep(role="browser", goal=goal_a), PlanStep(role="browser", goal=goal_b)])
+    plan = PlanAction(steps=[PlanStep(role="web_browsing", goal=goal_a), PlanStep(role="web_browsing", goal=goal_b)])
     return [
         ModelResponse(action=plan, cost_usd=0.014),
         ModelResponse(action=BrowseAction(op="open", url=url), cost_usd=0.012),
@@ -69,7 +69,7 @@ def script_for(request: str) -> list[ModelResponse]:
 
 
 class DemoScreener:
-    """Stands in for the Haiku front door (stepout.screening): payments are declined, a greeting is answered, "and ..." links the chat's last exchange."""
+    """Stands in for the Haiku Screening (stepout.screening): payments are declined, a greeting is answered, "and ..." links the chat's last exchange."""
 
     async def screen(self, text: str, recent):
         t = text.lower()

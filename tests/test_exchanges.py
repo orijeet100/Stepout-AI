@@ -1,4 +1,4 @@
-"""Exchanges: what a Follow-up is given. Built from saved history; shown to the Orchestrator only; the front door's cost counts against the Run."""
+"""Exchanges: what a Follow-up is given. Built from saved history; shown to the Orchestrator only; Screening's cost counts against the Run."""
 
 import pytest
 
@@ -12,7 +12,7 @@ from tests.test_runner import FakeBrowser, Harness, browse, plan, say
 
 async def test_exchanges_are_the_chats_answered_requests_numbered_from_one(tmp_path):
     page = ("URL: https://example.com\nTitle: Example\nText: Example Domain", "abc/1.jpg")
-    script = [say("Paris"), plan("read it", role="browser"), browse("open", "https://example.com"), say("Heading: Example Domain"), say("It says Example Domain."), say("Madrid")]
+    script = [say("Paris"), plan("read it", role="web_browsing"), browse("open", "https://example.com"), say("Heading: Example Domain"), say("It says Example Domain."), say("Madrid")]
     messages = [ask("c1", "what is the capital of France?"), ask("c1", "read https://example.com"), ask("c1", "what is the capital of Spain?")]
     store = await serve(tmp_path, messages, script, browser=FakeBrowser(page))
 
@@ -83,7 +83,7 @@ async def test_the_front_doors_cost_counts_against_the_cap(tmp_path, monkeypatch
 
 async def test_a_repeat_the_runner_skipped_is_not_listed_as_something_the_hands_did(tmp_path):
     page = ("URL: https://example.com\nTitle: Example\nText: Example Domain", "abc/1.jpg")
-    script = [plan("read it", role="browser"), browse("open", "https://example.com"), browse("open", "https://example.com"), say("Example Domain"), say("It says Example Domain.")]
+    script = [plan("read it", role="web_browsing"), browse("open", "https://example.com"), browse("open", "https://example.com"), say("Example Domain"), say("It says Example Domain.")]
     store = await serve(tmp_path, [ask("c1", "read https://example.com")], script, browser=FakeBrowser(page))
     (x,) = history.exchanges(store, "c1")
     assert x.did == "browse open example.com"  # not also "repeat, not run again: browse open example.com"

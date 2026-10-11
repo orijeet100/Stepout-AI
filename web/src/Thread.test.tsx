@@ -47,7 +47,7 @@ describe('one tile for everything the assistant says in answer', () => {
 
 describe('the assistant is starting', () => {
   it('says it is working from the moment your message is taken until the first thing of its run arrives', () => {
-    const waiting = run(yours('hi'), status('running', false)) // taken from the queue, the front door is screening it
+    const waiting = run(yours('hi'), status('running', false)) // taken from the queue, Screening is screening it
     expect(starting(waiting, C, timeline(waiting, C))).toBe(true)
     const { container } = view(waiting, C)
     expect(container.querySelector('.working')!.textContent).toBe('Working…')

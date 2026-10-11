@@ -6,7 +6,7 @@ import re
 
 from playwright.sync_api import expect
 
-FINISHED = re.compile(r"^\d+ steps? · \$[\d.]+ · \d+ s$")
+FINISHED = re.compile(r"^\d+ actions? · \$[\d.]+ · \d+ s$")
 # how far the last thing in the thread reaches below the top of the composer (> 0: it is hidden under it)
 HIDDEN = """() => {
   const last = [...document.querySelector('.col').children].at(-1).getBoundingClientRect()

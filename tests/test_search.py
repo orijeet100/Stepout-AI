@@ -31,6 +31,6 @@ async def test_a_fourth_search_in_one_run_is_not_run():
             Counting.calls += 1
             return f"found {query}", 0.0
 
-    ctx = RunContext(run_id="r", role="direct", hands={"web_search": Counting()}, cancelled=lambda: False, emit=None)
+    ctx = RunContext(run_id="r", role="web_research", hands={"web_search": Counting()}, cancelled=lambda: False, emit=None)
     results = [await WebSearch().run(WebSearchAction(query=str(i)), ctx) for i in range(MAX_SEARCHES + 1)]
     assert Counting.calls == MAX_SEARCHES and "No searches left" in results[-1]  # the fourth made no call of its own

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { elapsedMs, elapsedText, hasBrowserStep, liveSrc, money, plainLine, planProgress, safeHref, shotSrc, shotsOf, stepCost } from './runview'
+import { agentName, elapsedMs, elapsedText, hasBrowserStep, liveSrc, money, plainLine, planProgress, safeHref, shotSrc, shotsOf, stepCost } from './runview'
 import type { Run } from './store'
 
 const ev = (at: string) => ({ id: at, conversation_id: 'c', run_id: 'r', parent: null, kind: 'step', role: 'x', data: {}, cost_usd: 0, at })
@@ -29,7 +29,7 @@ describe('run view numbers', () => {
   })
 
   it('plan progress counts done steps out of all, nothing else', () => {
-    const s = (status: 'pending' | 'running' | 'done' | 'failed') => ({ role: 'browser', goal: 'g', status })
+    const s = (status: 'pending' | 'running' | 'done' | 'failed') => ({ role: 'web_browsing', goal: 'g', status })
     expect(planProgress([s('done'), s('running'), s('pending'), s('failed')])).toEqual({ done: 1, total: 4 })
     expect(planProgress([])).toEqual({ done: 0, total: 0 })
   })
@@ -38,21 +38,22 @@ describe('run view numbers', () => {
 describe("the browser's pages", () => {
   const RUN = 'ab'.repeat(16)
   const withEvents = (events: object[]): Run => ({ id: RUN, conversationId: 'c', startedAt: 't', hint: null, cap: null, events: events as Run['events'] })
-  const shot = (n: number, data: object = {}) => ({ id: `s${n}`, kind: 'shot', role: 'browser', data: { shot: `${RUN}/${n}.jpg`, url: `https://example.com/${n}`, title: `Page ${n}`, ...data } })
+  const shot = (n: number, data: object = {}) => ({ id: `s${n}`, kind: 'shot', role: 'web_browsing', data: { shot: `${RUN}/${n}.jpg`, url: `https://example.com/${n}`, title: `Page ${n}`, ...data } })
 
   it("lists a Run's screenshots in order, with their page address and title", () => {
-    const run = withEvents([{ id: 'p', kind: 'plan', data: {} }, shot(1), { id: 'x', kind: 'step', role: 'browser', data: {} }, shot(2, { title: undefined })])
+    const run = withEvents([{ id: 'p', kind: 'plan', data: {} }, shot(1), { id: 'x', kind: 'step', role: 'web_browsing', data: {} }, shot(2, { title: undefined })])
     expect(shotsOf(run)).toEqual([
       { path: `${RUN}/1.jpg`, url: 'https://example.com/1', title: 'Page 1' },
       { path: `${RUN}/2.jpg`, url: 'https://example.com/2', title: null },
     ])
-    expect(shotsOf(withEvents([{ id: 's', kind: 'shot', role: 'browser', data: {} }]))).toEqual([]) // a shot event with no file names nothing to show
+    expect(shotsOf(withEvents([{ id: 's', kind: 'shot', role: 'web_browsing', data: {} }]))).toEqual([]) // a shot event with no file names nothing to show
   })
 
-  it('there is a page to watch only once the Browser agent has acted', () => {
+  it('there is a page to watch only once the Web Browsing agent has acted', () => {
     expect(hasBrowserStep(withEvents([{ id: 'a', kind: 'step', role: 'orchestrator', data: {} }]))).toBe(false)
-    expect(hasBrowserStep(withEvents([{ id: 'a', kind: 'step', role: 'files', data: {} }]))).toBe(false)
-    expect(hasBrowserStep(withEvents([{ id: 'a', kind: 'step', role: 'browser', data: {} }]))).toBe(true)
+    expect(hasBrowserStep(withEvents([{ id: 'a', kind: 'step', role: 'local_file_finder', data: {} }]))).toBe(false)
+    expect(hasBrowserStep(withEvents([{ id: 'a', kind: 'step', role: 'web_browsing', data: {} }]))).toBe(true)
+    expect(hasBrowserStep(withEvents([{ id: 'a', kind: 'step', role: 'browser', data: {} }]))).toBe(true) // a chat saved before the rename
   })
 
   it('a screenshot address is only ever the <run>/<n>.jpg the backend writes', () => {
@@ -60,6 +61,12 @@ describe("the browser's pages", () => {
     for (const bad of ['', '../secret.txt', `${RUN}/../x.jpg`, `${RUN}/3.png`, `${RUN}/3.jpg?x=1`, `${RUN.toUpperCase()}/3.jpg`, `${RUN}/3.jpg/extra`, 'https://evil.example/a.jpg', `//${RUN}/3.jpg`, `${RUN}%2f3.jpg`]) {
       expect(shotSrc(bad), bad).toBeNull()
     }
+  })
+
+  it('an agent reads as its use-case name; a chat saved with the first role ids reads the same', () => {
+    expect(agentName('local_file_finder')).toBe('Local File Finder')
+    expect(agentName('direct')).toBe('Web Research')
+    expect(agentName('orchestrator')).toBe('Orchestrator')
   })
 
   it('the live address is built only from a 32-hex run id', () => {

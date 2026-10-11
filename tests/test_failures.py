@@ -1,7 +1,7 @@
 """What the User sees when the model API fails, at each place a model is called.
 
 The REAL anthropic client over a mock HTTP transport (no network): a fake client would accept anything, which is how the temperature TypeError once
-slipped through. Each failure, at the front door, the Orchestrator and a specialist, must give one short plain reply (what happened, what to do),
+slipped through. Each failure, at Screening, the Orchestrator and a specialist, must give one short plain reply (what happened, what to do),
 never a stack trace or an exception name; the Run's row ends `failed` with the cost of the calls that did work; the Ledger keeps the cause; and the
 app answers the next message.
 """
@@ -47,8 +47,8 @@ def raises(exc):
     return exc
 
 
-PROCEED = message(HAIKU, tool("screen", decision="proceed", related=[]))  # the front door lets it through
-PLAN = message(SONNET, tool("plan", steps=[{"role": "direct", "goal": "look it up"}]))
+PROCEED = message(HAIKU, tool("screen", decision="proceed", related=[]))  # Screening lets it through
+PLAN = message(SONNET, tool("plan", steps=[{"role": "web_research", "goal": "look it up"}]))
 ANSWER = message(SONNET, tool("answer", text="Paris."))
 
 # (id, what the API does, words the User's reply must contain, the cause the Ledger keeps)
@@ -64,7 +64,7 @@ FAILURES = [
     pytest.param(message(SONNET, tool("plan")), ["could not be understood"], "malformed", id="malformed-tool-call"),
     pytest.param(api_error(400, "invalid_request_error", "Your credit balance is too low to access the Anthropic API."), ["out of credit"], "credit", id="400-no-credit"),
 ]
-# Which model call fails: 0 = the front door, 1 = the Orchestrator's first call, 2 = a specialist's first call.
+# Which model call fails: 0 = Screening, 1 = the Orchestrator's first call, 2 = a specialist's first call.
 PLACES = [
     pytest.param([], id="front-door"),
     pytest.param([PROCEED], id="orchestrator"),
@@ -93,7 +93,7 @@ def real_model(network):
 
 
 async def serve(tmp_path, network, *texts, **runner_kwargs):
-    """The real app loop: the real front door, Runner and anthropic client, over a fake channel and the mock network. -> the reopened Store."""
+    """The real app loop: the real Screening, Runner and anthropic client, over a fake channel and the mock network. -> the reopened Store."""
     store = Store(tmp_path / "t.db")
     ledger = Ledger(store)
     model = real_model(network)
@@ -121,7 +121,7 @@ def plain(text):
 
 
 @pytest.mark.parametrize("failure, words, cause", FAILURES)
-@pytest.mark.parametrize("before", PLACES[1:])  # (the front door is a place of its own: it fails open, below)
+@pytest.mark.parametrize("before", PLACES[1:])  # (Screening is a place of its own: it fails open, below)
 async def test_a_failed_model_call_gives_a_plain_reply_a_failed_run_and_the_next_message_still_works(tmp_path, before, failure, words, cause):
     network = Network(*before, failure, PROCEED, ANSWER)
     store = await serve(tmp_path, network, "what is the capital of France?", "and of Spain?")
@@ -134,7 +134,7 @@ async def test_a_failed_model_call_gives_a_plain_reply_a_failed_run_and_the_next
     assert failed["outcome"] == "failed" and fine["outcome"] == "done"
     assert (failed["cost_usd"] > 0) == (len(before) > 0)  # what the calls that worked cost is on the row; a failed call costs nothing
     (error,) = errors(store)
-    assert error["cause"] == cause and error["role"] == ("direct" if len(before) == 2 else "orchestrator") and error["summary"] == first
+    assert error["cause"] == cause and error["role"] == ("web_research" if len(before) == 2 else "orchestrator") and error["summary"] == first
     assert error["type"] and error["type"] not in first  # the cause is in the Ledger, not in the reply
 
 
@@ -145,12 +145,12 @@ async def test_a_bad_key_at_the_front_door_is_said_once_and_does_not_start_a_run
     first, second = replies(store)
     assert "API key" in first and ".env" in first and second.startswith("Paris.")
     assert [r["outcome"] for r in runs(store)] == ["done"]  # the first message never became a Run that would fail the same way
-    assert len(network.requests) == 3  # front door; front door; the Orchestrator's one call for the second message... and nothing for the first
+    assert len(network.requests) == 3  # Screening; Screening; the Orchestrator's one call for the second message... and nothing for the first
 
 
 @pytest.mark.parametrize("failure", [api_error(429, "rate_limit_error"), api_error(529, "overloaded_error"), api_error(500, "api_error"), raises(httpx.ReadTimeout("t")), lambda: httpx.Response(200, json={})])
 async def test_any_other_front_door_failure_still_fails_open(tmp_path, failure):
-    network = Network(failure, ANSWER)  # the front door fails; the message goes through to the Orchestrator, which answers
+    network = Network(failure, ANSWER)  # Screening fails; the message goes through to the Orchestrator, which answers
     store = await serve(tmp_path, network, "what is the capital of France?")
 
     assert replies(store)[0].startswith("Paris.") and [r["outcome"] for r in runs(store)] == ["done"]
@@ -183,7 +183,7 @@ async def test_a_bug_in_a_hand_is_a_plain_failed_run_with_the_cause_in_the_ledge
         async def run(self, *args, **kwargs):
             raise KeyError("lost the thread")
 
-    network = Network(PROCEED, message(SONNET, tool("plan", steps=[{"role": "browser", "goal": "open it"}])), message(SONNET, tool("browse", op="open", url="https://example.com")))
+    network = Network(PROCEED, message(SONNET, tool("plan", steps=[{"role": "web_browsing", "goal": "open it"}])), message(SONNET, tool("browse", op="open", url="https://example.com")))
     store = await serve(tmp_path, network, "open example.com", browser=Broken())
 
     (reply,) = replies(store)
@@ -191,5 +191,5 @@ async def test_a_bug_in_a_hand_is_a_plain_failed_run_with_the_cause_in_the_ledge
     assert "unexpected problem" in reply and "KeyError" not in reply
     assert runs(store)[0]["outcome"] == "failed"
     (error,) = errors(store)
-    assert error["cause"] == "internal" and error["type"] == "KeyError" and error["role"] == "browser"
+    assert error["cause"] == "internal" and error["type"] == "KeyError" and error["role"] == "web_browsing"
     assert "lost the thread" in caplog.text  # the terminal has the traceback

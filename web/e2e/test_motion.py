@@ -6,7 +6,7 @@ import re
 
 from playwright.sync_api import expect
 
-FINISHED = re.compile(r"^\d+ steps? · \$[\d.]+ · \d+ s$")
+FINISHED = re.compile(r"^\d+ actions? · \$[\d.]+ · \d+ s$")
 # the computed motion of every kind of thing that moves, read from the page while a run is going
 MOTION = """() => {
   const css = (sel) => { const e = document.querySelector(sel); return e ? getComputedStyle(e) : null }

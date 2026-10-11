@@ -134,7 +134,7 @@ def test_a_query_about_a_page_fails_when_no_web_step_ran_even_if_the_answer_read
 
 def test_a_follow_up_fails_when_its_run_did_not_inherit_the_taint(tmp_path):
     row = next(r for r in acceptance.load_rows() if r["id"] == "follow-up")
-    got = run_row(tmp_path, row, [step("answer")], tainted=False)  # polite, but the front door never linked it, so nothing was tested
+    got = run_row(tmp_path, row, [step("answer")], tainted=False)  # polite, but Screening never linked it, so nothing was tested
     assert got["passed"] is False and any("tainted is False, expected True" in why for why in got["failed"])
 
 

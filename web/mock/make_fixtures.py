@@ -17,6 +17,10 @@ OUT = Path(__file__).resolve().parents[1] / "fixtures"
 CAP = 1.0
 
 
+def name(role: str) -> str:
+    return role.replace("_", " ").title()  # as roles.agent_name: how a Role is shown to the User
+
+
 def hid(*parts: str) -> str:
     return hashlib.md5("|".join(parts).encode()).hexdigest()  # 32 hex, stable
 
@@ -73,7 +77,7 @@ class Chat:
     # --- the Runner's events, with its wording -------------------------------------------------------------
 
     def plan_step(self, wait: float, cost: float, steps: list[tuple[str, str]]) -> str:
-        summary = "plan: " + "; ".join(f"{r}: {g[:70]}" for r, g in steps)
+        summary = "plan: " + "; ".join(f"{name(r)}: {g[:70]}" for r, g in steps)
         action = {"kind": "plan", "steps": [{"role": r, "goal": g, "status": "pending"} for r, g in steps]}
         return self.event("step", "orchestrator", wait, cost=cost, summary=summary, action=action, verdict="allow")
 
@@ -81,7 +85,7 @@ class Chat:
         self.event("plan", "orchestrator", wait, summary="plan updated", steps=[{"role": r, "goal": g, "status": s} for r, g, s in steps])
 
     def delegate(self, wait: float, cost: float, i: int, role: str, goal: str) -> str:
-        return self.event("step", "orchestrator", wait, cost=cost, summary=f"delegate {i} → {role}: {goal}", action={"kind": "delegate", "step": i}, verdict="allow")
+        return self.event("step", "orchestrator", wait, cost=cost, summary=f"delegate {i} → {name(role)}: {goal}", action={"kind": "delegate", "step": i}, verdict="allow")
 
     def act(self, role: str, wait: float, parent: str, cost: float, summary: str, action: dict, verdict: str = "allow") -> str:
         return self.event("step", role, wait, parent=parent, cost=cost, summary=summary, action=action, verdict=verdict)
@@ -108,21 +112,21 @@ def web_run() -> Chat:
     c = Chat("web-run", "2026-10-01T09:14:00")
     c.user("What are the top three events on Luma this weekend in New York?")
     c.start()
-    p = c.plan_step(2.1, 0.0141, [("browser", "Open the Luma discover page for New York"), ("browser", "Read the three most popular weekend events")])
-    c.plan([("browser", "Open the Luma discover page for New York", "running"), ("browser", "Read the three most popular weekend events", "pending")])
-    s = c.act("browser", 3.2, p, 0.0124, "browse open https://luma.com/discover", browse("open", "https://luma.com/discover"))
-    c.shot("browser", 1.4, s, "https://luma.com/discover", "Discover events · Luma")
-    c.answer("browser", 2.4, p, 0.0112, "The discover page is open; the New York list is behind link 3.")
-    c.plan([("browser", "Open the Luma discover page for New York", "done"), ("browser", "Read the three most popular weekend events", "pending")])
-    c.ret("browser", p, True, "The discover page is open; the New York list is behind link 3.")
-    d = c.delegate(2.2, 0.0153, 1, "browser", "Read the three most popular weekend events")
-    c.plan([("browser", "Open the Luma discover page for New York", "done"), ("browser", "Read the three most popular weekend events", "running")])
-    s = c.act("browser", 3.0, d, 0.0153, "browse click 3", browse("click", link=3))
-    c.shot("browser", 1.6, s, "https://luma.com/ny", "New York · Luma")
-    c.act("browser", 2.8, d, 0.0088, "browse more", browse("more"))
-    c.answer("browser", 2.6, d, 0.0192, "Rooftop Jazz Night, AI Builders Meetup, Sunday Sketch Club.")
-    c.plan([("browser", "Open the Luma discover page for New York", "done"), ("browser", "Read the three most popular weekend events", "done")])
-    c.ret("browser", d, True, "Rooftop Jazz Night (Sat 7:00 pm), AI Builders Meetup (Sat 6:30 pm), Sunday Sketch Club (Sun 11:00 am).")
+    p = c.plan_step(2.1, 0.0141, [("web_browsing", "Open the Luma discover page for New York"), ("web_browsing", "Read the three most popular weekend events")])
+    c.plan([("web_browsing", "Open the Luma discover page for New York", "running"), ("web_browsing", "Read the three most popular weekend events", "pending")])
+    s = c.act("web_browsing", 3.2, p, 0.0124, "browse open https://luma.com/discover", browse("open", "https://luma.com/discover"))
+    c.shot("web_browsing", 1.4, s, "https://luma.com/discover", "Discover events · Luma")
+    c.answer("web_browsing", 2.4, p, 0.0112, "The discover page is open; the New York list is behind link 3.")
+    c.plan([("web_browsing", "Open the Luma discover page for New York", "done"), ("web_browsing", "Read the three most popular weekend events", "pending")])
+    c.ret("web_browsing", p, True, "The discover page is open; the New York list is behind link 3.")
+    d = c.delegate(2.2, 0.0153, 1, "web_browsing", "Read the three most popular weekend events")
+    c.plan([("web_browsing", "Open the Luma discover page for New York", "done"), ("web_browsing", "Read the three most popular weekend events", "running")])
+    s = c.act("web_browsing", 3.0, d, 0.0153, "browse click 3", browse("click", link=3))
+    c.shot("web_browsing", 1.6, s, "https://luma.com/ny", "New York · Luma")
+    c.act("web_browsing", 2.8, d, 0.0088, "browse more", browse("more"))
+    c.answer("web_browsing", 2.6, d, 0.0192, "Rooftop Jazz Night, AI Builders Meetup, Sunday Sketch Club.")
+    c.plan([("web_browsing", "Open the Luma discover page for New York", "done"), ("web_browsing", "Read the three most popular weekend events", "done")])
+    c.ret("web_browsing", d, True, "Rooftop Jazz Night (Sat 7:00 pm), AI Builders Meetup (Sat 6:30 pm), Sunday Sketch Club (Sun 11:00 am).")
     text = (
         "Here are the three most popular events in New York this weekend:\n\n"
         "1. **Rooftop Jazz Night** — Saturday, 7:00 pm · Williamsburg · [luma.com/e/jazz-rooftop](https://luma.com/e/jazz-rooftop)\n"
@@ -139,12 +143,12 @@ def files_run() -> Chat:
     goal = "Count the PDF files under D:\\Example\\Projects"
     c.user("How many PDFs are in my Projects folder?")
     c.start()
-    p = c.plan_step(1.9, 0.0098, [("files", goal)])
-    c.plan([("files", goal, "running")])
-    c.act("files", 2.4, p, 0.0071, "files count D:\\Example\\Projects *.pdf", {"kind": "files", "op": "count", "path": "D:\\Example\\Projects", "pattern": "*.pdf"})
-    c.answer("files", 3.1, p, 0.0048, "42 PDF files, in 9 folders.")
-    c.plan([("files", goal, "done")])
-    c.ret("files", p, True, "42 PDF files, in 9 folders.")
+    p = c.plan_step(1.9, 0.0098, [("local_file_finder", goal)])
+    c.plan([("local_file_finder", goal, "running")])
+    c.act("local_file_finder", 2.4, p, 0.0071, "files count D:\\Example\\Projects *.pdf", {"kind": "files", "op": "count", "path": "D:\\Example\\Projects", "pattern": "*.pdf"})
+    c.answer("local_file_finder", 3.1, p, 0.0048, "42 PDF files, in 9 folders.")
+    c.plan([("local_file_finder", goal, "done")])
+    c.ret("local_file_finder", p, True, "42 PDF files, in 9 folders.")
     text = "There are **42** PDF files under `D:\\Example\\Projects`, spread over 9 folders."
     c.answer("orchestrator", 2.2, None, 0.0213, text)
     c.reply(text, 0.3)
@@ -156,14 +160,14 @@ def refused_action() -> Chat:
     goal = "Open a forecast page for Lisbon and read next week"
     c.user("What's the weather in Lisbon next week?")
     c.start()
-    p = c.plan_step(2.0, 0.0102, [("browser", goal)])
-    c.plan([("browser", goal, "running")])
-    c.act("browser", 2.5, p, 0.0067, "refused fetch: a fetch action is not available to this role", {"kind": "fetch", "url": "https://forecast.example/lisbon"}, "refuse")
-    s = c.act("browser", 2.9, p, 0.0119, "browse open https://forecast.example/lisbon", browse("open", "https://forecast.example/lisbon"))
-    c.shot("browser", 1.5, s, "https://forecast.example/lisbon", "Lisbon, 7-day forecast · Example Weather")
-    c.answer("browser", 2.7, p, 0.0151, "Mostly sunny, 22–25 °C; rain on Thursday.")
-    c.plan([("browser", goal, "done")])
-    c.ret("browser", p, True, "Mostly sunny, 22–25 °C; rain on Thursday.")
+    p = c.plan_step(2.0, 0.0102, [("web_browsing", goal)])
+    c.plan([("web_browsing", goal, "running")])
+    c.act("web_browsing", 2.5, p, 0.0067, "refused fetch: a fetch action is not available to this role", {"kind": "fetch", "url": "https://forecast.example/lisbon"}, "refuse")
+    s = c.act("web_browsing", 2.9, p, 0.0119, "browse open https://forecast.example/lisbon", browse("open", "https://forecast.example/lisbon"))
+    c.shot("web_browsing", 1.5, s, "https://forecast.example/lisbon", "Lisbon, 7-day forecast · Example Weather")
+    c.answer("web_browsing", 2.7, p, 0.0151, "Mostly sunny, 22–25 °C; rain on Thursday.")
+    c.plan([("web_browsing", goal, "done")])
+    c.ret("web_browsing", p, True, "Mostly sunny, 22–25 °C; rain on Thursday.")
     text = "Lisbon next week is **mostly sunny**, 22–25 °C, with one rainy day on **Thursday**."
     c.answer("orchestrator", 2.4, None, 0.0176, text)
     c.reply(text, 0.3)
@@ -175,13 +179,13 @@ def stopped() -> Chat:
     goal = "Open the engineering blog and read the three newest posts"
     c.user("Summarise the three most recent posts on the Example Engineering blog.")
     c.start()
-    p = c.plan_step(2.2, 0.0119, [("browser", goal)])
-    c.plan([("browser", goal, "running")])
-    s = c.act("browser", 3.1, p, 0.0131, "browse open https://blog.example/engineering", browse("open", "https://blog.example/engineering"))
-    c.shot("browser", 1.3, s, "https://blog.example/engineering", "Engineering · Example Blog")
-    c.stop("browser", 4.0, "Stopped by you.", p)  # the User pressed Stop between steps
-    c.plan([("browser", goal, "failed")])
-    c.ret("browser", p, False, "Stopped by you.")
+    p = c.plan_step(2.2, 0.0119, [("web_browsing", goal)])
+    c.plan([("web_browsing", goal, "running")])
+    s = c.act("web_browsing", 3.1, p, 0.0131, "browse open https://blog.example/engineering", browse("open", "https://blog.example/engineering"))
+    c.shot("web_browsing", 1.3, s, "https://blog.example/engineering", "Engineering · Example Blog")
+    c.stop("web_browsing", 4.0, "Stopped by you.", p)  # the User pressed Stop between steps
+    c.plan([("web_browsing", goal, "failed")])
+    c.ret("web_browsing", p, False, "Stopped by you.")
     c.stop("orchestrator", 0.1, "Stopped by you.")
     c.reply("Stopped by you.", 0.1)
     return c
@@ -192,16 +196,16 @@ def over_budget() -> Chat:
     goal = "Compare prices for 12 laptop models across the shops"
     c.user("Compare the price of every 14-inch laptop on all the big shop sites.")
     c.start()
-    p = c.plan_step(2.4, 0.0188, [("browser", goal)])
-    c.plan([("browser", goal, "running")])
+    p = c.plan_step(2.4, 0.0188, [("web_browsing", goal)])
+    c.plan([("web_browsing", goal, "running")])
     for i, shop in enumerate(["shop-a", "shop-b", "shop-c", "shop-d", "shop-e", "shop-f"], 1):
         url = f"https://{shop}.example/laptops?size=14"
-        s = c.act("browser", 3.6, p, 0.164, f"browse open {url}", browse("open", url))  # long pages: expensive reads
+        s = c.act("web_browsing", 3.6, p, 0.164, f"browse open {url}", browse("open", url))  # long pages: expensive reads
         if i in (1, 3):
-            c.shot("browser", 1.8, s, url, f"14-inch laptops · {shop}.example")
-    c.stop("browser", 1.0, f"Stopped: the ${CAP:.2f} budget for this run is used up.", p)
-    c.plan([("browser", goal, "failed")])
-    c.ret("browser", p, False, f"Stopped: the ${CAP:.2f} budget for this run is used up.")
+            c.shot("web_browsing", 1.8, s, url, f"14-inch laptops · {shop}.example")
+    c.stop("web_browsing", 1.0, f"Stopped: the ${CAP:.2f} budget for this run is used up.", p)
+    c.plan([("web_browsing", goal, "failed")])
+    c.ret("web_browsing", p, False, f"Stopped: the ${CAP:.2f} budget for this run is used up.")
     c.stop("orchestrator", 0.1, f"Stopped: the ${CAP:.2f} budget for this run is used up.")
     c.reply(f"Stopped: the ${CAP:.2f} budget for this run is used up.", 0.1)
     return c

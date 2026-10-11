@@ -41,6 +41,11 @@ The choices that shaped the product, in the order they happened, with where to r
 - **The reply streams** as it is written, not for a Run that has read a file ([0013](adr/0013-the-reply-streams.md)). The first version passed a WebSocket check and failed in the real page; it is verified in the browser now.
 - **The page was rebuilt to the look of the Vercel Chatbot template** in our own CSS, keeping everything Stepout-specific ([0014](adr/0014-the-page-follows-the-vercel-chatbot-look.md)).
 
+## 2026-10-11: names by use case
+
+- **One language for agents.** An agent is anything that calls the Model port: the five Roles, plus Screening and the Search Summarizer (single calls outside the loop). The Roles are named by what they do: `web_research`, `web_browsing`, `local_file_finder`, `local_file_reader`. "Front door" is Screening and "hand" is retired (what a Tool runs on is its implementation). The page shows an agent as "Web Research" or "Local File Finder" and counts a Run's loop cycles as actions; chats saved with the first role ids read the same ([0010](adr/0010-one-loop-many-roles.md), [0012](adr/0012-the-front-door.md)).
+- **The glossary marks what is built.** Entries for Approvals, Memory and the rest carry *(planned)*; the others are in the code.
+
 ## Tried and dropped
 
 | What | Why |

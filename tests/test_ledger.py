@@ -8,11 +8,11 @@ from stepout.store import Store
 def test_role_and_parent_are_recorded(tmp_path):
     ledger = Ledger(Store(tmp_path / "t.db"))
     parent = Event(kind="step", role="orchestrator", task_id="t", data={})
-    child = Event(kind="step", role="direct", parent=parent.id, task_id="t", data={"x": 1}, cost_usd=0.01)
+    child = Event(kind="step", role="web_research", parent=parent.id, task_id="t", data={"x": 1}, cost_usd=0.01)
     ledger.record(parent)
     ledger.record(child)
     back = {e.id: e for e in ledger.query("t")}
-    assert back[child.id].role == "direct"
+    assert back[child.id].role == "web_research"
     assert back[child.id].parent == parent.id
     assert back[parent.id].parent is None
 
@@ -32,5 +32,5 @@ def test_an_existing_v1_database_is_upgraded(tmp_path):
     conn.commit()
     conn.close()
     ledger = Ledger(Store(path))
-    ledger.record(Event(kind="step", role="direct", data={}))
-    assert ledger.query()[0].role == "direct"
+    ledger.record(Event(kind="step", role="web_research", data={}))
+    assert ledger.query()[0].role == "web_research"

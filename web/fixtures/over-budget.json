@@ -29,12 +29,12 @@
   "kind": "step",
   "role": "orchestrator",
   "data": {
-   "summary": "plan: browser: Compare prices for 12 laptop models across the shops",
+   "summary": "plan: Web Browsing: Compare prices for 12 laptop models across the shops",
    "action": {
     "kind": "plan",
     "steps": [
      {
-      "role": "browser",
+      "role": "web_browsing",
       "goal": "Compare prices for 12 laptop models across the shops",
       "status": "pending"
      }
@@ -57,7 +57,7 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Compare prices for 12 laptop models across the shops",
      "status": "running"
     }
@@ -73,7 +73,7 @@
   "run_id": "959612fc4799adfc1594ee439ebc5832",
   "parent": "baaab6a4e539914cc6792f61fe85a9d2",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse open https://shop-a.example/laptops?size=14",
    "action": {
@@ -94,7 +94,7 @@
   "run_id": "959612fc4799adfc1594ee439ebc5832",
   "parent": "0b75f7701b9d3d9d5d3b2410f5159011",
   "kind": "shot",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "page screenshot",
    "shot": "959612fc4799adfc1594ee439ebc5832/1.jpg",
@@ -111,7 +111,7 @@
   "run_id": "959612fc4799adfc1594ee439ebc5832",
   "parent": "baaab6a4e539914cc6792f61fe85a9d2",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse open https://shop-b.example/laptops?size=14",
    "action": {
@@ -132,7 +132,7 @@
   "run_id": "959612fc4799adfc1594ee439ebc5832",
   "parent": "baaab6a4e539914cc6792f61fe85a9d2",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse open https://shop-c.example/laptops?size=14",
    "action": {
@@ -153,7 +153,7 @@
   "run_id": "959612fc4799adfc1594ee439ebc5832",
   "parent": "18b03dba1efc8654cc20d38c9c68ba51",
   "kind": "shot",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "page screenshot",
    "shot": "959612fc4799adfc1594ee439ebc5832/2.jpg",
@@ -170,7 +170,7 @@
   "run_id": "959612fc4799adfc1594ee439ebc5832",
   "parent": "baaab6a4e539914cc6792f61fe85a9d2",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse open https://shop-d.example/laptops?size=14",
    "action": {
@@ -191,7 +191,7 @@
   "run_id": "959612fc4799adfc1594ee439ebc5832",
   "parent": "baaab6a4e539914cc6792f61fe85a9d2",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse open https://shop-e.example/laptops?size=14",
    "action": {
@@ -212,7 +212,7 @@
   "run_id": "959612fc4799adfc1594ee439ebc5832",
   "parent": "baaab6a4e539914cc6792f61fe85a9d2",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse open https://shop-f.example/laptops?size=14",
    "action": {
@@ -233,7 +233,7 @@
   "run_id": "959612fc4799adfc1594ee439ebc5832",
   "parent": "baaab6a4e539914cc6792f61fe85a9d2",
   "kind": "stop",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "Stopped: the $1.00 budget for this run is used up."
   },
@@ -252,7 +252,7 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Compare prices for 12 laptop models across the shops",
      "status": "failed"
     }
@@ -268,7 +268,7 @@
   "run_id": "959612fc4799adfc1594ee439ebc5832",
   "parent": "baaab6a4e539914cc6792f61fe85a9d2",
   "kind": "return",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "failed: Stopped: the $1.00 budget for this run is used up.",
    "ok": false

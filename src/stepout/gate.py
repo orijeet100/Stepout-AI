@@ -1,7 +1,7 @@
 """The Gate: pure rule functions. No model calls, no I/O — the most tested module.
 
 check() gives a Verdict for one proposed Action. It is total: every input gets an answer.
-(Screening a Request before any money is spent is the front door's job: stepout/screening.py.)
+(Screening a Request before any money is spent is stepout/screening.py's job, not the Gate's.)
 """
 
 from __future__ import annotations

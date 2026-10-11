@@ -71,7 +71,7 @@ class Task(BaseModel):
 class Exchange(BaseModel):
     """A Request and the reply the User saw for it, in one Conversation. What a Follow-up is given to build on."""
 
-    id: int  # its number in the chat (the first answered Request is 1); what the front door's `related` refers to
+    id: int  # its number in the chat (the first answered Request is 1); what Screening's `related` refers to
     request: str
     reply: str  # without the cost footer
     did: str  # one line: what the hands did ("browse open luma.com/discover"); empty if it only answered
@@ -126,7 +126,7 @@ class Decline(BaseModel):
 
 
 class ChatReply(BaseModel):
-    """The front door answered plain chat itself (a greeting, thanks, "what can you do?"): no Task."""
+    """Screening answered plain chat itself (a greeting, thanks, "what can you do?"): no Task."""
 
     kind: Literal["chat"] = "chat"
     text: str
@@ -139,7 +139,7 @@ class Proceed(BaseModel):
     related: list[int] = []
 
 
-# What the front door decides (stepout/screening.py).
+# What Screening decides (stepout/screening.py).
 Screening = Decline | ChatReply | Proceed
 
 

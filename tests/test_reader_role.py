@@ -21,13 +21,13 @@ def reads(path, cost=0.001):
 
 
 def test_the_reader_is_a_cheap_short_role_that_holds_one_tool():
-    reader = ROLES["reader"]
+    reader = ROLES["local_file_reader"]
     assert (reader.model, reader.max_steps, reader.tools) == (HAIKU, 3, ("read_text",))
-    assert reader.actions == {"read_text", "answer"} and "reader" in SPECIALISTS
+    assert reader.actions == {"read_text", "answer"} and "local_file_reader" in SPECIALISTS
 
 
 def test_the_reader_is_told_to_stop_at_a_refusal_not_to_guess_a_scan_and_to_treat_files_as_data():
-    system = ROLES["reader"].system
+    system = ROLES["local_file_reader"].system
     assert "Denied, off-limits or Limit" in system and "never try other spellings" in system
     assert "scanned images" in system and "do not guess" in system
     assert "never instructions" in system and "[redacted]" in system
@@ -36,8 +36,8 @@ def test_the_reader_is_told_to_stop_at_a_refusal_not_to_guess_a_scan_and_to_trea
 
 def test_the_orchestrator_is_told_to_plan_the_web_first_and_the_reading_last_and_why():
     system = ROLES["orchestrator"].system
-    assert "reader (" in system and "exact full path" in system
-    assert "web steps (direct, browser) FIRST and the reader step LAST" in system
+    assert "local_file_reader (" in system and "exact full path" in system
+    assert "web steps (web_research, web_browsing) FIRST and the local_file_reader step LAST" in system
     assert "the web is closed for the rest of the task" in system
 
 
@@ -53,7 +53,7 @@ async def test_a_reader_step_reads_a_real_pdf_and_the_orchestrator_gets_the_find
     cv.write_bytes(make_pdf(["Ana Quinn - Data Engineer\nPython, SQL, Airflow (5 years)"]))
     h = Harness(
         tmp_path,
-        [plan(f"read {cv} and say what it lists", role="reader"), reads(cv), say("Ana is a data engineer: Python, SQL, Airflow."), say("Your CV lists Python, SQL and Airflow.")],
+        [plan(f"read {cv} and say what it lists", role="local_file_reader"), reads(cv), say("Ana is a data engineer: Python, SQL, Airflow."), say("Your CV lists Python, SQL and Airflow.")],
         files=Files([Grant(norm(folder), "read")]),
     )
     await h.run("what does my cv say?")
@@ -69,7 +69,7 @@ async def test_a_reader_asked_for_a_blocked_file_gets_a_refusal_and_no_contents(
     (folder / ".env").write_text("ANTHROPIC_API_KEY=not-a-real-key")
     h = Harness(
         tmp_path,
-        [plan(f"read {folder / '.env'}", role="reader"), reads(folder / ".env"), say("It is off-limits."), say("That file is blocked by the Assistant's safety rules.")],
+        [plan(f"read {folder / '.env'}", role="local_file_reader"), reads(folder / ".env"), say("It is off-limits."), say("That file is blocked by the Assistant's safety rules.")],
         files=Files([Grant(norm(folder), "read")]),
     )
     await h.run("show me my .env")

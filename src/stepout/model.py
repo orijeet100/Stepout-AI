@@ -59,7 +59,7 @@ class ModelRequest(BaseModel):
     system: str
     user_text: str
     tools: list[str] = []  # control tool or capability names, offered as function tools; none = a plain completion
-    tool_defs: list[dict] = []  # one-off tools, sent as they are; a call to one comes back as a ToolCall (the front door's `screen`)
+    tool_defs: list[dict] = []  # one-off tools, sent as they are; a call to one comes back as a ToolCall (Screening's `screen`)
     temperature: float | None = None  # None = the API default (1.0). Models released after Opus 4.6 reject any other value with a 400: of ours only HAIKU (4.5) accepts one, SONNET (5) does not
     search: bool = False  # let the provider run its own web search in this call (only the Searcher asks); `max_searches` caps it
     max_searches: int = 3  # web searches this call may run, when `search` is set

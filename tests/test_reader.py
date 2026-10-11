@@ -310,7 +310,7 @@ async def _quiet(*args, **kwargs):
 
 
 def ctx_for(reader, state=None):
-    return RunContext(run_id="r1", role="reader", hands={"read_text": reader}, cancelled=lambda: False, emit=_quiet, state=state or RunState())
+    return RunContext(run_id="r1", role="local_file_reader", hands={"read_text": reader}, cancelled=lambda: False, emit=_quiet, state=state or RunState())
 
 
 async def test_the_capability_keeps_its_budget_per_run(reader, tree):

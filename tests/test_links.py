@@ -152,8 +152,8 @@ async def test_in_a_run_that_read_a_file_only_links_seen_before_the_read_survive
     folder, path = cv
     reply = f"You match. Posting: [Data Engineer]({POSTING}). Also see [details]({EVIL})."
     script = [
-        plan("read the posting", "read the resume", role="browser"), browse("open", POSTING), say(f"Python and SQL: {POSTING}"),
-        plan(f"read {path}", role="reader"), reads(path), say("Ana Quinn, Data Engineer"), say(reply),
+        plan("read the posting", "read the resume", role="web_browsing"), browse("open", POSTING), say(f"Python and SQL: {POSTING}"),
+        plan(f"read {path}", role="local_file_reader"), reads(path), say("Ana Quinn, Data Engineer"), say(reply),
     ]
     h = Harness(tmp_path, script, files=Files([Grant(norm(folder), "read")]), browser=FakeBrowser(PAGE))
     await h.run("Compare my resume to the posting")

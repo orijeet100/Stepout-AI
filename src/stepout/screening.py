@@ -1,4 +1,4 @@
-"""The front door: one cheap model call before any Orchestrator money is spent.
+"""Screening: one cheap model call before any Orchestrator money is spent.
 
 It decides whether to decline an unsafe or unsupported request, answer plain chat itself, or let the message through
 with the numbers of the earlier Exchanges it depends on. It sits behind a port, so another screener can replace Haiku.
@@ -16,7 +16,7 @@ from stepout.model import HAIKU, Model, ModelRequest, ToolCall
 # Used when the model declines without saying what it can do instead.
 _ALTERNATIVE = "I can search the web, read pages, and look at the names and counts of your files, read-only."
 
-# The only things the front door answers itself. The model must name which one; anything else is the assistant behind it.
+# The only things Screening answers itself. The model must name which one; anything else is the assistant behind it.
 _CHAT_KINDS = ("greeting", "thanks", "about_assistant")
 _CHAT_MAX_WORDS = 8  # "what are you able to help with?" is 7; a greeting that also asks something is longer
 

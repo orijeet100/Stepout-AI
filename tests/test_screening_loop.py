@@ -1,4 +1,4 @@
-"""The front door, offline: the whole loop with the real HaikuScreener over a scripted model, so every model call can be counted and read.
+"""Screening, offline: the whole loop with the real HaikuScreener over a scripted model, so every model call can be counted and read.
 
 What the live model decides (is this a decline? which exchanges does it link?) is measured by the eval in tests/test_live_screening.py.
 These tests pin what the code does with a decision.
@@ -104,7 +104,7 @@ async def test_related_exchanges_reach_the_orchestrator_in_full_and_a_new_task_g
     assert "#1\nrequest: what does example.com say?\nreply: It says Example Domain." in last
     assert "#3\nrequest: list the PDFs on D:\nreply: Three: a, b, c." in last
     assert "what is 2+3?" not in last  # linked 1 and 3, not 2
-    screener_view = model.requests[6].user_text  # what the front door was shown for the 4th message
+    screener_view = model.requests[6].user_text  # what Screening was shown for the 4th message
     for line in ('#1 "what does example.com say?" -> It says Example Domain.', '#2 "what is 2+3?" -> 5', '#3 "list the PDFs on D:" -> Three: a, b, c.'):
         assert line in screener_view  # it was shown all three, one line each, with their numbers
 
@@ -152,7 +152,7 @@ def test_route_is_gone_from_the_source():
 async def test_a_question_the_front_door_tried_to_answer_itself_still_reaches_the_orchestrator(tmp_path):
     tried = screened(decision="chat", reply="51", related=[])  # no chat_kind: this is not a greeting, thanks or a question about the assistant
     model, channel, store = await converse(tmp_path, [ask("c1", "What is 17 times 3?")], [tried, answer("51")])
-    assert [r.model for r in model.requests] == [HAIKU, SONNET]  # the Orchestrator answered, not the front door
+    assert [r.model for r in model.requests] == [HAIKU, SONNET]  # the Orchestrator answered, not Screening
     assert channel.sent[0].text == "51" and channel.sent[0].run_id and store.query("SELECT COUNT(*) FROM runs")[0][0] == 1
     assert store.query("SELECT COUNT(*) FROM events WHERE kind = 'screening_fallback'")[0][0] == 0  # a downgrade is not a failure
 

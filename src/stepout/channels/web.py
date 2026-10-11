@@ -3,7 +3,7 @@
 Live frames (hello, message, trace, status) go over /ws; history is read over /api/* from `history`. Everything sent is
 built from the models of contract.py, so the channel cannot drift from the contract. The channel is also the inbox: a
 message sent while a Run is busy waits in `_waiting` (shown as `queued`) and is handed to the app loop one at a time.
-The Browser agent's page, live and view-only, is `GET /live/{run_id}` (LiveView). Security rules (docs/ui-contract.md): Host must be ours (DNS rebinding), a present Origin must be ours, a POST needs
+The Web Browsing agent's page, live and view-only, is `GET /live/{run_id}` (LiveView). Security rules (docs/ui-contract.md): Host must be ours (DNS rebinding), a present Origin must be ours, a POST needs
 Origin and JSON, ids are checked before any lookup, and no CORS header is ever sent.
 """
 

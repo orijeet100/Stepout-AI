@@ -65,7 +65,7 @@ async def test_answer_request_end_to_end(ledger):
     await run(channel, Intake(FixedScreener((Proceed(), 0.0007)), ledger), runner)
     assert len(channel.sent) == 1
     assert "Paris" in channel.sent[0].text
-    assert channel.sent[0].text == "Paris" and channel.sent[0].cost_usd == pytest.approx(0.0027)  # the front door's $0.0007 is in the total, and the text carries no footer
+    assert channel.sent[0].text == "Paris" and channel.sent[0].cost_usd == pytest.approx(0.0027)  # Screening's $0.0007 is in the total, and the text carries no footer
 
 
 def test_the_browser_sends_live_frames_to_a_channel_that_shows_them_and_captures_nothing_for_one_that_does_not():

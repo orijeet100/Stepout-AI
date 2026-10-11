@@ -55,7 +55,7 @@ async def _quiet(*args, **kwargs):
 
 
 def ctx_with(state):
-    return RunContext(run_id="r", role="direct", hands={}, cancelled=lambda: False, emit=_quiet, state=state)
+    return RunContext(run_id="r", role="web_research", hands={}, cancelled=lambda: False, emit=_quiet, state=state)
 
 
 def test_the_gate_refuses_the_web_to_a_tainted_run_and_only_the_web():
@@ -88,10 +88,10 @@ async def test_a_read_taints_the_run_but_a_refusal_a_scan_an_empty_file_and_a_bi
     cap = ReadText()
     for name in (".env", "scan.pdf", "empty.txt", "binary.txt", "missing.txt"):
         state = RunState()
-        await cap.run(ReadTextAction(path=str(folder / name)), RunContext("r", "reader", {"read_text": Reader(files_for(folder))}, lambda: False, _quiet, state))
+        await cap.run(ReadTextAction(path=str(folder / name)), RunContext("r", "local_file_reader", {"read_text": Reader(files_for(folder))}, lambda: False, _quiet, state))
         assert state.tainted == "", name  # nothing from a file reached the Run
     state = RunState()
-    await cap.run(ReadTextAction(path=str(folder / "cv.pdf")), RunContext("r", "reader", {"read_text": Reader(files_for(folder))}, lambda: False, _quiet, state))
+    await cap.run(ReadTextAction(path=str(folder / "cv.pdf")), RunContext("r", "local_file_reader", {"read_text": Reader(files_for(folder))}, lambda: False, _quiet, state))
     assert state.tainted == f"the contents of {folder / 'cv.pdf'} were read"
 
 
@@ -100,11 +100,11 @@ async def test_a_read_taints_the_run_but_a_refusal_a_scan_an_empty_file_and_a_bi
 
 async def test_after_a_read_a_fetch_is_refused_the_fetcher_is_never_called_and_search_is_not_offered(tmp_path, folder):
     script = [
-        steps(("reader", f"read {folder / 'cv.pdf'}"), ("direct", "look up the company")),  # 0 the Orchestrator plans; the Reader starts
+        steps(("local_file_reader", f"read {folder / 'cv.pdf'}"), ("web_research", "look up the company")),  # 0 the Orchestrator plans; the Reader starts
         reads(folder / "cv.pdf"),  # 1
         say("The CV says Ana Quinn is a data engineer."),  # 2
         delegate(1),  # 3
-        fetch("https://example.com/company"),  # 4 the Direct agent tries the web after the read
+        fetch("https://example.com/company"),  # 4 the Web Research agent tries the web after the read
         say("I could not reach the web."),  # 5
         say("Here is what the CV says; I could not look up the company."),  # 6
     ]
@@ -112,19 +112,19 @@ async def test_after_a_read_a_fetch_is_refused_the_fetcher_is_never_called_and_s
     task = await h.run("summarize my cv and look up the company")
 
     assert h.fetcher.urls == []  # the request never left
-    assert "Refused: the web is closed for the rest of this task" in h.seen_by(5)  # the Direct agent is told why, in words it can act on
+    assert "Refused: the web is closed for the rest of this task" in h.seen_by(5)  # the Web Research agent is told why, in words it can act on
     refused = [e for e in h.ledger.query(task.id) if e.kind == "step" and e.data["verdict"] == "refuse"]
-    assert len(refused) == 1 and refused[0].role == "direct" and refused[0].data["action"]["kind"] == "fetch"
+    assert len(refused) == 1 and refused[0].role == "web_research" and refused[0].data["action"]["kind"] == "fetch"
     assert h.replies[0].text.startswith("Here is what the CV says")
 
 
 async def test_after_a_read_a_web_search_is_refused_and_no_search_call_is_made(tmp_path, folder):
     script = [
-        steps(("reader", f"read {folder / 'cv.pdf'}"), ("direct", "look up the company")),
+        steps(("local_file_reader", f"read {folder / 'cv.pdf'}"), ("web_research", "look up the company")),
         reads(folder / "cv.pdf"),
         say("The CV says Ana Quinn is a data engineer."),
         delegate(1),
-        web_search("Acme Corp"),  # the Direct agent tries to search after the read
+        web_search("Acme Corp"),  # the Web Research agent tries to search after the read
         say("I could not search."),
         say("Here is what the CV says; I could not look up the company."),
     ]
@@ -139,16 +139,16 @@ async def test_after_a_read_a_web_search_is_refused_and_no_search_call_is_made(t
 
 async def test_after_a_read_browsing_is_refused_too_whichever_role_holds_it(tmp_path, folder):
     browser = FakeBrowser(("URL: https://example.com/job\nTitle: Job\nText: ...", None))
-    script = [steps(("reader", f"read {folder / 'cv.pdf'}"), ("browser", "open the posting")), reads(folder / "cv.pdf"), say("read"), delegate(1), browse("open", "https://example.com/job"), say("blocked"), say("done")]
+    script = [steps(("local_file_reader", f"read {folder / 'cv.pdf'}"), ("web_browsing", "open the posting")), reads(folder / "cv.pdf"), say("read"), delegate(1), browse("open", "https://example.com/job"), say("blocked"), say("done")]
     h = Harness(tmp_path, script, files=files_for(folder), browser=browser)
     await h.run("compare")
-    assert browser.calls == [] and "the web is closed" in h.seen_by(5)  # the Browser agent was never let near a page
+    assert browser.calls == [] and "the web is closed" in h.seen_by(5)  # the Web Browsing agent was never let near a page
 
 
 async def test_the_web_first_and_the_reading_last_works_as_planned(tmp_path, folder):
     browser = FakeBrowser(("URL: https://example.com/job\nTitle: Job\nText: Wanted: Python", None))
     script = [
-        steps(("browser", "read the posting"), ("reader", f"read {folder / 'cv.pdf'}")),
+        steps(("web_browsing", "read the posting"), ("local_file_reader", f"read {folder / 'cv.pdf'}")),
         browse("open", "https://example.com/job"),  # allowed: nothing has been read yet
         say("The posting wants Python."),
         delegate(1),
@@ -164,7 +164,7 @@ async def test_the_web_first_and_the_reading_last_works_as_planned(tmp_path, fol
 
 async def test_a_read_that_returns_nothing_leaves_the_web_open(tmp_path, folder):
     script = [
-        steps(("reader", f"read {folder / '.env'}"), ("direct", "look something up")),
+        steps(("local_file_reader", f"read {folder / '.env'}"), ("web_research", "look something up")),
         reads(folder / ".env"),  # Denied: off-limits
         say("It is blocked."),
         delegate(1),
@@ -179,8 +179,8 @@ async def test_a_read_that_returns_nothing_leaves_the_web_open(tmp_path, folder)
 
 async def test_taint_belongs_to_one_run_the_next_task_starts_clean(tmp_path, folder):
     script = [
-        steps(("reader", f"read {folder / 'cv.pdf'}")), reads(folder / "cv.pdf"), say("ok"), say("first done"),  # task 1 reads a file
-        steps(("direct", "look up")), fetch("https://example.com/y"), say("found"), say("second done"),  # task 2 only uses the web
+        steps(("local_file_reader", f"read {folder / 'cv.pdf'}")), reads(folder / "cv.pdf"), say("ok"), say("first done"),  # task 1 reads a file
+        steps(("web_research", "look up")), fetch("https://example.com/y"), say("found"), say("second done"),  # task 2 only uses the web
     ]
     h = Harness(tmp_path, script, files=files_for(folder), fetcher=FakeFetcher("page text"))
     await h.run("read my cv")
@@ -189,7 +189,7 @@ async def test_taint_belongs_to_one_run_the_next_task_starts_clean(tmp_path, fol
 
 
 async def test_a_run_that_never_reads_is_unchanged(tmp_path):
-    h = Harness(tmp_path, [steps(("direct", "look up")), fetch("https://example.com/z"), say("found"), say("done")])
+    h = Harness(tmp_path, [steps(("web_research", "look up")), fetch("https://example.com/z"), say("found"), say("done")])
     await h.run("look something up")
     assert h.fetcher.urls == ["https://example.com/z"]
 

@@ -1,6 +1,6 @@
 import Icon from './Icon'
 import type { Trace, Verdict } from './protocol'
-import { elapsedMs, elapsedText, hasBrowserStep, money, plainLine, planOf, planProgress, shotsOf, spent, stepCost, stepCount } from './runview'
+import { agentName, elapsedMs, elapsedText, hasBrowserStep, money, plainLine, planOf, planProgress, shotsOf, spent, stepCost, stepCount } from './runview'
 import { BrowserPanel, ThumbStrip } from './Shots'
 import type { Run, RunState } from './store'
 
@@ -31,7 +31,7 @@ function Line({ e }: { e: Trace }) {
   const text = plainLine(e.data.summary ?? '')
   return (
     <li className={e.kind === 'stop' ? 'is-stop' : undefined}>
-      <span className="chip">{e.role}</span>
+      <span className="chip">{agentName(e.role)}</span>
       <span className="steps__line" title={e.data.summary}>{text}</span>
       {v ? (
         <span className={`verdict verdict--${e.data.verdict}`}>
@@ -58,7 +58,7 @@ export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: P
   const lines = run.events.filter((e) => e.kind === 'step' || e.kind === 'return' || e.kind === 'stop')
   const summary = running
     ? ['Working…', total ? stepsOf(done, total) : '', time].filter(Boolean).join(' · ')
-    : [STATE_LABEL[state], `${steps} step${steps === 1 ? '' : 's'}`, money(cost), time].filter(Boolean).join(' · ')
+    : [STATE_LABEL[state], `${steps} action${steps === 1 ? '' : 's'}`, money(cost), time].filter(Boolean).join(' · ')
   return (
     <div className="runblock">
       <details className={`run run--${state}`} open={running}>
@@ -92,7 +92,7 @@ export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: P
                       {s.status === 'done' && <Icon name="check" size={12} />}
                       {s.status === 'failed' && <Icon name="x" size={12} />}
                     </span>
-                    <span className="chip">{s.role}</span> {s.goal}
+                    <span className="chip">{agentName(s.role)}</span> {s.goal}
                   </li>
                 ))}
               </ol>
@@ -100,8 +100,8 @@ export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: P
           )}
           {lines.length > 0 && (
             <section className="run__section">
-              <p className="run__label" aria-hidden="true">Steps</p>
-              <ul className="steps" aria-label="Steps">
+              <p className="run__label" aria-hidden="true">Actions</p>
+              <ul className="steps" aria-label="Actions">
                 {lines.map((e) => <Line key={e.id} e={e} />)}
               </ul>
             </section>

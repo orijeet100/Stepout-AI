@@ -75,7 +75,7 @@ def ask(cid, text):
 
 
 async def serve(tmp_path, messages, responses, screener=None, **runner_kwargs):
-    """The real app loop over a fake channel and the scripted model, on a database file. The front door lets everything through unless `screener` says otherwise."""
+    """The real app loop over a fake channel and the scripted model, on a database file. Screening lets everything through unless `screener` says otherwise."""
     store = Store(tmp_path / "t.db")
     ledger = Ledger(store)
     model = ScriptedModel(responses)
@@ -100,7 +100,7 @@ async def test_a_conversation_through_the_app_is_saved_and_survives_a_restart(tm
         ("assistant", "That means paying someone. I can look things up."),
     ]  # a decline is saved too, and each reply went back to its own chat
     assert [head(m) for m in b.messages] == [("user", "what is the capital of Spain?"), ("assistant", "Madrid")]
-    answer, declined = a.messages[1], a.messages[3]  # an answer remembers the Run that made it and what it cost; a decline had no Run, only the front door's cost
+    answer, declined = a.messages[1], a.messages[3]  # an answer remembers the Run that made it and what it cost; a decline had no Run, only Screening's cost
     assert (answer.run_id, answer.cost_usd) == (a.runs[0].run_id, a.runs[0].cost_usd) and answer.cost_usd > 0
     assert (declined.run_id, declined.cost_usd) == (None, 0.0)
     assert (a.title, b.title) == ("what is the capital of France?", "what is the capital of Spain?")
@@ -110,7 +110,7 @@ async def test_a_conversation_through_the_app_is_saved_and_survives_a_restart(tm
 async def test_a_browser_run_reads_back_whole_from_a_new_store(tmp_path):
     """A scripted Run, a new Store on the same file, and history returns the chat, its messages, its Run and every event."""
     page = ("URL: https://example.com\nTitle: Example\nText: Example Domain", "abc/1.jpg")
-    script = [plan("read it", role="browser"), browse("open", "https://example.com"), say("Heading: Example Domain"), say("It says Example Domain.")]
+    script = [plan("read it", role="web_browsing"), browse("open", "https://example.com"), say("Heading: Example Domain"), say("It says Example Domain.")]
     reopened = await serve(tmp_path, [ask("c1", "read https://example.com")], script, browser=FakeBrowser(page))
 
     (summary,) = history.list_conversations(reopened)
@@ -126,7 +126,7 @@ async def test_a_browser_run_reads_back_whole_from_a_new_store(tmp_path):
     assert [e.kind for e in events if e.kind != "plan"] == ["step", "step", "shot", "step", "return", "step"]
     assert all(isinstance(e, TraceFrame) and e.conversation_id == "c1" and e.run_id == r.run_id for e in events)
     planning = next(e for e in events if e.kind == "step")
-    assert next(e for e in events if e.kind == "step" and e.role == "browser").parent == planning.id  # the Role's work hangs off the plan step
+    assert next(e for e in events if e.kind == "step" and e.role == "web_browsing").parent == planning.id  # the Role's work hangs off the plan step
     shot = next(e for e in events if e.kind == "shot")
     assert shot.data["shot"] == "abc/1.jpg" and (shot.data["url"], shot.data["title"]) == ("https://example.com", "Example")
     assert [e.at for e in events] == sorted(e.at for e in events)  # in the order they were streamed

@@ -1,6 +1,6 @@
 """Waste in a Run, measured with the scripted model: a repeat the guard skips, and how many model calls a two-part plan takes.
 
-From a live run: the Browser agent asked for `open <same page>` three more times after a click and two `more`. The guard did stop the page
+From a live run: the Web Browsing agent asked for `open <same page>` three more times after a click and two `more`. The guard did stop the page
 loading again, but it recorded each as an allowed step, and the model asked because the first view had shrunk out of its notes.
 """
 
@@ -14,12 +14,12 @@ def page(n):
 
 
 def browser_steps(h, task):
-    return [e for e in h.ledger.query(task.id) if e.kind == "step" and e.role == "browser"]
+    return [e for e in h.ledger.query(task.id) if e.kind == "step" and e.role == "web_browsing"]
 
 
 async def test_a_repeat_whose_result_is_still_in_the_notes_is_skipped_and_recorded_as_one(tmp_path):
     browser = FakeBrowser(page(1))
-    h = Harness(tmp_path, [plan("read the posting", role="browser"), browse("open", URL), browse("open", URL), say("It asks for Python."), say("Python.")], browser=browser)
+    h = Harness(tmp_path, [plan("read the posting", role="web_browsing"), browse("open", URL), browse("open", URL), say("It asks for Python."), say("Python.")], browser=browser)
     task = await h.run("what does it ask for?")
 
     assert [c[1] for c in browser.calls] == ["open"]  # loaded once
@@ -31,7 +31,7 @@ async def test_a_repeat_whose_result_is_still_in_the_notes_is_skipped_and_record
 
 async def test_a_role_that_asks_for_something_it_already_has_is_offered_no_hand_tools_and_so_has_to_answer(tmp_path):
     """Live acceptance m4a: a planted 'give me the full text again' made the Reader re-ask until its steps ran out, and it never wrote its Finding."""
-    h = Harness(tmp_path, [plan("read the posting", role="browser"), browse("open", URL), browse("open", URL), say("It asks for Python."), say("Python.")], browser=FakeBrowser(page(1)))
+    h = Harness(tmp_path, [plan("read the posting", role="web_browsing"), browse("open", URL), browse("open", URL), say("It asks for Python."), say("Python.")], browser=FakeBrowser(page(1)))
     await h.run("what does it ask for?")
 
     tools = [r.tools for r in h.model.requests]  # orchestrator plan, browser open, browser repeat, browser after the repeat, orchestrator answer
@@ -43,7 +43,7 @@ async def test_a_role_that_asks_for_something_it_already_has_is_offered_no_hand_
 async def test_a_page_that_has_shrunk_out_of_the_notes_may_be_opened_again(tmp_path):
     browser = FakeBrowser(page(1), page(2), page(3), page(4), page(5))
     script = [
-        plan("read the posting", role="browser"),
+        plan("read the posting", role="web_browsing"),
         browse("open", URL), browse("click", link=30), browse("more"), browse("more"),  # by now the first view is a one-line stub
         browse("open", URL),  # the model wants the posting back: that is not a repeat of anything it can still read
         say("Python, SQL."), say("It asks for Python and SQL."),
@@ -60,7 +60,7 @@ async def test_an_open_after_a_click_is_run_even_though_the_old_view_is_still_in
     """Open a list, click into a listing, open the list again: the browser is on the listing now, so the list's link numbers would point into the
     wrong page. The old view is still readable (two stay in full), but this is not a repeat of anything that can still be trusted."""
     browser = FakeBrowser(page(1), page(2), page(3))
-    h = Harness(tmp_path, [plan("read", role="browser"), browse("open", URL), browse("click", link=3), browse("open", URL), say("ok"), say("ok")], browser=browser)
+    h = Harness(tmp_path, [plan("read", role="web_browsing"), browse("open", URL), browse("click", link=3), browse("open", URL), say("ok"), say("ok")], browser=browser)
     task = await h.run("x")
 
     assert [c[1] for c in browser.calls] == ["open", "click", "open"]
@@ -71,6 +71,6 @@ async def test_a_files_repeat_is_still_skipped_after_other_calls_because_its_res
     from tests.test_runner import FakeFiles, looks
 
     files = FakeFiles("a, b")
-    h = Harness(tmp_path, [plan("look", role="files"), looks("list", "D:\\A"), looks("list", "D:\\B"), looks("list", "D:\\A"), say("ok"), say("ok")], files=files)
+    h = Harness(tmp_path, [plan("look", role="local_file_finder"), looks("list", "D:\\A"), looks("list", "D:\\B"), looks("list", "D:\\A"), say("ok"), say("ok")], files=files)
     await h.run("x")
     assert [c[1] for c in files.calls] == ["D:\\A", "D:\\B"]

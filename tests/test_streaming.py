@@ -103,8 +103,8 @@ async def test_the_words_of_a_text_reply_are_sent():
 
 
 async def test_the_steps_of_a_plan_are_not_sent_as_words():
-    events = [start("tool_use", "plan"), NS(type="input_json", partial_json='{"steps": [{"role": "direct", "goal": "g"}]}')]
-    _, words = await streamed(events, [NS(type="tool_use", name="plan", input={"steps": [{"role": "direct", "goal": "g"}]})])
+    events = [start("tool_use", "plan"), NS(type="input_json", partial_json='{"steps": [{"role": "web_research", "goal": "g"}]}')]
+    _, words = await streamed(events, [NS(type="tool_use", name="plan", input={"steps": [{"role": "web_research", "goal": "g"}]})])
     assert words == []
 
 

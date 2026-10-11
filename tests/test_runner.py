@@ -50,7 +50,7 @@ def say(text, cost=0.001, **kw):
     return ModelResponse(action=AnswerAction(text=text), cost_usd=cost, **kw)
 
 
-def plan(*goals, cost=0.001, role="direct"):
+def plan(*goals, cost=0.001, role="web_research"):
     return ModelResponse(action=PlanAction(steps=[PlanStep(role=role, goal=g) for g in goals]), cost_usd=cost)
 
 
@@ -112,12 +112,12 @@ async def test_a_plan_starts_its_first_step_by_itself(tmp_path):
     assert h.replies[-1].text.startswith("It is sunny.")
     # Orchestrator plans (Sonnet) -> Direct works (Haiku) -> Orchestrator reports: no call spent on "delegate"
     assert [r.model for r in h.model.requests] == [SONNET, HAIKU, HAIKU, SONNET]
-    assert "sunny [src]" in h.seen_by(3) and "[done] direct" in h.seen_by(3)  # the Orchestrator saw the Finding
+    assert "sunny [src]" in h.seen_by(3) and "[done] web_research" in h.seen_by(3)  # the Orchestrator saw the Finding
     assert "Plan:" not in h.seen_by(1)  # the specialist never sees the plan
 
     events = h.ledger.query(task.id)
     planning = next(e for e in events if e.kind == "step" and e.data["action"]["kind"] == "plan")
-    direct_steps = [e for e in events if e.kind == "step" and e.role == "direct"]
+    direct_steps = [e for e in events if e.kind == "step" and e.role == "web_research"]
     assert direct_steps and all(e.parent == planning.id for e in direct_steps)
     assert [e for e in events if e.kind == "return"][0].data["ok"] is True
     assert [s["status"] for s in [e for e in events if e.kind == "plan"][-1].data["steps"]] == ["done"]
@@ -127,7 +127,7 @@ async def test_later_steps_are_delegated_one_at_a_time(tmp_path):
     h = Harness(tmp_path, [plan("a", "b"), say("A done"), delegate(1), say("B done"), say("both")])
     task = await h.run()
     assert [r.model for r in h.model.requests] == [SONNET, HAIKU, SONNET, HAIKU, SONNET]
-    assert "[done] direct: a" in h.seen_by(2) and "[pending] direct: b" in h.seen_by(2)
+    assert "[done] web_research: a" in h.seen_by(2) and "[pending] web_research: b" in h.seen_by(2)
     assert "A done" in h.seen_by(4) and "B done" in h.seen_by(4)
     last_plan = [e for e in h.ledger.query(task.id) if e.kind == "plan"][-1]
     assert [s["status"] for s in last_plan.data["steps"]] == ["done", "done"]
@@ -138,7 +138,7 @@ async def test_trace_gets_exactly_what_the_ledger_records(tmp_path):
     task = await h.run()
     assert [e.id for e in h.traced] == [e.id for e in h.ledger.query(task.id)]
     assert all(e.data["summary"] for e in h.traced)
-    assert "direct: a" in next(e for e in h.traced if e.kind == "step").data["summary"]  # the plan line names its steps
+    assert "Web Research: a" in next(e for e in h.traced if e.kind == "step").data["summary"]  # the plan line names its steps
 
 
 async def test_a_specialist_cannot_take_the_orchestrators_actions(tmp_path):
@@ -146,7 +146,7 @@ async def test_a_specialist_cannot_take_the_orchestrators_actions(tmp_path):
     task = await h.run()
     assert "Refused" in h.seen_by(2)  # Direct is told why and carries on
     refused = [e for e in h.ledger.query(task.id) if e.kind == "step" and e.data["verdict"] == "refuse"]
-    assert len(refused) == 1 and refused[0].role == "direct"
+    assert len(refused) == 1 and refused[0].role == "web_research"
     assert h.replies[-1].text.startswith("done")
 
 
@@ -171,11 +171,11 @@ def web_search(query, cost=0.001):
 
 
 async def test_a_web_search_is_a_step_whose_own_model_call_is_charged_to_the_run(tmp_path):
-    # The third response is the Searcher's call, made inside the web_search step; then the Direct agent's Finding, then the Orchestrator's answer.
+    # The third response is the Searcher's call, made inside the web_search step; then the Web Research agent's Finding, then the Orchestrator's answer.
     h = Harness(tmp_path, [plan("a"), web_search("the news"), say("found it [a](https://a.example)", cost=0.01), say("The news is X."), say("done")])
     task = await h.run()
     assert [r.search for r in h.model.requests] == [False, False, True, False, False]
-    assert "found it [a](https://a.example)" in h.seen_by(3)  # the Direct agent reads what the search found
+    assert "found it [a](https://a.example)" in h.seen_by(3)  # the Web Research agent reads what the search found
     steps = [e for e in h.ledger.query(task.id) if e.kind == "step" and e.data["action"]["kind"] == "web_search"]
     assert len(steps) == 1 and steps[0].data["summary"] == "web_search the news" and steps[0].data["verdict"] == "allow"
     assert h.replies[0].cost_usd == pytest.approx(0.001 * 4 + 0.01)
@@ -238,11 +238,11 @@ async def test_an_agent_that_never_finishes_fails_its_step(tmp_path):
 
 async def test_the_files_agent_looks_at_the_disk_and_the_orchestrator_reports(tmp_path):
     files = FakeFiles("D:\\: 12 files, 3 folders")
-    h = Harness(tmp_path, [plan("count D:", role="files"), looks("count", "D:\\"), say("12 files, 3 folders"), say("You have 12 files.")], files=files)
+    h = Harness(tmp_path, [plan("count D:", role="local_file_finder"), looks("count", "D:\\"), say("12 files, 3 folders"), say("You have 12 files.")], files=files)
     await h.run("how many files on D?")
     assert files.calls[0][:3] == ("count", "D:\\", None)
     assert h.model.requests[1].tools == ["files"] and h.model.requests[1].model == HAIKU
-    assert "12 files, 3 folders" in h.seen_by(2)  # the Files agent saw the result
+    assert "12 files, 3 folders" in h.seen_by(2)  # the Local File Finder agent saw the result
     assert "12 files, 3 folders" in h.seen_by(3)  # and the Orchestrator saw its Finding
     assert h.replies[0].text.startswith("You have 12 files.")
     h.runner._cancel.set()
@@ -250,10 +250,10 @@ async def test_the_files_agent_looks_at_the_disk_and_the_orchestrator_reports(tm
 
 
 async def test_the_files_agent_cannot_fetch_and_the_direct_agent_cannot_look_at_the_disk(tmp_path):
-    h = Harness(tmp_path, [plan("a", role="files"), fetch("https://example.com"), say("ok"), say("done")])
+    h = Harness(tmp_path, [plan("a", role="local_file_finder"), fetch("https://example.com"), say("ok"), say("done")])
     task = await h.run()
     assert h.fetcher.urls == []
-    assert any(e.data["verdict"] == "refuse" and e.role == "files" for e in h.ledger.query(task.id) if e.kind == "step")
+    assert any(e.data["verdict"] == "refuse" and e.role == "local_file_finder" for e in h.ledger.query(task.id) if e.kind == "step")
 
     (tmp_path / "2").mkdir()
     files = FakeFiles("never")
@@ -265,7 +265,7 @@ async def test_the_files_agent_cannot_fetch_and_the_direct_agent_cannot_look_at_
 async def test_repeating_an_identical_hand_action_is_not_run_again(tmp_path):
     files = FakeFiles("nothing")
     same = looks("find", "D:\\Docs", "resume")
-    h = Harness(tmp_path, [plan("a", role="files"), same, same, looks("find", "D:\\Work", "resume"), say("not found"), say("done")], files=files)
+    h = Harness(tmp_path, [plan("a", role="local_file_finder"), same, same, looks("find", "D:\\Work", "resume"), say("not found"), say("done")], files=files)
     await h.run()
     assert [c[1] for c in files.calls] == ["D:\\Docs", "D:\\Work"]  # the repeat never reached the disk
     assert "already ran exactly this" in h.seen_by(3)
@@ -273,21 +273,21 @@ async def test_repeating_an_identical_hand_action_is_not_run_again(tmp_path):
 
 async def test_the_browser_agent_reads_a_page_and_its_screenshot_reaches_the_trace(tmp_path):
     browser = FakeBrowser(("URL: https://example.com\nTitle: Example\nText: Example Domain", "abc/1.jpg"))
-    h = Harness(tmp_path, [plan("read example.com", role="browser"), browse("open", "https://example.com"), say("The heading is Example Domain"), say("It says Example Domain.")], browser=browser)
+    h = Harness(tmp_path, [plan("read example.com", role="web_browsing"), browse("open", "https://example.com"), say("The heading is Example Domain"), say("It says Example Domain.")], browser=browser)
     task = await h.run("what does example.com say?")
     assert browser.calls[0][1:] == ("open", "https://example.com", None)
     assert h.model.requests[1].tools == ["browse"] and h.model.requests[1].model == SONNET
-    assert "Example Domain" in h.seen_by(2)  # the Browser agent saw the page
+    assert "Example Domain" in h.seen_by(2)  # the Web Browsing agent saw the page
     assert "Example Domain" in h.seen_by(3)  # and the Orchestrator its Finding
     shot = next(e for e in h.ledger.query(task.id) if e.kind == "shot")
-    assert shot.data["shot"] == "abc/1.jpg" and shot.role == "browser"
+    assert shot.data["shot"] == "abc/1.jpg" and shot.role == "web_browsing"
 
 
 async def test_only_the_newest_pages_stay_in_a_roles_notes(tmp_path):
     pages = [(f"URL: https://x/{i}\nTitle: T{i}\nText: body {i}", None) for i in range(3)]
-    h = Harness(tmp_path, [plan("a", role="browser"), browse("open", "https://x/0"), browse("click", link=1), browse("click", link=1), say("done"), say("ok")], browser=FakeBrowser(*pages))
+    h = Harness(tmp_path, [plan("a", role="web_browsing"), browse("open", "https://x/0"), browse("click", link=1), browse("click", link=1), say("done"), say("ok")], browser=FakeBrowser(*pages))
     await h.run()
-    last = h.seen_by(4)  # the Browser agent's request after its third page
+    last = h.seen_by(4)  # the Web Browsing agent's request after its third page
     assert "(earlier page) URL: https://x/0" in last and "body 0" not in last
     assert "body 1" in last and "body 2" in last  # the previous and the current page stay in full
 
@@ -301,7 +301,7 @@ async def test_a_runs_browser_session_is_closed_even_when_the_run_fails(tmp_path
 
 
 async def test_roles_hold_only_their_own_hand(tmp_path):
-    h = Harness(tmp_path, [plan("a", role="browser"), fetch("https://example.com"), say("ok"), say("done")])
+    h = Harness(tmp_path, [plan("a", role="web_browsing"), fetch("https://example.com"), say("ok"), say("done")])
     task = await h.run()
-    assert h.fetcher.urls == []  # the Browser agent cannot use the Fetcher
-    assert any(e.data["verdict"] == "refuse" and e.role == "browser" for e in h.ledger.query(task.id) if e.kind == "step")
+    assert h.fetcher.urls == []  # the Web Browsing agent cannot use the Fetcher
+    assert any(e.data["verdict"] == "refuse" and e.role == "web_browsing" for e in h.ledger.query(task.id) if e.kind == "step")

@@ -12,5 +12,5 @@ async def test_a_reply_with_a_cost_shows_it_under_the_text(capsys):
 async def test_a_reply_without_a_cost_is_just_its_text(capsys):
     channel = CliChannel()
     await channel.send(Reply(text="Unknown command: /x"))  # no Run, no model call
-    await channel.send(Reply(text="hello", cost_usd=0.0))  # a front door that cost nothing
+    await channel.send(Reply(text="hello", cost_usd=0.0))  # a Screening agent that cost nothing
     assert capsys.readouterr().out == "Unknown command: /x\nhello\n"

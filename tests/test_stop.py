@@ -57,7 +57,7 @@ class Sleeper:
 
 async def test_stop_during_a_long_read_ends_the_run_within_a_moment(tmp_path):
     cancel = asyncio.Event()
-    h = Harness(tmp_path, [plan("read it", role="reader"), ModelResponse(action=ReadTextAction(path="D:\\Docs\\big.pdf"), cost_usd=0.001)], cancel=cancel)
+    h = Harness(tmp_path, [plan("read it", role="local_file_reader"), ModelResponse(action=ReadTextAction(path="D:\\Docs\\big.pdf"), cost_usd=0.001)], cancel=cancel)
     h.runner._hands["read_text"] = Sleeper()
     took = await press_stop_during(h, cancel)
     assert took < BUDGET, took
@@ -67,7 +67,7 @@ async def test_stop_during_a_long_read_ends_the_run_within_a_moment(tmp_path):
 
 async def test_stop_during_a_long_walk_ends_the_run_within_a_moment(tmp_path):
     cancel = asyncio.Event()
-    h = Harness(tmp_path, [plan("count them", role="files"), ModelResponse(action=FilesAction(op="count", path="D:\\", pattern=None), cost_usd=0.001)], cancel=cancel, files=Sleeper())
+    h = Harness(tmp_path, [plan("count them", role="local_file_finder"), ModelResponse(action=FilesAction(op="count", path="D:\\", pattern=None), cost_usd=0.001)], cancel=cancel, files=Sleeper())
     took = await press_stop_during(h, cancel)
     assert took < BUDGET, took
     stopped_reply(h)
@@ -79,7 +79,7 @@ async def test_stop_during_a_slow_page_load_ends_the_run_and_closes_the_browser_
     browser = FakeBrowser()
     sleeper = Sleeper()
     browser.run = sleeper.run  # a page that will not load
-    h = Harness(tmp_path, [plan("open it", role="browser"), browse("open", "https://slow.example/")], cancel=cancel, browser=browser)
+    h = Harness(tmp_path, [plan("open it", role="web_browsing"), browse("open", "https://slow.example/")], cancel=cancel, browser=browser)
     took = await press_stop_during(h, cancel)
     assert took < BUDGET, took
     stopped_reply(h)
@@ -110,7 +110,7 @@ async def test_a_hand_that_does_honour_stop_still_ends_the_run_stopped_not_faile
                 await asyncio.sleep(0.02)
             return "Stopped: you pressed Stop, so this count is partial."
 
-    h = Harness(tmp_path, [plan("count", role="files"), looks("count", "D:\\"), ModelResponse(action=plan("x").action, cost_usd=0.0)], cancel=cancel, files=Walker())
+    h = Harness(tmp_path, [plan("count", role="local_file_finder"), looks("count", "D:\\"), ModelResponse(action=plan("x").action, cost_usd=0.0)], cancel=cancel, files=Walker())
     took = await press_stop_during(h, cancel)
     assert took < BUDGET, took
     assert outcome(h) == ["cancelled"] and h.replies[0].text == "Stopped by you."
@@ -121,7 +121,7 @@ async def test_the_real_reader_in_its_thread_is_abandoned_at_once_on_stop(tmp_pa
     import stepout.reader as reader_mod
 
     cancel = asyncio.Event()
-    h = Harness(tmp_path, [plan("read it", role="reader"), ModelResponse(action=ReadTextAction(path="D:\\Docs\\big.pdf"), cost_usd=0.001)], cancel=cancel)
+    h = Harness(tmp_path, [plan("read it", role="local_file_reader"), ModelResponse(action=ReadTextAction(path="D:\\Docs\\big.pdf"), cost_usd=0.001)], cancel=cancel)
     monkeypatch.setattr(reader_mod.Reader, "_read", lambda self, path, usage: time.sleep(1.5))  # in the thread, as the real one is
     took = await press_stop_during(h, cancel)
     assert took < 1.0, took  # not the 1.5 s the thread keeps running
@@ -149,7 +149,7 @@ async def test_stop_during_a_real_page_load_in_real_chrome_ends_the_run_and_clos
     url = f"http://127.0.0.1:{runner.addresses[0][1]}/"
     browser = Browser(policy=lambda u: None)  # the local test page is not on the public web
     cancel = asyncio.Event()
-    h = Harness(tmp_path, [plan("open it", role="browser"), browse("open", url)], cancel=cancel, browser=browser)
+    h = Harness(tmp_path, [plan("open it", role="web_browsing"), browse("open", url)], cancel=cancel, browser=browser)
     try:
         took = await press_stop_during(h, cancel, after=2.5)  # Chrome starts first, then the load begins
         assert took < 5.0, took

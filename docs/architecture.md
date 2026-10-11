@@ -6,10 +6,10 @@ One Python process on the laptop. A web page (or the terminal) talks to it; it t
 
 ```mermaid
 flowchart LR
-    You(["You"]) --> Channel["Channel<br/>web chat · terminal"] --> App["app<br/>(composition root)"] --> Intake["Intake<br/>/commands · front door"]
+    You(["You"]) --> Channel["Channel<br/>web chat · terminal"] --> App["app<br/>(composition root)"] --> Intake["Intake<br/>/commands · Screening"]
     Intake -->|Task + linked Exchanges| Runner["Runner<br/>one loop, five Roles"]
     Runner -->|reply · live Trace · words| Channel
-    Runner --> Direct["Direct<br/>search · fetch"] & BrowserA["Browser"] & FilesA["Files"] & ReaderA["Reader"]
+    Runner --> Direct["Web Research<br/>search · fetch"] & BrowserA["Web Browsing"] & FilesA["Local File Finder"] & ReaderA["Local File Reader"]
     Direct & BrowserA & FilesA & ReaderA -->|every Action| Gate{{"Gate"}}
     Gate --> Search["Searcher"] & Fetcher & Chrome["Chrome<br/>headless, read-only"] --> Web[("Websites")]
     Gate --> FilesM["Files<br/>grants · block list"] & ReadText["Reader<br/>text · redaction"] --> Disk[("Your disks")]
@@ -17,18 +17,18 @@ flowchart LR
     Runner --> Model["Model port"] --> Providers[("Anthropic · OpenRouter · others")]
 ```
 
-A message becomes a Task. The **Orchestrator** (the only agent that talks to you) plans 1 to 3 steps and delegates them one at a time. Each specialist is the same loop with its own prompt, model and exactly one kind of tool, and hands back a short **Finding**. Every Action of every Role passes the one **Gate** before a hand runs.
+A message becomes a Task. The **Orchestrator** (the only agent that talks to you) plans 1 to 3 steps and delegates them one at a time. Each specialist is the same loop with its own prompt, model and exactly one kind of tool, and hands back a short **Finding**. Every Action of every Role passes the one **Gate** before a Tool runs. An **agent** is anything that calls the Model port: the five Roles, plus Screening and the Search Summarizer, which are single calls outside the loop.
 
 ## 2. Modules
 
 | Module | Interface (what a caller learns) | Hides | Code |
 |---|---|---|---|
 | **Channel** | `messages()` stream · `send(reply)` · `trace(event)` · a `cancel` flag (Stop) | WebSocket, HTTP API, history, queue of waiting messages, the live browser stream, Host/Origin guard; or stdin/stdout | `channels/web.py`, `channels/cli.py` |
-| **Intake + front door** | `read(message) → NewTask · Chat · Declined · Command · Failed` | `/commands`, then **one cheap model call** that declines, answers a greeting, or passes the message on with the earlier Exchanges it depends on; fails open | `intake.py`, `screening.py` |
+| **Intake + Screening** | `read(message) → NewTask · Chat · Declined · Command · Failed` | `/commands`, then **one cheap model call** that declines, answers a greeting, or passes the message on with the earlier Exchanges it depends on; fails open | `intake.py`, `screening.py` |
 | **Runner** | `submit(task, previous, screening_cost)` | the agent loop, Roles, plan and delegation, Budget, Stop, repeat guard, note trimming, Taint, Trace and Ledger rows, streaming of the final answer | `runner.py`, `roles.py` |
 | **Gate** | `check(action, role's kinds, ctx) → Allow · Refuse` | every rule: the Role's tool set, "no web after a file read", each capability's own rule | `gate.py` |
 | **Capability** (registry) | one subclass per tool: name, blurb, `tool` (derived from its Action class), `reaches_web`, `run`, `check`, `summary` | schema, validation, trace line, repeat rules | `capabilities/*` |
-| **Hands** | each is called through its capability with plain data | their own limits (below) | `fetch.py`, `browser.py`, `files.py`, `reader.py`, `redact.py`, `search.py` |
+| **Tool implementations** | each is called through its Tool with plain data | their own limits (below) | `fetch.py`, `browser.py`, `files.py`, `reader.py`, `redact.py`, `search.py` |
 | **Model port** | `call(request, on_text=None) → one Action, its cost` | tool formats, provider errors, prices, streaming | `model.py`, `pydantic_model.py` |
 | **Ledger + Store** | `record(event)` · `start_run` / `end_run` · `save_message` · read-only `history` | SQLite, migrations, chat titles, what a Run was told | `ledger.py`, `store.py`, `history.py` |
 | **Contract** | the page's wire types as Pydantic models | what the page and the backend promise each other | `contract.py`, [`ui-contract.md`](ui-contract.md) |
@@ -39,13 +39,13 @@ A message becomes a Task. The **Orchestrator** (the only agent that talks to you
 
 A **Role** is a prompt, a tool set, a model and a step cap ([ADR 0010](adr/0010-one-loop-many-roles.md)). The loop is one function.
 
-| Role | Model | Steps | Its one hand |
+| Role (agent) | Model | Action cap | Its one tool |
 |---|---|---|---|
 | **Orchestrator** | Sonnet 5 | 8 | none: `plan`, `delegate`, `answer` |
-| **Direct** | Haiku 4.5 | 5 | `web_search`, `fetch` |
-| **Files** | Haiku 4.5 | 6 | `files`: names, sizes, dates, counts; never contents |
-| **Browser** | Sonnet 5 | 8 | `browse`: open, follow a numbered link, read on; read-only |
-| **Reader** | Haiku 4.5 | 3 | `read_text`: text of one file or PDF |
+| **Web Research** (`web_research`) | Haiku 4.5 | 5 | `web_search`, `fetch` |
+| **Local File Finder** (`local_file_finder`) | Haiku 4.5 | 6 | `files`: names, sizes, dates, counts; never contents |
+| **Web Browsing** (`web_browsing`) | Sonnet 5 | 8 | `browse`: open, follow a numbered link, read on; read-only |
+| **Local File Reader** (`local_file_reader`) | Haiku 4.5 | 3 | `read_text`: text of one file or PDF |
 
 Rules: a specialist can only take its own tools (offered, and enforced by the Gate); one Budget (default $1, `STEPOUT_TASK_CAP_USD`), one Taint flag and one Ledger per Run, shared by all Roles; a Finding is untrusted data, never an instruction; delegation is one level deep; one Run at a time across all chats.
 
@@ -53,11 +53,11 @@ Rules: a specialist can only take its own tools (offered, and enforced by the Ga
 
 ```
 You: "What's the news in New York today?"
- Channel ─► app ─► Intake.read ─► front door (one Haiku call, temperature 0)     proceed, links to no earlier Exchange
+ Channel ─► app ─► Intake.read ─► Screening (one Haiku call, temperature 0)      proceed, links to no earlier Exchange
  app ─► Runner.submit(task)                                                       Run starts, Budget $1
    Orchestrator   plan: direct: "find today's headlines"                          step event → page
-   Direct         web_search "..."  ─► Gate: Allow ─► Searcher (one cheap call)   step event, cost charged
-   Direct         answer (Finding)                                                return event
+   Web Research   web_search "..."  ─► Gate: Allow ─► Searcher (one cheap call)   step event, cost charged
+   Web Research   answer (Finding)                                                return event
    Orchestrator   answer: markdown with links      ── words streamed to the page as they are written ──
  Runner ─► reply (saved, then sent) ─► Ledger: Run ends Done, cost, tainted?
 ```
@@ -84,9 +84,9 @@ A seam is real when two adapters exist (a test double counts).
 |---|---|
 | **Channel** | web (aiohttp + React page), terminal; test fakes |
 | **Model** | Anthropic SDK (default; streams the final answer), Pydantic AI (any provider, e.g. OpenRouter; opt-in with `STEPOUT_STRONG_MODEL` / `STEPOUT_CHEAP_MODEL`), scripted (tests) ([ADR 0011](adr/0011-pydantic-ai-as-the-plumbing.md)) |
-| **Screener** | the front door's Haiku call; a fixed one in tests |
+| **Screener** | Screening's Haiku call; a fixed one in tests |
 
-Deliberately not seams: Chrome, Fetcher, Files (one adapter each, tested against real Chrome, a local server and temp folders) and Store (SQLite). Actions and Results are plain data, so a hand can run elsewhere later ([ADR 0007](adr/0007-brain-and-hands.md)).
+Deliberately not seams: Chrome, Fetcher, Files (one adapter each, tested against real Chrome, a local server and temp folders) and Store (SQLite). Actions and Results are plain data, so a Tool's implementation can run elsewhere later ([ADR 0007](adr/0007-brain-and-hands.md)).
 
 ## 7. On disk and in the repo
 

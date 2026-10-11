@@ -54,7 +54,7 @@ async def test_web_search_is_an_ordinary_function_tool_for_a_role():
 
 
 async def test_tool_calls_become_actions():
-    steps = [{"role": "direct", "goal": "find the news"}]
+    steps = [{"role": "web_research", "goal": "find the news"}]
     cases = [
         (tool("fetch", url="https://example.com"), FetchAction(url="https://example.com")),
         (tool("plan", steps=steps), PlanAction(steps=steps)),
@@ -101,4 +101,4 @@ async def test_the_browse_tool_and_the_browser_role_in_a_plan():
     _, kwargs = await ask(tools=["browse", "plan"])
     by_name = {t["name"]: t["input_schema"] for t in kwargs["tools"]}
     assert by_name["browse"]["required"] == ["op"] and by_name["browse"]["properties"]["op"]["enum"] == ["open", "click", "more"]
-    assert "browser" in by_name["plan"]["properties"]["steps"]["items"]["properties"]["role"]["enum"]
+    assert "web_browsing" in by_name["plan"]["properties"]["steps"]["items"]["properties"]["role"]["enum"]

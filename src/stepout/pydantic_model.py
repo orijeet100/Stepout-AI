@@ -26,7 +26,7 @@ from stepout.roles import HAIKU, SONNET
 
 # Which environment variable holds the key for each provider prefix of a model string ("openrouter:openai/gpt-5.2").
 _KEY_VARS = {"anthropic": "ANTHROPIC_API_KEY", "openrouter": "OPENROUTER_API_KEY", "openai": "OPENAI_API_KEY", "google-gla": "GEMINI_API_KEY"}
-# The two tiers a User can re-point. "strong" runs the Orchestrator and the Browser agent, "cheap" the front door and the other specialists.
+# The two tiers a User can re-point. "strong" runs the Orchestrator and the Web Browsing agent, "cheap" Screening and the other specialists.
 _TIER_VARS = ((SONNET, "STEPOUT_STRONG_MODEL"), (HAIKU, "STEPOUT_CHEAP_MODEL"))
 
 

@@ -9,7 +9,7 @@ import re
 import pytest
 from playwright.sync_api import expect
 
-FINISHED = re.compile(r"^\d+ steps? · \$[\d.]+ · \d+ s$")
+FINISHED = re.compile(r"^\d+ actions? · \$[\d.]+ · \d+ s$")
 QUESTION = "What are the top events this weekend?"
 
 

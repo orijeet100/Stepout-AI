@@ -8,7 +8,7 @@ const msg = (id: string, role: Message['role'], text: string, s: number, run_id:
   type: 'message', id, conversation_id: conv, role, text, run_id, cost_usd: null, at: t(s),
 })
 const trace = (id: string, run: string, kind: string, s: number, data: Trace['data'] = {}, conv = C): Frame => ({
-  type: 'trace', id, conversation_id: conv, run_id: run, parent: null, kind, role: 'browser', data, cost_usd: 0, at: t(s),
+  type: 'trace', id, conversation_id: conv, run_id: run, parent: null, kind, role: 'web_browsing', data, cost_usd: 0, at: t(s),
 })
 const run = (state: State, ...actions: Action[]) => actions.reduce(reducer, state)
 const frames = (...fs: Frame[]): Action[] => fs.map((frame) => ({ type: 'frame', frame }))

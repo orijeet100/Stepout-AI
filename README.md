@@ -40,7 +40,7 @@ mkdir -p data/config && cp grants.example.toml data/config/grants.toml   # edit:
 
 Try: *"What's the news in New York today?"*, *"How many files are in `<a folder you granted>`, by type?"*, *"Summarize the newest PDF in `<folder>`"*, *"Open `<a job posting URL>` and tell me the skills it asks for"*. If the key, Chrome or the grants file is missing, it says so in plain words.
 
-To use another provider, set `STEPOUT_STRONG_MODEL` (Orchestrator and Browser agent) and `STEPOUT_CHEAP_MODEL` (front door and the other specialists) to a Pydantic AI model string such as `openrouter:openai/gpt-5.2`, with that provider's key. Streaming works on the default Claude path only so far.
+To use another provider, set `STEPOUT_STRONG_MODEL` (Orchestrator and Web Browsing agent) and `STEPOUT_CHEAP_MODEL` (Screening and the other specialists) to a Pydantic AI model string such as `openrouter:openai/gpt-5.2`, with that provider's key. Streaming works on the default Claude path only so far.
 
 ## What it costs
 

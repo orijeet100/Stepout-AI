@@ -60,7 +60,7 @@ async def test_a_crash_still_closes_the_run_row_as_failed(tmp_path):
 
 async def shots(tmp_path, view):
     browser = FakeBrowser((view, "abc/1.jpg"))
-    h = Harness(tmp_path, [plan("read it", role="browser"), browse("open", "https://example.com"), say("ok"), say("done")], browser=browser)
+    h = Harness(tmp_path, [plan("read it", role="web_browsing"), browse("open", "https://example.com"), say("ok"), say("done")], browser=browser)
     task = await h.run()
     return [e.data for e in h.ledger.query(task.id) if e.kind == "shot"]
 

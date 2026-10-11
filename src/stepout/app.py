@@ -44,7 +44,7 @@ def startup_notes(keys: Sequence[str] = ("ANTHROPIC_API_KEY",)) -> list[str]:
         if not os.environ.get(var):
             notes.append(f"No {var}: put it in the .env file next to the app (copy .env.example to .env and fill it in), then restart. Until then every message gets this answer.")
     if not GRANTS_PATH.exists():
-        notes.append(f"No {GRANTS_PATH}: the Files agent can't see your disk. Copy grants.example.toml there to allow it.")
+        notes.append(f"No {GRANTS_PATH}: the Local File Finder and Local File Reader agents can't see your disk. Copy grants.example.toml there to allow it.")
     return notes
 
 

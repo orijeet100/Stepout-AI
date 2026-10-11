@@ -66,13 +66,13 @@ class NoChrome:
 
 async def test_a_browse_step_without_chrome_fails_the_run_with_one_plain_line(tmp_path, monkeypatch):
     monkeypatch.setattr("stepout.browser.async_playwright", lambda: NoChrome())
-    h = Harness(tmp_path, [plan("open it", role="browser"), browse("open", "https://example.com")], browser=Browser())
+    h = Harness(tmp_path, [plan("open it", role="web_browsing"), browse("open", "https://example.com")], browser=Browser())
     task = await h.run("open example.com")
 
     (reply,) = h.replies
     assert reply.text == "Chrome is not installed. Install Google Chrome, then try again."
     (error,) = [e for e in h.ledger.query(task.id) if e.kind == "error"]
-    assert error.data["cause"] == "chrome" and error.role == "browser" and error.data["type"] == "Failure"
+    assert error.data["cause"] == "chrome" and error.role == "web_browsing" and error.data["type"] == "Failure"
     (run,) = h.store.query("SELECT outcome FROM runs")
     assert run["outcome"] == "failed"
     assert len(h.model.requests) == 2  # it did not spend eight steps trying a dead browser
@@ -84,7 +84,7 @@ async def test_chrome_that_cannot_start_for_another_reason_says_so_in_a_line(tmp
             raise PlaywrightError("BrowserType.launch: Browser closed unexpectedly\nstack stack stack")
 
     monkeypatch.setattr("stepout.browser.async_playwright", lambda: Broken())
-    h = Harness(tmp_path, [plan("open it", role="browser"), browse("open", "https://example.com")], browser=Browser())
+    h = Harness(tmp_path, [plan("open it", role="web_browsing"), browse("open", "https://example.com")], browser=Browser())
     await h.run("open example.com")
     (reply,) = h.replies
     assert reply.text.startswith("Chrome could not be started (BrowserType.launch: Browser closed unexpectedly)") and "stack" not in reply.text

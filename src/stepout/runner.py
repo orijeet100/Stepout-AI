@@ -24,7 +24,7 @@ from stepout.ledger import Ledger
 from stepout.links import defang, links_in, urls
 from stepout.model import Model, ModelRequest
 from stepout.reader import Reader
-from stepout.roles import ROLES
+from stepout.roles import ROLES, agent_name
 from stepout.search import Searcher
 
 _MAX_PLANS = 3  # the first plan plus two re-plans
@@ -87,9 +87,9 @@ def _state(goal: str, plan: list[PlanStep], notes: list[str], previous: str = ""
 def _summary(action, plan: list[PlanStep]) -> str:
     match action:
         case PlanAction(steps=steps):
-            return "plan: " + "; ".join(f"{s.role}: {s.goal[:70]}" for s in steps)
+            return "plan: " + "; ".join(f"{agent_name(s.role)}: {s.goal[:70]}" for s in steps)
         case DelegateAction(step=i) if 0 <= i < len(plan):
-            return f"delegate {i} → {plan[i].role}: {plan[i].goal}"
+            return f"delegate {i} → {agent_name(plan[i].role)}: {plan[i].goal}"
         case DelegateAction(step=i):
             return f"delegate {i}"
         case _:
@@ -121,7 +121,7 @@ class Runner:
         self._cap = float(os.environ.get("STEPOUT_TASK_CAP_USD", "1.00"))
 
     async def submit(self, task: Task, previous: Sequence[Exchange] = (), screening_cost: float = 0.0) -> None:
-        """`previous`: the earlier Exchanges this Task builds on (none for a new Task). `screening_cost`: what the front door spent, counted against this Run's cap."""
+        """`previous`: the earlier Exchanges this Task builds on (none for a new Task). `screening_cost`: what Screening spent, counted against this Run's cap."""
         self._cancel.clear()
         run = _Run(task_id=task.id, conversation_id=task.conversation_id, cap=self._cap, spent=screening_cost, previous=_previous_block(previous))
         # what a tainted Run's reply may link to: the request, and an earlier reply's addresses (only the links that survived, for a tainted reply: a
@@ -286,4 +286,4 @@ class Runner:
                     last = key
                     if cap.repeat_guard(action):
                         ran[key] = (len(notes) - 1, notes[-1])
-        return Finding(f"The {role_name} agent couldn't finish in {role.max_steps} steps.", ok=False)
+        return Finding(f"The {agent_name(role_name)} agent couldn't finish in {role.max_steps} actions.", ok=False)

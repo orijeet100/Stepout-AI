@@ -12,7 +12,7 @@ from stepout.domain import (
 ACTIONS = [
     FetchAction(url="https://example.com"),
     AnswerAction(text="hi"),
-    PlanAction(steps=[PlanStep(role="direct", goal="find the news", status="running")]),
+    PlanAction(steps=[PlanStep(role="web_research", goal="find the news", status="running")]),
     DelegateAction(step=0),
 ]
 

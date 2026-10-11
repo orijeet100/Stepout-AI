@@ -1,4 +1,4 @@
-"""The front door's call: what it sends, how it reads the answer, and what it does with an answer it cannot use."""
+"""Screening's call: what it sends, how it reads the answer, and what it does with an answer it cannot use."""
 
 from types import SimpleNamespace as NS
 
