@@ -62,21 +62,23 @@ export default function App() {
       <div className="scrim" aria-hidden="true" onClick={() => setDrawer(false)} />
       <main className="main" inert={open}>
         <header className="head">
-          <button ref={menu} className="btn btn--icon menu" type="button" aria-label="Chats" aria-expanded={open} aria-controls="chats" onClick={() => setDrawer(true)}>
-            <Icon name="menu" />
+          <button ref={menu} className="btn btn--icon btn--ghost menu" type="button" aria-label="Chats" aria-expanded={open} aria-controls="chats" onClick={() => setDrawer(true)}>
+            <Icon name="panel" />
           </button>
           <h1>{current?.title || 'New chat'}</h1>
           {current?.state === 'running' && <span className="pill"><span className="dot dot--running" aria-hidden="true" /> Running</span>}
           {current?.state === 'queued' && <span className="pill">Queued</span>}
         </header>
-        {banner && (
-          <div className="banner" role="status">
-            <span>{banner}</span>
-            {(conn !== 'open' || error) && <button className="btn" type="button" onClick={retry}>Retry now</button>}
-          </div>
-        )}
-        <ChatView key={selected ?? 'draft'} items={selected ? timeline(state, selected) : []} empty={waiting ? (error ? 'failed' : 'loading') : 'new'} runState={(r) => runState(state, r)} runCap={(r) => runCap(state, r)} onStop={stop} onOpenShot={(run, index) => setViewer({ run, index })} />
-        <Composer online={conn === 'open'} busy={state.status.state === 'running'} onSend={send} />
+        <div className="panel">
+          {banner && (
+            <div className="banner" role="status">
+              <span>{banner}</span>
+              {(conn !== 'open' || error) && <button className="btn" type="button" onClick={retry}>Retry now</button>}
+            </div>
+          )}
+          <ChatView key={selected ?? 'draft'} items={selected ? timeline(state, selected) : []} empty={waiting ? (error ? 'failed' : 'loading') : 'new'} runState={(r) => runState(state, r)} runCap={(r) => runCap(state, r)} onStop={stop} onOpenShot={(run, index) => setViewer({ run, index })} />
+          <Composer online={conn === 'open'} busy={state.status.state === 'running'} onSend={send} />
+        </div>
       </main>
       <ShotViewer
         shots={viewerShots}

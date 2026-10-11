@@ -21,6 +21,7 @@
   --text: light-dark(#060606, #ebebeb);
   --muted: light-dark(#636363, #8c8c8c);
   --border: light-dark(#e9e9e9, #1f1f1f);          /* a hairline: the panel edge, the composer, a card */
+  --border-side: light-dark(#d7d7d7, #222222);     /* a button's edge on the sidebar (the template's --sidebar-border) */
   --border-strong: light-dark(#838383, #6d6d6d);   /* the edge of a control that is not otherwise visible: 3:1 */
   --ring: light-dark(#636363, #717171);            /* the focus ring: 3:1 */
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Frame, Message, Trace } from './protocol'
-import { chatList, initial, plain, reducer, runCap, runState, timeline, type Action, type State } from './store'
+import { chatGroups, chatList, initial, plain, reducer, runCap, runState, timeline, type Action, type State } from './store'
 
 const C = 'c'.repeat(32)
 const t = (s: number) => `2026-10-01T09:00:${String(s).padStart(2, '0')}.000Z`
@@ -202,5 +202,34 @@ describe('streaming', () => {
   it('words left over when the page goes idle are dropped', () => {
     const s = run(initial, ...frames(trace('e1', 'r1', 'step', 2), delta('d1', 3, 'Hel'), idle))
     expect(s.streams).toEqual({})
+  })
+})
+
+describe('chatGroups: the sidebar groups, as the template has them', () => {
+  const now = new Date(2026, 9, 11, 15, 30) // Sunday 11 October 2026, 15:30 local time
+  const at = (days: number, hour = 12) => new Date(2026, 9, 11 - days, hour).toISOString()
+  const chat = (id: string, updated_at: string) => ({ id, updated_at })
+  const labels = (chats: ReturnType<typeof chat>[]) => chatGroups(chats, now).map((g) => `${g.label}: ${g.chats.map((c) => c.id).join(',')}`)
+
+  it('puts each chat in its group, newest first inside each, and leaves empty groups out', () => {
+    expect(labels([chat('a', at(0, 9)), chat('b', at(0, 1)), chat('c', at(1)), chat('d', at(3)), chat('e', at(12)), chat('f', at(60))])).toEqual([
+      'Today: a,b',
+      'Yesterday: c',
+      'Last 7 days: d',
+      'Last 30 days: e',
+      'Older: f',
+    ])
+  })
+
+  it('midnight is the edge between Today and Yesterday, in local time', () => {
+    expect(labels([chat('late', new Date(2026, 9, 11, 0, 0).toISOString()), chat('early', new Date(2026, 9, 10, 23, 59).toISOString())])).toEqual(['Today: late', 'Yesterday: early'])
+  })
+
+  it('exactly 7 days ago is not in the last 7 days; a chat with no time is old', () => {
+    expect(labels([chat('week', new Date(now.getTime() - 7 * 86_400_000).toISOString()), chat('none', '')])).toEqual(['Last 30 days: week', 'Older: none'])
+  })
+
+  it('no chats, no groups', () => {
+    expect(chatGroups([], now)).toEqual([])
   })
 })

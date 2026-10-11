@@ -167,6 +167,21 @@ export function chatList(s: State): (Chat & { state: ChatState })[] {
     .map((c) => ({ ...c, state: s.status.active?.conversation_id === c.id ? 'running' : queued.has(c.id) ? 'queued' : 'idle' }))
 }
 
+export const GROUPS = ['Today', 'Yesterday', 'Last 7 days', 'Last 30 days', 'Older'] as const
+
+/** Chats (already newest first) in the sidebar's groups, as the template does: Today, Yesterday, Last 7 days, Last 30 days, Older. Empty groups are left out. */
+export function chatGroups<T extends { updated_at: string }>(chats: T[], now = new Date()): { label: (typeof GROUPS)[number]; chats: T[] }[] {
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() // midnight, local time
+  const week = now.getTime() - 7 * 86_400_000
+  const month = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), now.getHours(), now.getMinutes()).getTime()
+  const out = GROUPS.map((label) => ({ label, chats: [] as T[] }))
+  for (const c of chats) {
+    const t = ms(c.updated_at)
+    out[t >= day ? 0 : t >= day - 86_400_000 ? 1 : t > week ? 2 : t > month ? 3 : 4].chats.push(c)
+  }
+  return out.filter((g) => g.chats.length > 0)
+}
+
 export function runState(s: State, r: Run): RunState {
   if (s.status.active?.run_id === r.id) return 'running'
   const stop = r.events.find((e) => e.kind === 'stop')
