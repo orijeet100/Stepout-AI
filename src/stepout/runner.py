@@ -113,6 +113,7 @@ class Runner:
         cancel: asyncio.Event | None = None,
         files: Files | None = None,
         browser: Browser | None = None,
+        month_left: Callable[[], float] | None = None,
     ) -> None:
         self._model = model
         self._fetcher = fetcher
@@ -124,11 +125,13 @@ class Runner:
         self._trace = trace
         self._cancel = cancel or asyncio.Event()  # set by the Channel when the User presses Stop
         self._cap = float(os.environ.get("STEPOUT_TASK_CAP_USD", "1.00"))
+        self._month_left = month_left  # dollars the month has left (app.py); a Run's cap is the lesser of this and the per-Run cap
 
     async def submit(self, task: Task, previous: Sequence[Exchange] = (), screening_cost: float = 0.0) -> None:
         """`previous`: the earlier Exchanges this Task builds on (none for a new Task). `screening_cost`: what Screening spent, counted against this Run's cap."""
         self._cancel.clear()
-        run = _Run(task_id=task.id, conversation_id=task.conversation_id, cap=self._cap, spent=screening_cost, previous=_previous_block(previous))
+        cap = self._cap if self._month_left is None else min(self._cap, max(self._month_left(), 0.0))
+        run = _Run(task_id=task.id, conversation_id=task.conversation_id, cap=cap, spent=screening_cost, previous=_previous_block(previous))
         # What the model port and the log may know about this Run, for as long as it is in progress (see scope.py).
         run.scope = RunScope(
             run_id=run.id, task_id=task.id, conversation_id=task.conversation_id,

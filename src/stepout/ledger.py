@@ -113,6 +113,21 @@ class Ledger:
         )
         return run_ids
 
+    def month_spend(self, now: datetime | None = None) -> float:
+        """Dollars spent in the calendar month (UTC) that `now` falls in: every Run's total, plus what a message cost that never became a Run (a decline, a chat reply,
+        Memory's own calls). Screening for a message that did become a Run is already in that Run's total, so it is not counted twice."""
+        now = now or datetime.now(timezone.utc)
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = start.replace(year=start.year + (start.month == 12), month=start.month % 12 + 1)
+        lo, hi = start.isoformat(), end.isoformat()
+        row = self._store.query(
+            "SELECT (SELECT COALESCE(SUM(cost_usd), 0) FROM runs WHERE started_at >= ? AND started_at < ?) "
+            "+ (SELECT COALESCE(SUM(cost_usd), 0) FROM events WHERE run_id IS NULL AND at >= ? AND at < ? "
+            "AND NOT (kind IN ('screening_fallback', 'screening_failed') OR (kind = 'screening' AND json_extract(data, '$.decision') = 'proceed'))) AS spent",
+            (lo, hi, lo, hi),
+        )[0]
+        return float(row["spent"])
+
     def query(self, task_id: str | None = None) -> list[Event]:
         if task_id is not None:
             rows = self._store.query("SELECT * FROM events WHERE task_id = ? ORDER BY at", (task_id,))

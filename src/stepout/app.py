@@ -11,7 +11,7 @@ from typing import Sequence
 
 from dotenv import load_dotenv
 
-from stepout import history, logs
+from stepout import history, housekeeping, logs
 from stepout.chats import ChatKeeper
 from stepout.channels.cli import CliChannel
 from stepout.channels.web import StoreHistory, WebChannel
@@ -75,10 +75,22 @@ class SavedChannel:
         await self._channel.send(reply)
 
 
-async def run(channel, intake: Intake, runner: Runner) -> None:
+def month_cap(environ=os.environ) -> float:
+    """What the app may spend in a calendar month, in dollars (STEPOUT_MONTH_CAP_USD). A starting value, not a recommendation."""
+    try:
+        return float(environ.get("STEPOUT_MONTH_CAP_USD", "10.00"))
+    except ValueError:
+        return 10.00
+
+
+async def run(channel, intake: Intake, runner: Runner, month_left=None) -> None:
+    """`month_left()`: dollars the month has left; at zero a message is answered with a line and costs nothing (a slash command is free and still works)."""
     async for message in channel.messages():
         cid = message.conversation_id
         try:
+            if month_left is not None and not message.text.strip().startswith("/") and month_left() <= 0:
+                await channel.send(Reply(text=f"This month's spending limit of ${month_cap():.2f} is used up, so I have not run anything. Raise STEPOUT_MONTH_CAP_USD in .env, or wait for next month.", conversation_id=cid))
+                continue
             reading = await intake.read(message)
             match reading:
                 case DeclinedReading(reason=reason, alternative=alternative, cost_usd=cost):
@@ -110,6 +122,9 @@ async def main() -> None:
     model = RetryingModel(base)  # the one retry policy (ADR 0015), for the Runner, Screening and the Searcher alike
     store = Store(DB_PATH)
     ledger = Ledger(store)
+    for folder in (SHOTS_PATH,):  # Capture's folder joins this list with Capture
+        if (swept := housekeeping.sweep(folder, housekeeping.retention_days())):
+            logging.getLogger(__name__).info("removed %d old item(s) from %s", swept, folder)
     if (cut_off := ledger.close_interrupted()):
         logging.getLogger(__name__).warning("closed %d run(s) the last session left open", cut_off)
     fetcher = Fetcher()
@@ -123,9 +138,12 @@ async def main() -> None:
     files = Files.from_config(GRANTS_PATH)
     browser = make_browser(channel)
     saved = SavedChannel(channel, ledger)
-    runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=files, browser=browser)
+    def month_left() -> float:
+        return month_cap() - ledger.month_spend()
+
+    runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=files, browser=browser, month_left=month_left)
     try:
-        await run(saved, intake, runner)
+        await run(saved, intake, runner, month_left)
     finally:
         await browser.aclose()
 

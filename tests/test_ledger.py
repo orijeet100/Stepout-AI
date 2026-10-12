@@ -1,3 +1,5 @@
+import pytest
+
 import sqlite3
 
 from stepout.domain import Event
@@ -84,3 +86,34 @@ def test_a_database_with_data_is_copied_before_a_migration_changes_it(tmp_path):
 def test_a_new_database_is_not_copied(tmp_path):
     Store(tmp_path / "new.db").close()
     assert [p.name for p in tmp_path.iterdir()] == ["new.db"]
+
+
+def test_the_months_spend_counts_runs_and_messages_that_never_became_runs_once(tmp_path):
+    from datetime import datetime, timezone
+
+    from stepout.domain import Outcome, Task
+
+    store = Store(tmp_path / "t.db")
+    ledger = Ledger(store)
+    now = datetime(2026, 10, 15, 12, tzinfo=timezone.utc)
+
+    def run(run_id, cost, when):
+        ledger.start_run(Task(user_id="u", request="q", conversation_id="c"), run_id, 1.0)
+        ledger.end_run(run_id, Outcome.DONE, cost, "")
+        store.execute("UPDATE runs SET started_at = ? WHERE id = ?", (when.isoformat(), run_id))
+
+    run("this-month", 0.30, datetime(2026, 10, 2, tzinfo=timezone.utc))
+    run("last-month", 0.50, datetime(2026, 9, 30, 23, 59, tzinfo=timezone.utc))
+    run("next-month", 0.70, datetime(2026, 11, 1, tzinfo=timezone.utc))
+
+    def event(kind, cost, data, when=datetime(2026, 10, 3, tzinfo=timezone.utc)):
+        ledger.record(Event(kind=kind, conversation_id="c", data=data, cost_usd=cost, at=when))
+
+    event("screening", 0.01, {"decision": "decline"})  # a message that cost money and did not become a Run
+    event("screening", 0.02, {"decision": "chat"})
+    event("screening", 0.04, {"decision": "proceed"})  # its cost is in the Run's total already
+    event("screening_fallback", 0.04, {})
+    event("screening", 0.08, {"decision": "decline"}, when=datetime(2026, 9, 3, tzinfo=timezone.utc))  # last month
+
+    assert ledger.month_spend(now) == pytest.approx(0.30 + 0.01 + 0.02)
+    assert ledger.month_spend(datetime(2026, 12, 20, tzinfo=timezone.utc)) == 0.0
