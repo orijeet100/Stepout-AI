@@ -4,7 +4,7 @@ A personal assistant the User drives from a Channel. It turns Requests into Task
 
 ## Language
 
-Entries marked *(planned)* are not in the code yet; the rest are (checked 2026-10-11).
+Entries marked *(planned)* are not in the code yet; the rest are (checked 2026-10-12).
 
 ### People and conversation
 
@@ -195,16 +195,16 @@ _Avoid_: backup, rollback log
 
 ### Memory
 
-**Memory** *(planned)*:
+**Memory**:
 What the Assistant keeps between Tasks about the User and the web: Persona, Notes and History.
 _Avoid_: context, knowledge base, state
 
-**Persona** *(planned)*:
+**Persona**:
 Facts and preferences about the User, including where their usual Documents live, kept where the User can read and edit them.
 _Avoid_: profile, user model
 
-**Pinned** *(planned)*:
-A Persona entry the User wrote or edited. The Assistant never overwrites it.
+**Pinned**:
+A Persona entry the User wrote or edited. Nothing but the User's own `/remember` and `/forget` touches the file; an entry's id is a hash of its text.
 
 **Document** *(planned)*:
 A file the Assistant uses for the User, such as a resume — found inside a Grant, or given directly.
@@ -214,20 +214,20 @@ _Avoid_: profile data, attachment, upload
 Know-how the Assistant wrote about a site or a kind of Task, with Provenance and an expiry.
 _Avoid_: lesson, playbook, memory item
 
-**History** *(planned)*:
-The record in Memory of past Tasks and their Outcomes.
+**History**:
+The record in Memory of past Tasks and their Outcomes. Written by code after a Run: the request, the outcome and what the hands did as kinds and hosts only; a Run that read a file keeps only the request and the outcome.
 _Avoid_: log (the Ledger is not Memory)
 
-**Provenance** *(planned)*:
+**Provenance**:
 Where a piece of Memory came from. Only a User Message or the Assistant's own Run Outcome may write Memory.
 _Avoid_: source
 
-**Recollection** *(planned)*:
-What Memory hands a Run when it starts: the Persona plus the few Notes and History that matter for this Task.
+**Recollection**:
+What Memory hands a Run when it starts: the Persona plus the few learned facts and History that matter for this Task, about 2,000 characters at most, shown to the Orchestrator only, as data about the User and never as instructions or permission.
 _Avoid_: retrieval, context window
 
-**Forget** *(planned)*:
-The User removing something from Memory.
+**Forget**:
+The User removing something from Memory with `/forget <id>`, or deleting the chat it came from. It never edits the Ledger.
 
 ### Record
 

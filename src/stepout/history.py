@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+from urllib.parse import urlparse
 
 from stepout.contract import ConversationDetail, ConversationSummary, MessageFrame, RunSummary, TraceFrame
 from stepout.domain import Exchange
@@ -68,15 +69,26 @@ def run_events(store: Store, run_id: str) -> list[TraceFrame]:
     ]
 
 
-def _did(store: Store, run_id: str) -> str:
-    """What the specialists' hands did in a Run, from the step summaries: "browse open luma.com/discover; fetch luma.com/tech"."""
+def did_line(events, *, hosts_only: bool = False) -> str:
+    """What the specialists' hands did in a Run, from its step events (anything with `.kind`, `.role` and `.data`): "browse open luma.com/discover; fetch luma.com/tech".
+    `hosts_only`: for Memory, which keeps it across chats. Only the kind of action and, for a web page, its host: no query, no path, no file name, nothing a page or a
+    file could have worded."""
     done: list[str] = []
-    for e in run_events(store, run_id):
+    for e in events:
         if e.kind == "step" and e.role != "orchestrator" and e.data.get("verdict") == "allow" and not e.data.get("repeat") and e.data["action"]["kind"] != "answer":
-            line = re.sub(r"https?://", "", e.data["summary"])
+            if hosts_only:
+                action = e.data["action"]
+                host = re.sub(r"[^A-Za-z0-9.:-]", "", urlparse(str(action.get("url") or "")).netloc)[:80]
+                line = f"{action['kind']} {host}".strip()
+            else:
+                line = re.sub(r"https?://", "", e.data["summary"])
             if line not in done:
                 done.append(line)
     return "; ".join(done)[:200]
+
+
+def _did(store: Store, run_id: str) -> str:
+    return did_line(run_events(store, run_id))
 
 
 def exchanges(store: Store, conversation_id: str, last: int = 10) -> list[Exchange]:

@@ -11,7 +11,8 @@ from typing import Sequence
 
 from dotenv import load_dotenv
 
-from stepout import history, housekeeping, logs
+from stepout import commands, history, housekeeping, logs
+from stepout import memory as memory_mod
 from stepout.chats import ChatKeeper
 from stepout.channels.cli import CliChannel
 from stepout.channels.web import StoreHistory, WebChannel
@@ -33,6 +34,7 @@ DB_PATH = Path("data/stepout.db")
 GRANTS_PATH = Path("data/config/grants.toml")  # only the User edits this
 SHOTS_PATH = Path("data/runs")  # page screenshots, one folder per Run
 LOGS_PATH = Path("data/logs")  # the app log (logs.py)
+MEMORY_PATH = Path("data/memory")  # Persona and what was learned (memory.py)
 
 
 def make_browser(channel) -> Browser:
@@ -83,7 +85,7 @@ def month_cap(environ=os.environ) -> float:
         return 10.00
 
 
-async def run(channel, intake: Intake, runner: Runner, month_left=None) -> None:
+async def run(channel, intake: Intake, runner: Runner, month_left=None, memory=None) -> None:
     """`month_left()`: dollars the month has left; at zero a message is answered with a line and costs nothing (a slash command is free and still works)."""
     async for message in channel.messages():
         cid = message.conversation_id
@@ -99,8 +101,9 @@ async def run(channel, intake: Intake, runner: Runner, month_left=None) -> None:
                     await channel.send(Reply(text=text, conversation_id=cid, cost_usd=cost))
                 case FailedReading(text=text):
                     await channel.send(Reply(text=text, conversation_id=cid))
-                case CommandReading(name=name):
-                    await channel.send(Reply(text=f"Unknown command: /{name}", conversation_id=cid))
+                case CommandReading(name=name, args=args):
+                    said = await commands.handle(name, args, memory) if memory is not None else None
+                    await channel.send(Reply(text=said if said is not None else f"Unknown command: /{name}", conversation_id=cid))
                 case NewTask(request=request, previous=previous, cost_usd=cost):
                     task = Task(user_id=message.user_id, request=request, conversation_id=cid)
                     await runner.submit(task, previous, screening_cost=cost)
@@ -122,6 +125,9 @@ async def main() -> None:
     model = RetryingModel(base)  # the one retry policy (ADR 0015), for the Runner, Screening and the Searcher alike
     store = Store(DB_PATH)
     ledger = Ledger(store)
+    memory, memory_line = memory_mod.build(root=MEMORY_PATH)
+    print(memory_line)
+    logging.getLogger(__name__).info(memory_line)
     for folder in (SHOTS_PATH,):  # Capture's folder joins this list with Capture
         if (swept := housekeeping.sweep(folder, housekeeping.retention_days())):
             logging.getLogger(__name__).info("removed %d old item(s) from %s", swept, folder)
@@ -129,7 +135,10 @@ async def main() -> None:
         logging.getLogger(__name__).warning("closed %d run(s) the last session left open", cut_off)
     fetcher = Fetcher()
     if "web" in sys.argv[1:]:
-        keeper = ChatKeeper(ledger, SHOTS_PATH)  # rename and delete; Memory and Capture add their cleanup here when they exist
+        async def forget_chat(chat: str, run_ids: list[str]) -> None:
+            await memory.forget_chat(chat)  # what Memory kept from a deleted chat goes with it
+
+        keeper = ChatKeeper(ledger, SHOTS_PATH, [forget_chat])
         channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store), keeper=keeper)  # the channel reads history from the app's own Store
         print(f"Stepout web chat: http://127.0.0.1:{await channel.start()}  (Ctrl+C to stop)")
     else:
@@ -141,9 +150,9 @@ async def main() -> None:
     def month_left() -> float:
         return month_cap() - ledger.month_spend()
 
-    runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=files, browser=browser, month_left=month_left)
+    runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=files, browser=browser, month_left=month_left, memory=memory)
     try:
-        await run(saved, intake, runner, month_left)
+        await run(saved, intake, runner, month_left, memory)
     finally:
         await browser.aclose()
 

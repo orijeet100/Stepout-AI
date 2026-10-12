@@ -73,14 +73,14 @@ def looks(op, path, pattern=None, cost=0.001):
 class Harness:
     """Script order = call order. A plan runs its first step itself, so its Role's calls come right after the plan."""
 
-    def __init__(self, tmp_path, responses, fetcher=None, cancel=None, files=None, browser=None):
+    def __init__(self, tmp_path, responses, fetcher=None, cancel=None, files=None, browser=None, memory=None):
         self.store = Store(tmp_path / "t.db")
         self.ledger = Ledger(self.store)
         self.model = ScriptedModel(responses)
         self.fetcher = fetcher or FakeFetcher("page text")
         self.replies: list[Reply] = []
         self.traced = []
-        self.runner = Runner(self.model, self.fetcher, self.ledger, self._notify, self._trace, cancel, files=files, browser=browser or FakeBrowser())
+        self.runner = Runner(self.model, self.fetcher, self.ledger, self._notify, self._trace, cancel, files=files, browser=browser or FakeBrowser(), memory=memory)
 
     async def _notify(self, reply):
         self.replies.append(reply)

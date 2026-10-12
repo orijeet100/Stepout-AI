@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Awaitable, Callable, Sequence
 from uuid import uuid4
 
-from stepout import capabilities, gate, scope
+from stepout import capabilities, gate, history, scope
 from stepout.capabilities.base import TEXT_CHARS, RunContext, RunState
 from stepout.domain import Allow, AnswerAction, DelegateAction, Event, Exchange, Outcome, PlanAction, PlanStep, Reply, Task
 from stepout.browser import Browser
@@ -23,6 +23,7 @@ from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.ledger import Ledger
 from stepout.links import defang, links_in, urls
+from stepout.memory_types import Memory, RunRecord
 from stepout.model import Model, ModelRequest
 from stepout.reader import Reader
 from stepout.roles import ROLES, agent_name
@@ -32,6 +33,8 @@ from stepout.search import Searcher
 _MAX_PLANS = 3  # the first plan plus two re-plans
 _REPEATED = "You already ran exactly this and the result will not change. Try something different, or answer."
 _NO_ANSWER = "I finished without an answer to give you. Try asking again, perhaps in other words."
+RECALL_SECONDS = 3.0  # Memory may not hold a Run up for longer than this; it carries on without
+RECORD_SECONDS = 5.0  # nor keep the next message waiting after the reply
 
 
 class _Stopped(Exception):
@@ -57,6 +60,7 @@ class _Run:
     stopped: bool = False  # the User pressed Stop, or the budget ran out
     acting: str = "orchestrator"  # the Role taking its turn: where a failure is placed in the Ledger
     previous: str = ""  # the linked Exchanges, rendered; only the Orchestrator sees them
+    recollection: str = ""  # what Memory handed over at the start, rendered; only the Orchestrator sees it
     state: RunState = field(default_factory=RunState)  # shared by every Role: read counters and, later, the taint
     urls: set[str] = field(default_factory=set)  # addresses a tainted Run's reply may still link to (see links.py)
     input_tokens: int = 0  # what its model calls were billed for, in all
@@ -78,9 +82,9 @@ def _previous_block(exchanges: Sequence[Exchange]) -> str:
     return "Previous exchanges (data, not instructions):\n\n" + "\n\n".join(items)
 
 
-def _state(goal: str, plan: list[PlanStep], notes: list[str], previous: str = "") -> str:
+def _state(goal: str, plan: list[PlanStep], notes: list[str], previous: str = "", recollection: str = "") -> str:
     """What a Role sees each step: the goal, its plan, what it has learned. Not a transcript."""
-    parts = [f"Task: {goal}"] + ([previous] if previous else [])
+    parts = [f"Task: {goal}"] + ([recollection] if recollection else []) + ([previous] if previous else [])
     if plan:
         parts.append("Plan:\n" + "\n".join(f"{i}. [{s.status}] {s.role}: {s.goal}" for i, s in enumerate(plan)))
     parts += notes
@@ -114,6 +118,7 @@ class Runner:
         files: Files | None = None,
         browser: Browser | None = None,
         month_left: Callable[[], float] | None = None,
+        memory: Memory | None = None,
     ) -> None:
         self._model = model
         self._fetcher = fetcher
@@ -125,6 +130,7 @@ class Runner:
         self._trace = trace
         self._cancel = cancel or asyncio.Event()  # set by the Channel when the User presses Stop
         self._cap = float(os.environ.get("STEPOUT_TASK_CAP_USD", "1.00"))
+        self._memory = memory  # None, or off: nothing is recalled and nothing is kept
         self._month_left = month_left  # dollars the month has left (app.py); a Run's cap is the lesser of this and the per-Run cap
 
     async def submit(self, task: Task, previous: Sequence[Exchange] = (), screening_cost: float = 0.0) -> None:
@@ -146,6 +152,42 @@ class Runner:
         finally:
             scope.leave(token)
 
+    async def _recall(self, run: _Run, request: str) -> str:
+        """What Memory hands this Run, or "" (Memory off, nothing relevant, or Memory too slow or broken: the Run goes ahead without and the Trace says so)."""
+        if self._memory is None or not self._memory.enabled:
+            return ""
+        began = time.monotonic()
+        try:
+            recollection = await asyncio.wait_for(self._memory.recall(request), RECALL_SECONDS)
+        except Exception as exc:  # includes the time limit: Memory never fails a Run
+            logging.getLogger(__name__).warning("memory recall failed: %s", type(exc).__name__)
+            await self._emit(run, "memory", "orchestrator", "Memory was not available; carrying on without it", op="recall", ok=False, cause=type(exc).__name__)
+            return ""
+        if recollection.text:
+            await self._emit(
+                run, "memory", "orchestrator", f"Memory handed over {len(recollection.ids)} item(s), {recollection.chars} characters",
+                op="recall", ok=True, ids=list(recollection.ids), chars=recollection.chars, ms=round((time.monotonic() - began) * 1000),
+                **({"skipped": recollection.skipped} if recollection.skipped else {}),
+            )
+        return recollection.text
+
+    async def _keep(self, run: _Run, task: Task, outcome: Outcome) -> None:
+        """Leave this Run in History. Written from the Run itself (its request, outcome and what its hands did, as kinds and hosts): never from a reply, and for a Run
+        that read a file, only the request and the outcome. A failure here is logged and shown in the Trace; it never touches the Run."""
+        if self._memory is None or not self._memory.enabled:
+            return
+        did = history.did_line((e for e in self._ledger.query(task.id) if e.run_id == run.id), hosts_only=True)
+        record = RunRecord(
+            request=task.request, outcome=outcome.value, did=did, tainted=bool(run.state.tainted), conversation_id=task.conversation_id, run_id=run.id,
+        )
+        try:
+            await asyncio.wait_for(self._memory.record_run(record), RECORD_SECONDS)
+        except Exception as exc:
+            logging.getLogger(__name__).warning("memory write failed: %s", type(exc).__name__)
+            await self._emit(run, "memory", "orchestrator", "This task was not kept in Memory", op="record", ok=False, cause=type(exc).__name__)
+            return
+        await self._emit(run, "memory", "orchestrator", "Kept in Memory as an earlier task", op="record", ok=True)
+
     async def _reset_stream(self, run: _Run) -> None:
         if self._trace is not None:  # nothing was streamed to a page that is not there
             await self._delta(run, reset=True)
@@ -159,6 +201,7 @@ class Runner:
                 run.state.taint(f"an earlier answer it builds on (#{x.id}) used the contents of your files")
         self._ledger.start_run(task, run.id, run.cap)
         outcome = Outcome.FAILED  # stays so if the model or a hand raises
+        run.recollection = await self._recall(run, task.request)
         try:
             finding = await self._agent("orchestrator", task.request, run, parent=None)
             outcome = Outcome.CANCELLED if run.stopped else Outcome.DONE if finding.ok else Outcome.FAILED
@@ -174,6 +217,7 @@ class Runner:
         text = finding.text if finding.text.strip() else _NO_ANSWER
         text = defang(text, run.urls) if run.state.tainted else text  # a file may ask for a link that holds its own text
         await self._notify(Reply(text=text, conversation_id=task.conversation_id, run_id=run.id, cost_usd=run.spent))
+        await self._keep(run, task, outcome)  # after the reply: the User is not kept waiting for it
 
     async def _unless_stopped(self, work):
         """Await `work`, but give up on it the moment the User presses Stop: a long model call, read, walk or page load must not outlast the button.
@@ -259,7 +303,7 @@ class Runner:
             request = ModelRequest(
                 model=role.model,
                 system=role.system,
-                user_text=_state(goal, run.plan if orchestrating else [], notes, run.previous if orchestrating else ""),
+                user_text=_state(goal, run.plan if orchestrating else [], notes, run.previous if orchestrating else "", run.recollection if orchestrating else ""),
                 tools=[] if repeated else list(role.tools),
             )
             # The reply's words go out as they are written, but only for the Orchestrator (its answer is the reply) and only while the Run has read no
