@@ -5,7 +5,7 @@ import type { Frame } from './protocol'
 import { initial, reducer, runCap, runState, starting, timeline, type Action, type State } from './store'
 import { chatOf, stateOf } from './testFixtures'
 
-// The thread as the template lays it out: your messages are bubbles, everything the assistant says in answer shares one tile.
+// The thread as ChatGPT lays it out: your messages are bubbles, everything the assistant says in answer shares one row.
 const view = (s: State, chat: string, props: Partial<Parameters<typeof ChatView>[0]> = {}) =>
   render(<ChatView items={timeline(s, chat)} starting={starting(s, chat, timeline(s, chat))} runState={(r) => runState(s, r)} runCap={(r) => runCap(s, r)} onStop={() => {}} {...props} />)
 
@@ -17,12 +17,11 @@ const status = (state: 'idle' | 'running', active: boolean) =>
   frame({ type: 'status', state, active: active ? { conversation_id: C, run_id: 'r'.repeat(32), cap_usd: 1 } : null, queued: [] })
 const run = (...actions: Action[]) => actions.reduce(reducer, initial as State)
 
-describe('one tile for everything the assistant says in answer', () => {
-  it('a run and its reply are one row with one tile; your message is a bubble, not a tile', () => {
+describe('one row for everything the assistant says in answer', () => {
+  it('a run and its reply are one row; your message is a bubble, outside it', () => {
     const name = 'web-run'
     const { container } = view(stateOf(name, { hint: 'done', cap: 1 }), chatOf(name))
     expect(container.querySelectorAll('.turn')).toHaveLength(1)
-    expect(container.querySelectorAll('.turn__tile')).toHaveLength(1)
     const turn = container.querySelector('.turn')!
     expect(turn.querySelector('.runblock')).toBeTruthy()
     expect(turn.querySelector('.reply')).toBeTruthy() // the run card and the reply sit in the same body
@@ -51,7 +50,7 @@ describe('the assistant is starting', () => {
     expect(starting(waiting, C, timeline(waiting, C))).toBe(true)
     const { container } = view(waiting, C)
     expect(container.querySelector('.working')!.textContent).toBe('Working…')
-    expect(container.querySelectorAll('.turn__tile')).toHaveLength(1)
+    expect(container.querySelectorAll('.turn')).toHaveLength(1)
   })
 
   it('is not shown when idle, when the message is only queued, or when another chat holds the run', () => {

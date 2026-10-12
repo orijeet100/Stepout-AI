@@ -52,6 +52,7 @@ The choices that shaped the product, in the order they happened, with where to r
 - **One retry policy** at the Model port replaced two implicit ones: classified, bounded per call and per Run, every attempt an event, an unreadable reply repaired once, the Fetcher retried, a cut stream dropped on the page and tried again ([0015](adr/0015-one-retry-policy-at-the-model-port.md)).
 - **The Record became complete and manageable:** tokens, durations and attempts on every step, a `result` event per tool (a size, never its text), a log file with ids, Runs a crash left open closed at the next start, a copy of the database before a migration, rename / search / export / delete (a purge) for chats, screenshots swept by age, a monthly spending limit, and opt-in Capture. The page gained search, rename, delete, a Memory panel and the retry and Memory lines in a run.
 - **Decided:** deleting a chat purges its Ledger rows (only the User asks; the Assistant still never edits the Ledger); Mem0's extraction stays ours so every model call is metered and stoppable; OpenAI's `text-embedding-3-small` is the embedder.
+- **The page now looks like ChatGPT**: a plain sheet, a quiet chat list, a borderless bubble, no assistant avatar, a pill composer centred on an empty chat, a Copy button under replies, ElevenLabs' shimmering text while it works; still plain CSS and no new dependency ([0017](adr/0017-the-page-follows-the-chatgpt-look.md), superseding 0014).
 
 ## Tried and dropped
 

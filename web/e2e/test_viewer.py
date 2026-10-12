@@ -32,7 +32,7 @@ def tab_to_a_thumbnail(page) -> str:
 
 
 def test_the_viewer_works_with_the_keyboard_alone(page, tmp_path):
-    finished_run(page)
+    finished_run(page).locator("summary").focus()  # start at the run, not the top: the shared mock's chat list grows with every flow
     opener = tab_to_a_thumbnail(page)  # the thumbnails are in the tab order, with the run still closed
     assert opener.startswith("Open screenshot 1 of 2")
 

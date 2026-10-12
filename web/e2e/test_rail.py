@@ -11,7 +11,7 @@ def width(page) -> float:
 
 def test_the_sidebar_folds_to_a_rail_and_back_and_remembers(page):
     side = page.locator("aside.side")
-    assert width(page) == 256
+    assert width(page) == 260
     page.get_by_label("Collapse sidebar").click()
     page.wait_for_timeout(450)  # the column eases over 300 ms
     assert width(page) == 48
@@ -28,5 +28,5 @@ def test_the_sidebar_folds_to_a_rail_and_back_and_remembers(page):
     expect(page.locator("h1")).to_have_text("New chat")
     page.get_by_label("Expand sidebar").click()
     page.wait_for_timeout(450)
-    assert width(page) == 256
+    assert width(page) == 260
     expect(side.locator(".chat").first).to_be_visible()

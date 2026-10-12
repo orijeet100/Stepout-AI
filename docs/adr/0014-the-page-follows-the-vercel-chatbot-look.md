@@ -1,6 +1,6 @@
 # 0014 — The page follows the look of the Vercel Chatbot template, rebuilt in our own code
 
-Status: accepted · 2026-10-11 · supersedes the first look ("Ink") of 2026-10-07/08
+Status: superseded by [0017](0017-the-page-follows-the-chatgpt-look.md) on 2026-10-12 · accepted 2026-10-11 · supersedes the first look ("Ink") of 2026-10-07/08
 
 **Decision.** The page's look and structure follow Vercel's open-source Chatbot template (github.com/vercel/chatbot): the page in the sidebar's colour with an inset rounded panel, a 56 px header, a sidebar with a bordered New chat button and history grouped by age, a centred message column, a greeting with four suggested questions, a rounded composer, the assistant's work as a collapsible tool card. The values (colours in light and dark, radii, type scale, spacing, motion) were measured from the template's source and its live demo and written as our own tokens (`web/src/design/tokens.css`). **No template code was copied**: the stack stays Vite, React and plain CSS, with no Next.js, no Vercel AI SDK and no new dependency.
 

@@ -17,6 +17,7 @@ An ADR records a decision that is hard to reverse, surprising, or a real trade-o
 | [0011](0011-pydantic-ai-as-the-plumbing.md) | Pydantic AI is the plumbing; the Gate, hands and Ledger stay ours | accepted; slices 1 to 3 done, slice 4 declined |
 | [0012](0012-the-front-door.md) | The front door: one cheap call before any agent money is spent | accepted |
 | [0013](0013-the-reply-streams.md) | The reply streams, but never for a Run that has read a file | accepted |
-| [0014](0014-the-page-follows-the-vercel-chatbot-look.md) | The page follows the look of the Vercel Chatbot template | accepted |
+| [0014](0014-the-page-follows-the-vercel-chatbot-look.md) | The page follows the look of the Vercel Chatbot template | superseded by 0017 |
 | [0015](0015-one-retry-policy-at-the-model-port.md) | One retry policy, owned by the Model port | accepted |
 | [0016](0016-memory-on-mem0-behind-the-seam.md) | Memory: a Persona file, a learned store behind one seam, Mem0 as the primary store | accepted; built |
+| [0017](0017-the-page-follows-the-chatgpt-look.md) | The page follows the look of ChatGPT | accepted |
