@@ -28,7 +28,7 @@ def test_at_phone_width_the_chat_list_is_a_drawer_you_can_open_choose_from_and_s
     expect(page.locator("h1")).to_contain_text("Pay my electricity invoice")
 
     menu.click()
-    page.locator(".scrim").click(position={"x": 370, "y": 60})  # the scrim, above the sheet (a bottom sheet covers the lower 70% of the screen)
+    page.locator(".scrim").click(position={"x": 370, "y": 400})  # the scrim, right of the drawer (it covers at most 85% of the width)
     expect(page.locator("aside.side")).to_be_hidden()
 
     menu.click()
@@ -40,17 +40,16 @@ def test_at_phone_width_the_chat_list_is_a_drawer_you_can_open_choose_from_and_s
     expect(page.locator(".reply").last).to_contain_text("5", timeout=30000)
 
 
-def test_the_chat_list_is_a_bottom_sheet_with_a_grabber_over_a_scrim(page):
+def test_the_chat_list_slides_in_from_the_left_over_a_scrim(page):
     phone(page)
     page.locator("button.menu").click()
     side = page.locator("aside.side")
     expect(side).to_be_visible()
-    page.wait_for_timeout(450)  # the sheet has risen
+    page.wait_for_timeout(450)  # it has slid in
     box, view = side.bounding_box(), page.viewport_size
-    assert box["x"] == 0 and box["width"] == view["width"], box  # across the screen
-    assert abs(box["y"] + box["height"] - view["height"]) <= 1, box  # sitting on the bottom edge
-    assert 0.65 <= box["height"] / view["height"] <= 0.75, box  # about 70% of it
-    assert side.evaluate("el => getComputedStyle(el, '::before').width") == "40px"  # the grabber
+    assert box["x"] == 0 and box["y"] == 0, box  # on the left edge, from the top
+    assert abs(box["height"] - view["height"]) <= 1, box  # the full height
+    assert 0.6 <= box["width"] / view["width"] <= 0.86, box  # most of the width, with the page still showing beside it
     expect(page.locator(".scrim")).to_be_visible()
 
 

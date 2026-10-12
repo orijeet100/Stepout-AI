@@ -48,7 +48,7 @@ def test_without_it_they_do_move(page_with):  # so the test above can tell
 # the empty chat's entrances: the greeting and the suggestions rise in one after another, unless motion is reduced
 EMPTY = """() => {
   const name = (sel) => getComputedStyle(document.querySelector(sel)).animationName
-  return { title: name('.greeting__title'), sub: name('.greeting__sub'), card: name('.suggestion') }
+  return { title: name('.greeting__title'), card: name('.suggestion') }
 }"""
 
 
@@ -59,8 +59,8 @@ def empty_chat(page) -> dict:
 
 
 def test_with_reduced_motion_the_greeting_and_suggestions_are_simply_there(page_with):
-    assert empty_chat(page_with(reduced_motion="reduce")) == {"title": "none", "sub": "none", "card": "none"}
+    assert empty_chat(page_with(reduced_motion="reduce")) == {"title": "none", "card": "none"}
 
 
 def test_without_it_the_greeting_and_suggestions_rise_in(page_with):
-    assert empty_chat(page_with(reduced_motion="no-preference")) == {"title": "fade-up", "sub": "fade-up", "card": "fade-up"}
+    assert empty_chat(page_with(reduced_motion="no-preference")) == {"title": "fade-up", "card": "fade-up"}

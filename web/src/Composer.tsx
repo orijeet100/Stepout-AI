@@ -32,7 +32,7 @@ export default function Composer({ online, busy, suggest = false, onSend }: Prop
           rows={1}
           maxLength={20_000}
           value={text}
-          placeholder={busy ? 'Ask anything… (queued while a run is active)' : 'Ask anything…'}
+          placeholder={busy ? 'Ask anything (queued while a run is active)' : 'Ask anything'}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
         />
@@ -42,6 +42,7 @@ export default function Composer({ online, busy, suggest = false, onSend }: Prop
           </button>
         </div>
       </form>
+      {!suggest && <p className="disclaimer">Stepout can make mistakes. Check important info.</p>}
     </div>
   )
 }

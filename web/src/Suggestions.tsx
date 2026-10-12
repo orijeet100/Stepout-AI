@@ -6,7 +6,7 @@ const ASKS = [
   'Summarize the newest PDF in my Downloads folder',
 ]
 
-/** The template's suggested actions: a 2 by 2 grid of quiet cards (one scrolling row on a phone) that rise in one after another. */
+/** Suggested questions as quiet pills: under the composer on a wide screen, one scrolling row above it on a phone; they rise in one after another. */
 export default function Suggestions({ online, onPick }: { online: boolean; onPick: (text: string) => void }) {
   return (
     <div className="suggestions" role="group" aria-label="Suggested questions">

@@ -15,7 +15,7 @@ const FRESH_MS = 5000 // a message that is newer than the thread's own opening (
 type YourMessage = Extract<Item, { kind: 'message' }>
 type Row = { key: string; yours: YourMessage } | { key: string; parts: Item[]; working?: boolean }
 
-/** The thread as the template lays it out: each of your messages is a row; everything the assistant says in answer (its run, the words as they are written, the reply) is one row with one tile. */
+/** The thread: each of your messages is a row; everything the assistant says in answer (its run, the words as they are written, the reply) is one row. */
 function rowsOf(items: Item[], starting: boolean): Row[] {
   const rows: Row[] = []
   let anchor = 'start' // the key of an answer is the message it answers, so the row survives the words becoming the finished reply
@@ -31,6 +31,21 @@ function rowsOf(items: Item[], starting: boolean): Row[] {
   }
   if (starting && rows.at(-1) && !('parts' in rows.at(-1)!)) rows.push({ key: `answer-${anchor}`, parts: [], working: true })
   return rows
+}
+
+/** ChatGPT's copy button under a reply: the icon turns to a tick for a moment once the text is on the clipboard. */
+function Copy({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () =>
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    })
+  return (
+    <button className="btn btn--icon btn--ghost" type="button" aria-label={copied ? 'Copied' : 'Copy reply'} title={copied ? 'Copied' : 'Copy'} onClick={copy}>
+      <Icon name={copied ? 'check' : 'copy'} />
+    </button>
+  )
 }
 
 export default function ChatView({ items, empty = 'new', starting = false, runState, runCap, onStop, onOpenShot }: Props) {
@@ -111,10 +126,6 @@ export default function ChatView({ items, empty = 'new', starting = false, runSt
             }
             return (
               <div key={row.key} className="turn">
-                <span className="turn__tile" aria-hidden="true">
-                  <Icon name="sparkles" size={14} />
-                </span>
-                <div className="turn__body">
                   {row.working && (
                     <p className="working">
                       <span className="shimmer">Working…</span>
@@ -134,11 +145,13 @@ export default function ChatView({ items, empty = 'new', starting = false, runSt
                       <div key={message.id} className={`reply${item.note ? ' reply--note' : ''}`}>
                         {item.note && <small className="note__cap">No run was started</small>}
                         <Reply text={message.text} />
-                        {message.cost_usd !== null && <small className="muted">{money(message.cost_usd)}</small>}
+                        <div className="actions">
+                          <Copy text={message.text} />
+                          {message.cost_usd !== null && <small className="muted">{money(message.cost_usd)}</small>}
+                        </div>
                       </div>
                     )
                   })}
-                </div>
               </div>
             )
           })}

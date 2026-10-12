@@ -5,6 +5,6 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--sidebar); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+body { margin: 0; background: var(--bg); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 * { scrollbar-color: light-dark(rgb(0 0 0 / 0.14), rgb(255 255 255 / 0.12)) transparent; scrollbar-width: thin; }
 h1, h2, h3, h4, h5, h6 { line-height: 1.2; letter-spacing: -0.025em; }

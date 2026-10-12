@@ -1,79 +1,80 @@
-/* Design tokens: the look of the Vercel "Chatbot" template (github.com/vercel/chatbot), made in plain CSS.
-   Decision and the values' sources: docs/adr/0014-the-page-follows-the-vercel-chatbot-look.md. It is monochrome: there is no accent colour, the primary
+/* Design tokens: the look of ChatGPT (chatgpt.com), made in plain CSS, with the shimmer and message shapes of ElevenLabs UI.
+   Decision: docs/adr/0017-the-page-follows-the-chatgpt-look.md (supersedes 0014). It is monochrome: there is no accent colour, the primary
    control is "foreground on background" (a black send button in light, a white one in dark). Colour is only status.
-   Every colour is light-dark(light, dark) and the two sets are the template's, converted from oklch (not inverted).
-   Three values are nudged from the template so text passes WCAG AA: --muted (the template's is 4.1:1 in light),
-   --ring (2.5:1 in dark) and the status colours. Status is never colour alone (the page pairs it with an icon and words).
+   Every colour is light-dark(light, dark); the greys are ChatGPT's own (white and #212121 pages, #f9f9f9 and #181818 sidebars,
+   #f4f4f4 and #303030 bubbles and composer). Status colours are ours, nudged until text passes WCAG AA on every surface;
+   status is never colour alone (the page pairs it with an icon and words).
    Components read these, never raw values. After editing a colour: `npm run check:contrast`. */
 :root {
   color-scheme: light dark;
 
   /* surfaces, from the page outward: the page and the header are --sidebar, the conversation panel is --bg */
-  --bg: light-dark(#fafafa, #151515);
-  --surface: light-dark(#ffffff, #1c1c1c);       /* composer, run card */
-  --surface-2: light-dark(#f3f3f3, #242424);     /* badges, the start of a bubble, a disabled control */
-  --fill: light-dark(#ebebeb, #0e0e0e);          /* the end of a bubble, inline code, a dim well */
-  --sidebar: light-dark(#f5f5f5, #101010);
-  --active: light-dark(#e7e7e7, #1e1e1e);        /* the open chat, a hovered row in the sidebar */
-  --hover: light-dark(#ececec, #232323);         /* a hovered control in the panel */
+  --bg: light-dark(#ffffff, #212121);
+  --surface: light-dark(#ffffff, #303030);       /* the composer */
+  --surface-2: light-dark(#f4f4f4, #303030);     /* your message's bubble, badges, a disabled control */
+  --fill: light-dark(#ececec, #3a3a3a);          /* inline code, a dim well, the resting send button */
+  --sidebar: light-dark(#f9f9f9, #181818);       /* the chat list, and a code block's well */
+  --active: light-dark(#ececec, #292929);        /* the open chat, a hovered row in the sidebar */
+  --hover: light-dark(#f0f0f0, #2f2f2f);         /* a hovered control in the conversation */
 
   /* text and edges */
-  --text: light-dark(#060606, #ebebeb);
-  --muted: light-dark(#636363, #8c8c8c);
-  --border: light-dark(#e9e9e9, #1f1f1f);          /* a hairline: the panel edge, the composer, a card */
-  --border-side: light-dark(#d7d7d7, #222222);     /* a button's edge on the sidebar (the template's --sidebar-border) */
-  --border-strong: light-dark(#838383, #6d6d6d);   /* the edge of a control that is not otherwise visible: 3:1 */
-  --ring: light-dark(#636363, #717171);            /* the focus ring: 3:1 */
+  --text: light-dark(#0d0d0d, #ececec);
+  --muted: light-dark(#5d5d5d, #afafaf);
+  --border: light-dark(#e5e5e5, #383838);          /* a hairline: the composer, a card, a pill */
+  --border-side: light-dark(#d9d9d9, #424242);     /* a button's edge */
+  --border-strong: light-dark(#838383, #7d7d7d);   /* the edge of a control that is not otherwise visible: 3:1 */
+  --ring: light-dark(#5d5d5d, #8a8a8a);            /* the focus ring: 3:1 */
 
   /* the template has no accent: "primary" is the foreground itself */
-  --accent: light-dark(#060606, #ebebeb);
-  --accent-hover: light-dark(#1e1e1e, #d6d6d6);
-  --on-accent: light-dark(#fafafa, #151515);      /* text on an accent fill */
+  --accent: light-dark(#0d0d0d, #ececec);
+  --accent-hover: light-dark(#2f2f2f, #d4d4d4);
+  --on-accent: light-dark(#ffffff, #0d0d0d);      /* text on an accent fill */
 
   /* status: text colour (4.5:1 on every surface), plus a soft tint where a header or a banner needs one */
-  --ok: light-dark(#00782e, #2e9e52);
-  --warn: light-dark(#876000, #ad8522);
-  --err: light-dark(#b24039, #dd675d);
+  --ok: light-dark(#00782e, #4ade80);
+  --warn: light-dark(#876000, #e0a630);
+  --err: light-dark(#b24039, #ff8a80);
   --warn-soft: light-dark(#fff4db, #2c230f);
   --err-soft: light-dark(#ffece9, #311e1c);
 
-  /* type: system fonts on purpose (the template's pages render in the system font, as measured on its demo) */
+  /* type: system fonts on purpose (ChatGPT's stack: Segoe UI on Windows, SF on a Mac); 14 px for the interface, 16 px for the conversation */
   --font-body: ui-sans-serif, system-ui, 'Segoe UI Variable Text', 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;   /* step lines, costs, URLs, code */
-  --fs-2xs: 0.625rem;   /* 10: group labels */
+  --fs-2xs: 0.6875rem;  /* 11 */
   --fs-xs: 0.75rem;     /* 12 */
-  --fs-sm: 0.8125rem;   /* 13: message text, sidebar, suggestions */
-  --fs-md: 0.875rem;    /* 14: buttons, the greeting's second line */
-  --fs-lg: 1rem;
+  --fs-sm: 0.875rem;    /* 14: the sidebar, buttons, the run card */
+  --fs-md: 1rem;        /* 16: messages and the composer */
+  --fs-lg: 1.125rem;    /* 18: the header */
   --fs-xl: 1.5rem;      /* 24: the greeting on a phone */
-  --fs-2xl: 1.875rem;   /* 30: the greeting */
-  --lh: 1.65;
+  --fs-2xl: 1.75rem;    /* 28: the greeting */
+  --lh: 1.5;
+  --lh-read: 1.75;      /* the conversation: ChatGPT's 28 px lines at 16 px */
 
-  /* space (a 4 px grid), radius (the template's --radius is 10 px), motion */
+  /* space (a 4 px grid), radius, motion */
   --sp-1: 0.25rem; --sp-2: 0.5rem; --sp-3: 0.75rem; --sp-4: 1rem; --sp-5: 1.5rem; --sp-6: 2rem;
-  --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --r-xl: 14px; --r-2xl: 16px;
+  --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --r-xl: 14px; --r-2xl: 16px; --r-bubble: 1.5rem; --r-composer: 1.75rem;
   --dur: 150ms;
-  --ease: cubic-bezier(0.4, 0, 0.2, 1);           /* the template's --ease-smooth */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);  /* entrances */
 
-  /* lift: the template's shadows (light here; dark below adds a 1 px highlight and deeper floats) */
+  /* lift: light here; dark below leans on the lighter surface instead of a shadow */
   --shadow-card: 0 1px 3px rgb(0 0 0 / 0.05), 0 1px 1px rgb(0 0 0 / 0.03);
   --shadow-float: 0 8px 24px -6px rgb(0 0 0 / 0.1), 0 2px 8px -2px rgb(0 0 0 / 0.04);
-  --shadow-composer: 0 1px 2px rgb(0 0 0 / 0.04);
-  --shadow-composer-focus: 0 0 0 1px rgb(0 0 0 / 0.06), 0 2px 8px -2px rgb(0 0 0 / 0.06);
+  --shadow-composer: 0 4px 16px -4px rgb(0 0 0 / 0.08), 0 0 1px rgb(0 0 0 / 0.12);
+  --shadow-composer-focus: 0 6px 20px -4px rgb(0 0 0 / 0.12), 0 0 1px rgb(0 0 0 / 0.2);
 
   /* layout */
-  --measure: 56rem;       /* the message column and the composer, side padding included */
-  --sidebar-w: 16rem;
+  --measure: 48rem;       /* the message column and the composer, side padding included (ChatGPT's 768 px) */
+  --sidebar-w: 16.25rem;
   --rail-w: 3rem;         /* the sidebar folded to its icons */
-  --header-h: 3.5rem;
+  --header-h: 3.25rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.2), 0 0.5px 1px rgb(0 0 0 / 0.15);
     --shadow-float: 0 0 0 1px rgb(255 255 255 / 0.06), 0 16px 48px -6px rgb(0 0 0 / 0.35), 0 6px 12px -2px rgb(0 0 0 / 0.2);
-    --shadow-composer: 0 1px 3px rgb(0 0 0 / 0.2), inset 0 1px 0 rgb(255 255 255 / 0.03);
-    --shadow-composer-focus: 0 0 0 1px rgb(255 255 255 / 0.1), 0 4px 16px -4px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.04);
+    --shadow-composer: 0 4px 16px -4px rgb(0 0 0 / 0.3);
+    --shadow-composer-focus: 0 6px 20px -4px rgb(0 0 0 / 0.4);
   }
 }
