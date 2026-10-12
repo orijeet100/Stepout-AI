@@ -55,7 +55,7 @@ export default function App() {
   const [memoryOpen, setMemoryOpen] = useState(false)
   useEffect(() => {
     const q = query.trim()
-    if (!q) return void setFound(null)
+    if (!q) return // `found` is only read while there is a query
     const timer = window.setTimeout(() => {
       fetch(`/api/conversations?q=${encodeURIComponent(q)}`)
         .then((r) => (r.ok ? r.json() : []))
@@ -66,7 +66,7 @@ export default function App() {
   }, [query, state.chats])
 
   const everyChat = chatList(state)
-  const chats = found ? everyChat.filter((c) => found.includes(c.id)) : everyChat
+  const chats = found && query.trim() ? everyChat.filter((c) => found.includes(c.id)) : everyChat
   const waiting = selected ? !state.loaded[selected] : !state.listed && !state.draft // nothing to show yet, because it has not been read yet
   const current = everyChat.find((c) => c.id === selected)
   const items = selected ? timeline(state, selected) : []

@@ -9,6 +9,17 @@ const TITLES: Record<MemoryEntry['kind'], string> = {
 }
 const ORDER: MemoryEntry['kind'][] = ['persona', 'fact', 'history']
 
+async function read(): Promise<{ status: 'ready' | 'off' | 'failed'; entries: MemoryEntry[] }> {
+  try {
+    const r = await fetch('/api/memory')
+    if (r.status === 404) return { status: 'off', entries: [] } // memory is switched off (or this backend has none)
+    if (!r.ok) throw new Error(String(r.status))
+    return { status: 'ready', entries: parseMemory(await r.json()) }
+  } catch {
+    return { status: 'failed', entries: [] }
+  }
+}
+
 /** What the assistant keeps about the User: read from the backend, one entry at a time removable, and a line can be added to the Persona file. */
 export default function MemoryView({ onClose }: { onClose: () => void }) {
   const [entries, setEntries] = useState<MemoryEntry[]>([])
@@ -17,19 +28,21 @@ export default function MemoryView({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    try {
-      const r = await fetch('/api/memory')
-      if (r.status === 404) return setStatus('off') // memory is switched off (or this backend has none)
-      if (!r.ok) throw new Error(String(r.status))
-      setEntries(parseMemory(await r.json()))
-      setStatus('ready')
-    } catch {
-      setStatus('failed')
-    }
+    const got = await read()
+    setStatus(got.status)
+    if (got.status === 'ready') setEntries(got.entries)
   }, [])
   useEffect(() => {
-    void load()
-  }, [load])
+    let live = true
+    void read().then((got) => {
+      if (!live) return
+      setStatus(got.status)
+      if (got.status === 'ready') setEntries(got.entries)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
 
   async function keep(e: FormEvent) {
     e.preventDefault()
