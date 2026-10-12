@@ -11,6 +11,7 @@ from typing import Sequence
 
 from dotenv import load_dotenv
 
+from stepout import capture as capture_mod
 from stepout import commands, history, housekeeping, logs
 from stepout import memory as memory_mod
 from stepout.chats import ChatKeeper
@@ -36,6 +37,7 @@ GRANTS_PATH = Path("data/config/grants.toml")  # only the User edits this
 SHOTS_PATH = Path("data/runs")  # page screenshots, one folder per Run
 LOGS_PATH = Path("data/logs")  # the app log (logs.py)
 MEMORY_PATH = Path("data/memory")  # Persona and what was learned (memory.py)
+CAPTURE_PATH = Path("data/capture")  # prompts and replies, only when STEPOUT_CAPTURE=1 (capture.py)
 
 
 def make_browser(channel) -> Browser:
@@ -133,7 +135,7 @@ async def main() -> None:
     memory, memory_line = memory_mod.build(root=MEMORY_PATH)
     print(memory_line)
     logging.getLogger(__name__).info(memory_line)
-    for folder in (SHOTS_PATH,):  # Capture's folder joins this list with Capture
+    for folder in (SHOTS_PATH, CAPTURE_PATH):
         if (swept := housekeeping.sweep(folder, housekeeping.retention_days())):
             logging.getLogger(__name__).info("removed %d old item(s) from %s", swept, folder)
     if (cut_off := ledger.close_interrupted()):
@@ -143,7 +145,10 @@ async def main() -> None:
         async def forget_chat(chat: str, run_ids: list[str]) -> None:
             await memory.forget_chat(chat)  # what Memory kept from a deleted chat goes with it
 
-        keeper = ChatKeeper(ledger, SHOTS_PATH, [forget_chat])
+        async def remove_capture(chat: str, run_ids: list[str]) -> None:
+            capture_mod.Capture(CAPTURE_PATH).remove(run_ids)  # a deleted chat's prompts go with it, whether or not capture is on now
+
+        keeper = ChatKeeper(ledger, SHOTS_PATH, [forget_chat, remove_capture])
         channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store), keeper=keeper)  # the channel reads history from the app's own Store
         print(f"Stepout web chat: http://127.0.0.1:{await channel.start()}  (Ctrl+C to stop)")
     else:
@@ -155,7 +160,8 @@ async def main() -> None:
     def month_left() -> float:
         return month_cap() - ledger.month_spend()
 
-    runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=files, browser=browser, month_left=month_left, memory=memory)
+    runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=files, browser=browser, month_left=month_left, memory=memory,
+                    capture=capture_mod.from_env(CAPTURE_PATH))
     try:
         learner = Learner(Extractor(model), memory, ledger, trace=channel.trace)
         await run(saved, intake, runner, month_left, memory, learner)

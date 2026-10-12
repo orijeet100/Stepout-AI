@@ -18,6 +18,7 @@ from stepout import capabilities, gate, history, scope
 from stepout.capabilities.base import TEXT_CHARS, RunContext, RunState
 from stepout.domain import Allow, AnswerAction, DelegateAction, Event, Exchange, Outcome, PlanAction, PlanStep, Reply, Task
 from stepout.browser import Browser
+from stepout.capture import Capture
 from stepout.failure import UNEXPECTED, Failure
 from stepout.fetch import Fetcher
 from stepout.files import Files
@@ -119,6 +120,7 @@ class Runner:
         browser: Browser | None = None,
         month_left: Callable[[], float] | None = None,
         memory: Memory | None = None,
+        capture: Capture | None = None,
     ) -> None:
         self._model = model
         self._fetcher = fetcher
@@ -131,6 +133,7 @@ class Runner:
         self._cancel = cancel or asyncio.Event()  # set by the Channel when the User presses Stop
         self._cap = float(os.environ.get("STEPOUT_TASK_CAP_USD", "1.00"))
         self._memory = memory  # None, or off: nothing is recalled and nothing is kept
+        self._capture = capture  # None unless STEPOUT_CAPTURE=1 (capture.py)
         self._month_left = month_left  # dollars the month has left (app.py); a Run's cap is the lesser of this and the per-Run cap
 
     async def submit(self, task: Task, previous: Sequence[Exchange] = (), screening_cost: float = 0.0) -> str:
@@ -317,6 +320,8 @@ class Runner:
                 return await self._stop(run, role_name, parent, "Stopped by you.")
             if streaming and not isinstance(response.action, AnswerAction):
                 await self._delta(run, reset=True)  # words that came before a tool call were not the answer
+            if self._capture is not None and not run.state.tainted:  # once a file has been read, or an answer that read one is built on, nothing more is kept
+                self._capture.write(run.id, role_name, request, response)
             run.spent += response.cost_usd
             run.input_tokens += response.input_tokens
             run.output_tokens += response.output_tokens
