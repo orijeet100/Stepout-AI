@@ -293,6 +293,18 @@ a.page__url { color: var(--accent); }
 .chatrow { position: relative; display: flex; align-items: center; border-radius: var(--r-lg); transition: background var(--dur) var(--ease); }
 .chatrow:hover, .chatrow:focus-within, .chatrow:has(.chat[aria-current='true']) { background: var(--active); } /* the open chat: a filled row */
 .chatrow .chat { flex: 1; min-width: 0; }
+.chatrow__rename { flex: 1; min-width: 0; padding: 2px; }
+.chatrow__rename input { width: 100%; height: 2rem; padding: 0 8px; color: var(--text); background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--r-md); font: inherit; font-size: var(--fs-sm); outline: none; }
+/* asking before a delete: a small modal in the page's own type and buttons (a native <dialog>: focus stays in it, Esc closes it) */
+.confirm { width: min(92vw, 26rem); padding: 0; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-2xl); box-shadow: var(--shadow-float); }
+.confirm::backdrop { background: rgb(0 0 0 / 0.5); }
+.confirm__panel { display: grid; gap: var(--sp-3); padding: var(--sp-5); font: var(--fs-sm) / var(--lh) var(--font-body); }
+.confirm h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+.confirm p { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+.confirm strong { color: var(--text); font-weight: 600; }
+.confirm__actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-2); }
+.btn--danger { color: var(--bg); background: var(--err); border-color: var(--err); }
+.btn--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--err) 85%, var(--text)); }
 .chatrow__tools { display: none; align-items: center; gap: 0; flex: none; padding-right: 2px; }
 .chatrow__tools .btn--icon { width: 1.75rem; min-height: 1.75rem; color: var(--muted); }
 .chatrow__tools .btn--icon:hover { color: var(--text); background: transparent; }

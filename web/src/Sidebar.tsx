@@ -1,4 +1,4 @@
-import type { Ref } from 'react'
+import { useEffect, useRef, useState, type Ref } from 'react'
 import Icon from './Icon'
 import type { Chat } from './protocol'
 import { chatGroups, type ChatState } from './store'
@@ -23,6 +23,20 @@ type Props = {
 
 export default function Sidebar({ chats, listed, failed, selected, onSelect, onNew, collapsed = false, onToggle, inert, ref, query = '', onQuery, onRename, onDelete, onMemory }: Props) {
   const searching = query.trim() !== ''
+  // Rename happens in the row itself (Enter or leaving the box keeps it, Esc puts it back); delete asks first, in a modal <dialog>.
+  const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null)
+  const kept = useRef(false) // Esc, or Enter then the blur that follows: the box answers once
+  const keep = () => {
+    const title = renaming?.title.trim().slice(0, 120)
+    if (renaming && !kept.current && title && title !== chats.find((c) => c.id === renaming.id)?.title) onRename?.(renaming.id, title)
+    kept.current = true
+    setRenaming(null)
+  }
+  const [deleting, setDeleting] = useState<Chat | null>(null)
+  const ask = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    if (deleting && !ask.current?.open) ask.current?.showModal() // focus goes to Cancel (autoFocus): the safe answer is the easy one
+  }, [deleting])
   return (
     <aside id="chats" ref={ref} className="side" aria-label="Chats" inert={inert}>
       <div className="side__head">
@@ -60,7 +74,28 @@ export default function Sidebar({ chats, listed, failed, selected, onSelect, onN
             <section key={g.label} className="group" aria-label={g.label}>
               <p className="group__label" aria-hidden="true">{g.label}</p>
               <ul className="chats">
-                {g.chats.map((c) => (
+                {g.chats.map((c) =>
+                  renaming?.id === c.id ? (
+                    <li key={c.id} className="chatrow is-renaming">
+                      <form className="chatrow__rename" onSubmit={(e) => (e.preventDefault(), keep())}>
+                        <input
+                          value={renaming.title}
+                          maxLength={120}
+                          aria-label="Chat title"
+                          autoFocus
+                          onFocus={(e) => e.currentTarget.select()}
+                          onChange={(e) => setRenaming({ id: c.id, title: e.target.value })}
+                          onBlur={keep}
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Escape') return
+                            e.stopPropagation() // Esc here cancels the rename; it must not also close the drawer
+                            kept.current = true
+                            setRenaming(null)
+                          }}
+                        />
+                      </form>
+                    </li>
+                  ) : (
                   <li key={c.id} className="chatrow">
                     <button type="button" className="chat" title={c.title || 'New chat'} aria-current={c.id === selected ? 'true' : undefined} onClick={() => onSelect(c.id)}>
                       <span className="chat__title">{c.title || 'New chat'}</span>
@@ -81,8 +116,8 @@ export default function Sidebar({ chats, listed, failed, selected, onSelect, onN
                             aria-label="Rename chat"
                             title="Rename"
                             onClick={() => {
-                              const title = window.prompt('Rename this chat', c.title)?.trim()
-                              if (title) onRename(c.id, title.slice(0, 120))
+                              kept.current = false
+                              setRenaming({ id: c.id, title: c.title })
                             }}
                           >
                             <Icon name="pencil" size={14} />
@@ -94,9 +129,7 @@ export default function Sidebar({ chats, listed, failed, selected, onSelect, onN
                             type="button"
                             aria-label="Delete chat"
                             title="Delete"
-                            onClick={() => {
-                              if (window.confirm(`Delete “${c.title || 'New chat'}”? Its messages, runs and screenshots are removed and cannot be brought back.`)) onDelete(c.id)
-                            }}
+                            onClick={() => setDeleting(c)}
                           >
                             <Icon name="trash" size={14} />
                           </button>
@@ -104,12 +137,36 @@ export default function Sidebar({ chats, listed, failed, selected, onSelect, onN
                       </span>
                     )}
                   </li>
-                ))}
+                  ),
+                )}
               </ul>
             </section>
           ))
         )}
       </nav>
+      <dialog ref={ask} className="confirm" aria-labelledby="confirm-title" onClose={() => setDeleting(null)} onClick={(e) => e.target === ask.current && ask.current.close()}>
+        {deleting && (
+          <div className="confirm__panel">
+            <h2 id="confirm-title">Delete chat?</h2>
+            <p>
+              This deletes <strong>{deleting.title || 'New chat'}</strong> with its messages, runs and screenshots. It cannot be brought back.
+            </p>
+            <div className="confirm__actions">
+              <button className="btn" type="button" autoFocus onClick={() => ask.current?.close()}>Cancel</button>
+              <button
+                className="btn btn--danger"
+                type="button"
+                onClick={() => {
+                  onDelete?.(deleting.id)
+                  ask.current?.close()
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
+      </dialog>
     </aside>
   )
 }
