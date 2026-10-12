@@ -29,12 +29,12 @@
   "kind": "step",
   "role": "orchestrator",
   "data": {
-   "summary": "plan: browser: Open a forecast page for Lisbon and read next week",
+   "summary": "plan: Web Browsing: Open a forecast page for Lisbon and read next week",
    "action": {
     "kind": "plan",
     "steps": [
      {
-      "role": "browser",
+      "role": "web_browsing",
       "goal": "Open a forecast page for Lisbon and read next week",
       "status": "pending"
      }
@@ -57,7 +57,7 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Open a forecast page for Lisbon and read next week",
      "status": "running"
     }
@@ -73,7 +73,7 @@
   "run_id": "862114de94609deae6741dd6c82e8fa1",
   "parent": "93308944da5a4fb630afa5a68251217a",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "refused fetch: a fetch action is not available to this role",
    "action": {
@@ -92,7 +92,7 @@
   "run_id": "862114de94609deae6741dd6c82e8fa1",
   "parent": "93308944da5a4fb630afa5a68251217a",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse open https://forecast.example/lisbon",
    "action": {
@@ -113,7 +113,7 @@
   "run_id": "862114de94609deae6741dd6c82e8fa1",
   "parent": "099342e8e5638b8e7e0075b42ca12870",
   "kind": "shot",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "page screenshot",
    "shot": "862114de94609deae6741dd6c82e8fa1/1.jpg",
@@ -130,7 +130,7 @@
   "run_id": "862114de94609deae6741dd6c82e8fa1",
   "parent": "93308944da5a4fb630afa5a68251217a",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "answer",
    "action": {
@@ -154,7 +154,7 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Open a forecast page for Lisbon and read next week",
      "status": "done"
     }
@@ -170,7 +170,7 @@
   "run_id": "862114de94609deae6741dd6c82e8fa1",
   "parent": "93308944da5a4fb630afa5a68251217a",
   "kind": "return",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "done: Mostly sunny, 22–25 °C; rain on Thursday.",
    "ok": true

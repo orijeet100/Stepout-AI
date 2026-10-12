@@ -32,6 +32,7 @@ class Outcome(StrEnum):
     DONE = "done"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    INTERRUPTED = "interrupted"  # the app stopped while it was running (closed at the next start)
 
 
 DEFAULT_CONVERSATION = "default"  # the CLI's one chat, and the page's until it sends chat ids
@@ -71,7 +72,7 @@ class Task(BaseModel):
 class Exchange(BaseModel):
     """A Request and the reply the User saw for it, in one Conversation. What a Follow-up is given to build on."""
 
-    id: int  # its number in the chat (the first answered Request is 1); what the front door's `related` refers to
+    id: int  # its number in the chat (the first answered Request is 1); what Screening's `related` refers to
     request: str
     reply: str  # without the cost footer
     did: str  # one line: what the hands did ("browse open luma.com/discover"); empty if it only answered
@@ -126,7 +127,7 @@ class Decline(BaseModel):
 
 
 class ChatReply(BaseModel):
-    """The front door answered plain chat itself (a greeting, thanks, "what can you do?"): no Task."""
+    """Screening answered plain chat itself (a greeting, thanks, "what can you do?"): no Task."""
 
     kind: Literal["chat"] = "chat"
     text: str
@@ -139,7 +140,7 @@ class Proceed(BaseModel):
     related: list[int] = []
 
 
-# What the front door decides (stepout/screening.py).
+# What Screening decides (stepout/screening.py).
 Screening = Decline | ChatReply | Proceed
 
 
@@ -170,7 +171,7 @@ class Event(BaseModel):
     task_id: str | None = None
     run_id: str | None = None
     conversation_id: str | None = None
-    kind: str  # "screening" | "plan" | "step" | "return" | "stop" | "shot" | "message"
+    kind: str  # "screening" | "plan" | "step" | "result" | "retry" | "return" | "stop" | "shot" | "error" | "message"
     role: str | None = None  # which Role acted
     parent: str | None = None  # the Delegate step event that started this Role's work
     data: dict

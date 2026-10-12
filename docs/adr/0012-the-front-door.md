@@ -1,6 +1,6 @@
 # 0012 — The front door: one cheap call before any agent money is spent
 
-Status: accepted · 2026-10-07 · refined 2026-10-08
+Status: accepted · 2026-10-07 · refined 2026-10-08 · 2026-10-11: called Screening in the glossary, code and docs; "front door" is retired from prose (this title stays)
 
 **Decision.** Every message that is not a `/command` gets **one cheap-model call** (Haiku, temperature 0) before the Orchestrator. It returns one of three things: *decline* (with a reason and what the assistant can do instead), a short *chat reply* (a greeting, thanks, or "what can you do?", nothing else), or *proceed*, together with the numbers of the earlier Exchanges in this chat that the message depends on. The Orchestrator then receives those Exchanges in full (request, the reply the User saw, a one-line "what was done") and **only those**; a new Task carries none. The "what can we do?" list is assembled from the capability registry. If the call fails or makes no sense, the message goes through carrying the last three Exchanges and the failure is recorded: the front door is never the reason a legitimate request dies. The one exception is a bad key, no key or no credit, because the Run's own calls would fail the same way: it says so and starts no Run.
 

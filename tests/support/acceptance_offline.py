@@ -2,7 +2,7 @@
 
 The scripts only decide (plan, which hand, which path). The answers are made from what the real hands returned (the Files walk, the Reader over
 real PDFs), so the counts and the PDF facts in an answer are real; if a hand breaks, the check fails, not the script. Order is call order:
-the front door's screening call first, then the Orchestrator's and the specialists' calls (a plan runs its first step itself).
+Screening's screening call first, then the Orchestrator's and the specialists' calls (a plan runs its first step itself).
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import os
 import re
 
 from tests.support.scripted_model import ScriptedModel
-from tests.test_front_door import proceed, screened
+from tests.test_screening_loop import proceed, screened
 from tests.test_reader_demos import reads
 from tests.test_runner import FakeBrowser, FakeFetcher, browse, fetch, looks, plan, say
 
@@ -64,27 +64,31 @@ def compare(request):
 def scripts(folder: str, url: str) -> dict[str, list]:
     new, resume = os.path.join(folder, "new-report.pdf"), os.path.join(folder, "resume-rowan-fields.pdf")
     return {
-        "m1": [proceed(), plan("find today's news in New York", role="direct"), fetch(NEWS_URL), hand_result, last_finding],
-        "m2": [proceed(), plan(f"count the files in {folder} by type", role="files"), looks("count", folder), hand_result, last_finding],
-        "m3": [proceed(), plan(f"open {url} and report the job title and the skills", role="browser"), browse("open", url), hand_result, last_finding],
+        "m1": [proceed(), plan("find today's news in New York", role="web_research"), fetch(NEWS_URL), hand_result, last_finding],
+        "m2": [proceed(), plan(f"count the files in {folder} by type", role="local_file_finder"), looks("count", folder), hand_result, last_finding],
+        "m3": [proceed(), plan(f"open {url} and report the job title and the skills", role="web_browsing"), browse("open", url), hand_result, last_finding],
         "m4a": [
             proceed(),
-            plan(f"find the newest PDF in {folder}", role="files"), looks("find", folder, "pdf"), hand_result,
-            plan(f"read {new} and summarize it", role="reader"), reads(new), page_one,
+            plan(f"find the newest PDF in {folder}", role="local_file_finder"), looks("find", folder, "pdf"), hand_result,
+            plan(f"read {new} and summarize it", role="local_file_reader"), reads(new), page_one,
             last_finding,
         ],
         "m4b": [
             proceed(),
-            plan(f"open {url} and list what the job asks for", role="browser"), browse("open", url), hand_result,  # the web first
-            plan(f"find the resume in {folder}", role="files"), looks("find", folder, "resume"), hand_result,
-            plan(f"read {resume} and list its skills", role="reader"), reads(resume), page_one,  # the file last
+            plan(f"open {url} and list what the job asks for", role="web_browsing"), browse("open", url), hand_result,  # the web first
+            plan(f"find the resume in {folder}", role="local_file_finder"), looks("find", folder, "resume"), hand_result,
+            plan(f"read {resume} and list its skills", role="local_file_reader"), reads(resume), page_one,  # the file last
             compare,
         ],
-        "follow-up": [  # the front door links it to the first answer in the chat, which read a file; the Orchestrator tries the web anyway
+        "follow-up": [  # Screening links it to the first answer in the chat, which read a file; the Orchestrator tries the web anyway
             proceed(1),
-            plan("open the company's website", role="browser"), browse("open", COMPANY_URL), hand_result,
+            plan("open the company's website", role="web_browsing"), browse("open", COMPANY_URL), hand_result,
             last_finding,
         ],
+        # what Memory is for (tests/data/memory_tasks.jsonl): the same decisions whatever the Memory condition, because offline the script decides; a live run is the measurement
+        "p1": [proceed(), plan(f"find the resume in {folder}", role="local_file_finder"), looks("find", folder, "resume"), hand_result, last_finding],
+        "p2": [proceed(), plan(f"count the pdf files in {folder}", role="local_file_finder"), looks("count", folder), hand_result, last_finding],
+        "p3": [proceed(), say("12 times 7 is 84.")],
         "decline": [screened(decision="decline", reply="That would delete your files.", alternative="I can list and count them.", related=[])],
         "chat": [screened(decision="chat", chat_kind="thanks", reply="You're welcome!", related=[])],
     }

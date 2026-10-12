@@ -81,7 +81,7 @@ def stack():
 @pytest.fixture(scope="session")
 def browser():
     with sync_playwright() as pw:
-        chrome = pw.chromium.launch(channel="chrome", headless=True)  # the installed Chrome, like the Browser agent
+        chrome = pw.chromium.launch(channel="chrome", headless=True)  # the installed Chrome, like the Web Browsing agent
         yield chrome
         chrome.close()
 

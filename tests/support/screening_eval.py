@@ -1,4 +1,4 @@
-"""The front door's labeled prompts (tests/data/screening_prompts.jsonl) and the scoring of a Screener against them.
+"""Screening's labeled prompts (tests/data/screening_prompts.jsonl) and the scoring of a Screener against them.
 
 The scoring is tested offline with stub screeners (tests/test_screening_prompts.py); the live run against Haiku is tests/test_live_screening.py.
 A row: {prompt, expect: decline|chat|proceed, tag, related?: [exchange numbers], history?: [{request, reply}]}; `history` is the chat so far, numbered from 1.

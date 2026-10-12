@@ -8,8 +8,8 @@ from datetime import datetime
 from playwright.sync_api import expect
 
 # Playwright turns a Python regex into a JavaScript one, so the one it waits for has no named groups; the one we parse with does.
-FINISHED = re.compile(r"^(?:Stopped by you · |Over budget · |Failed · )?\d+ steps? · \$[\d.]+ · \d+ s$")
-PARSE = re.compile(r"^(?P<label>(?:Stopped by you|Over budget|Failed) · )?(?P<steps>\d+) steps? · \$(?P<cost>[\d.]+) · (?P<secs>\d+) s$")
+FINISHED = re.compile(r"^(?:Stopped by you · |Over budget · |Failed · )?\d+ actions? · \$[\d.]+ · \d+ s$")
+PARSE = re.compile(r"^(?P<label>(?:Stopped by you|Over budget|Failed) · )?(?P<steps>\d+) actions? · \$(?P<cost>[\d.]+) · (?P<secs>\d+) s$")
 
 
 def send(page, text: str) -> None:
@@ -36,7 +36,7 @@ def test_a_run_updates_live_and_ends_with_the_numbers_of_its_events(page, stack,
     assert re.search(r"\d+ of \d+ steps · \d+ s$", seen_working) or seen_working.startswith("Working…"), seen_working
     page.screenshot(path=str(tmp_path / "running.png"))
 
-    # when it ends: collapsed, Stop gone, `N steps · $cost · S s`
+    # when it ends: collapsed, Stop gone, `N actions · $cost · S s`
     expect(summary).to_have_text(FINISHED, timeout=30000)
     expect(page.get_by_role("button", name="Stop", exact=True)).to_have_count(0)
     assert run.evaluate("el => el.open") is False
@@ -63,7 +63,7 @@ def test_stop_ends_a_run_and_says_so(page):
     run = page.locator(".run").last
     expect(run.locator(".run__sum")).to_have_text(re.compile(r"^Working…"))
     page.get_by_role("button", name="Stop", exact=True).click()
-    expect(run.locator(".run__sum")).to_have_text(re.compile(r"^Stopped by you · \d+ steps? · \$[\d.]+ · \d+ s$"), timeout=15000)
+    expect(run.locator(".run__sum")).to_have_text(re.compile(r"^Stopped by you · \d+ actions? · \$[\d.]+ · \d+ s$"), timeout=15000)
     expect(page.get_by_role("button", name="Stop", exact=True)).to_have_count(0)
     expect(page.locator(".reply").last).to_contain_text("Stopped by you.")
 

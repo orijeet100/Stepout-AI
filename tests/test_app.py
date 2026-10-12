@@ -65,7 +65,7 @@ async def test_answer_request_end_to_end(ledger):
     await run(channel, Intake(FixedScreener((Proceed(), 0.0007)), ledger), runner)
     assert len(channel.sent) == 1
     assert "Paris" in channel.sent[0].text
-    assert channel.sent[0].text == "Paris" and channel.sent[0].cost_usd == pytest.approx(0.0027)  # the front door's $0.0007 is in the total, and the text carries no footer
+    assert channel.sent[0].text == "Paris" and channel.sent[0].cost_usd == pytest.approx(0.0027)  # Screening's $0.0007 is in the total, and the text carries no footer
 
 
 def test_the_browser_sends_live_frames_to_a_channel_that_shows_them_and_captures_nothing_for_one_that_does_not():
@@ -78,3 +78,31 @@ def test_the_browser_sends_live_frames_to_a_channel_that_shows_them_and_captures
 
     assert make_browser(SimpleNamespace(live_frame=live_frame))._on_frame is live_frame  # the channel's own method, unwrapped
     assert make_browser(CliChannel())._on_frame is None  # the terminal has none
+
+
+# --- the month's limit ---
+
+
+async def test_a_message_at_the_months_limit_is_answered_with_a_line_and_costs_nothing(ledger):
+    channel = FakeChannel(["what is the capital of France?"])
+    model = ScriptedModel([])
+    runner = Runner(model, FakeFetcher(), ledger, channel.send)
+    await run(channel, Intake(FixedScreener(), ledger), runner, month_left=lambda: 0.0)
+    assert len(channel.sent) == 1 and "spending limit" in channel.sent[0].text and "STEPOUT_MONTH_CAP_USD" in channel.sent[0].text
+    assert model.requests == [] and ledger.query() == []  # no screening call, nothing recorded
+
+
+async def test_a_slash_command_still_works_at_the_limit(ledger):
+    channel = FakeChannel(["/what"])
+    runner = Runner(ScriptedModel([]), FakeFetcher(), ledger, channel.send)
+    await run(channel, Intake(FixedScreener(), ledger), runner, month_left=lambda: 0.0)
+    assert channel.sent[0].text == "Unknown command: /what"
+
+
+async def test_a_run_may_not_spend_more_than_the_month_has_left(ledger):
+    channel = FakeChannel(["what is the capital of France?"])
+    model = ScriptedModel([ModelResponse(action=AnswerAction(text="Paris"), cost_usd=0.002)])
+    runner = Runner(model, FakeFetcher(), ledger, channel.send, month_left=lambda: 0.25)
+    await run(channel, Intake(FixedScreener((Proceed(), 0.0)), ledger), runner, month_left=lambda: 0.25)
+    (row,) = ledger._store.query("SELECT cap_usd FROM runs")
+    assert row["cap_usd"] == pytest.approx(0.25)  # the per-Run cap is $1.00

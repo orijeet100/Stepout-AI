@@ -57,7 +57,7 @@ def test_if_the_stream_is_not_there_the_page_shows_the_last_screenshot_not_a_bro
 
 def test_a_run_with_no_browser_step_has_no_live_view(page):
     run = ask(page, "What is 2 + 3?")
-    expect(run.locator(".run__sum")).to_have_text(re.compile(r"^1 step"), timeout=20000)  # it ran and finished
+    expect(run.locator(".run__sum")).to_have_text(re.compile(r"^1 action"), timeout=20000)  # it ran and finished
     assert run.locator(".browser").count() == 0
     assert page.locator(LIVE).count() == 0
 

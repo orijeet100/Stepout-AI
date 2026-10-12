@@ -29,17 +29,17 @@
   "kind": "step",
   "role": "orchestrator",
   "data": {
-   "summary": "plan: browser: Open the Luma discover page for New York; browser: Read the three most popular weekend events",
+   "summary": "plan: Web Browsing: Open the Luma discover page for New York; Web Browsing: Read the three most popular weekend events",
    "action": {
     "kind": "plan",
     "steps": [
      {
-      "role": "browser",
+      "role": "web_browsing",
       "goal": "Open the Luma discover page for New York",
       "status": "pending"
      },
      {
-      "role": "browser",
+      "role": "web_browsing",
       "goal": "Read the three most popular weekend events",
       "status": "pending"
      }
@@ -62,12 +62,12 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Open the Luma discover page for New York",
      "status": "running"
     },
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Read the three most popular weekend events",
      "status": "pending"
     }
@@ -83,7 +83,7 @@
   "run_id": "a545a89ae722b5c1a34d198be9446992",
   "parent": "a8c2a59816fd1415cf3bc044b6718f7e",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse open https://luma.com/discover",
    "action": {
@@ -104,7 +104,7 @@
   "run_id": "a545a89ae722b5c1a34d198be9446992",
   "parent": "be69741f2058371cf5096226698c76c5",
   "kind": "shot",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "page screenshot",
    "shot": "a545a89ae722b5c1a34d198be9446992/1.jpg",
@@ -121,7 +121,7 @@
   "run_id": "a545a89ae722b5c1a34d198be9446992",
   "parent": "a8c2a59816fd1415cf3bc044b6718f7e",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "answer",
    "action": {
@@ -145,12 +145,12 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Open the Luma discover page for New York",
      "status": "done"
     },
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Read the three most popular weekend events",
      "status": "pending"
     }
@@ -166,7 +166,7 @@
   "run_id": "a545a89ae722b5c1a34d198be9446992",
   "parent": "a8c2a59816fd1415cf3bc044b6718f7e",
   "kind": "return",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "done: The discover page is open; the New York list is behind link 3.",
    "ok": true
@@ -183,7 +183,7 @@
   "kind": "step",
   "role": "orchestrator",
   "data": {
-   "summary": "delegate 1 → browser: Read the three most popular weekend events",
+   "summary": "delegate 1 → Web Browsing: Read the three most popular weekend events",
    "action": {
     "kind": "delegate",
     "step": 1
@@ -205,12 +205,12 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Open the Luma discover page for New York",
      "status": "done"
     },
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Read the three most popular weekend events",
      "status": "running"
     }
@@ -226,7 +226,7 @@
   "run_id": "a545a89ae722b5c1a34d198be9446992",
   "parent": "11d1c244cd426e9bf11bb47bf05272e2",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse click 3",
    "action": {
@@ -247,7 +247,7 @@
   "run_id": "a545a89ae722b5c1a34d198be9446992",
   "parent": "87b9ba4caad59370a791b376a3c0db9f",
   "kind": "shot",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "page screenshot",
    "shot": "a545a89ae722b5c1a34d198be9446992/2.jpg",
@@ -264,7 +264,7 @@
   "run_id": "a545a89ae722b5c1a34d198be9446992",
   "parent": "11d1c244cd426e9bf11bb47bf05272e2",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse more",
    "action": {
@@ -285,7 +285,7 @@
   "run_id": "a545a89ae722b5c1a34d198be9446992",
   "parent": "11d1c244cd426e9bf11bb47bf05272e2",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "answer",
    "action": {
@@ -309,12 +309,12 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Open the Luma discover page for New York",
      "status": "done"
     },
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Read the three most popular weekend events",
      "status": "done"
     }
@@ -330,7 +330,7 @@
   "run_id": "a545a89ae722b5c1a34d198be9446992",
   "parent": "11d1c244cd426e9bf11bb47bf05272e2",
   "kind": "return",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "done: Rooftop Jazz Night (Sat 7:00 pm), AI Builders Meetup (Sat 6:30 pm), Sunday Sketch Club (Sun 11:00 am).",
    "ok": true

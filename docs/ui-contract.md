@@ -32,11 +32,14 @@ The wire between the React page (`web/`) and the backend (`src/stepout/channels/
 | `kind` | `role` | `data` |
 |---|---|---|
 | `plan` | `orchestrator` | `summary`, `steps: [{role, goal, status: pending\|running\|done\|failed}]`; sent on every change |
-| `step` | the acting Role | `summary` (e.g. `web_search new york news`, `browse open https://…`, `answer`), `action: {kind, …}`, `verdict: allow\|refuse\|ask`; `cost_usd` is that model call. A skipped repeat says `repeat, not run again` and carries `repeat: true` |
+| `step` | the acting Role | `summary` (e.g. `web_search new york news`, `browse open https://…`, `answer`), `action: {kind, …}`, `verdict: allow\|refuse\|ask`; `cost_usd` is that model call. A skipped repeat says `repeat, not run again` and carries `repeat: true`; also `model`, `input_tokens`, `output_tokens`, `duration_ms`, `attempts` (tries the call took) and `prompt_chars` (the size of what the model was sent, never its text) |
+| `result` | the acting Role | `summary` (`fetch: 1840 characters`), `chars` (the size of what the tool gave the Role), `duration_ms`, `cut` (it reached the length limit). A size, never the tool's text; its `parent` is the `step` that asked for it |
 | `return` | the specialist | `summary` (`done: …` / `failed: …`, first 200 characters), `ok` |
 | `shot` | `browser` | `summary`, `shot: "<run_id>/<n>.jpg"` (fetch from `/shots/`), `url` and `title` of the page shown |
 | `stop` | the Role that stopped | `summary` (`Stopped by you.` or the budget message) |
-| `error` | the Role that was acting | `summary` (the plain line the User is also given as the reply), `cause` (`auth` `no_key` `credit` `rate_limit` `overloaded` `server_error` `timeout` `connection` `rejected` `malformed` `pricing` `no_search` `chrome` `internal`), `type` (the exception class, for the Ledger), `status` (HTTP, if any); emitted just before a Run ends `failed` |
+| `error` | the Role that was acting | `summary` (the plain line the User is also given as the reply), `cause` (`auth` `no_key` `credit` `rate_limit` `overloaded` `server_error` `timeout` `connection` `rejected` `malformed` `pricing` `no_search` `chrome` `interrupted` `internal`), `type` (the exception class, for the Ledger), `status` (HTTP, if any); emitted just before a Run ends `failed`. `interrupted`: written at the next start for a Run the app's stopping cut off |
+| `retry` | the Role that was acting | `summary` ("The provider is busy; trying again in 2 s (2 of 3)"), `attempt` (the one that failed), `of` (attempts allowed), `cause` (an `error` cause), `status` (HTTP, if any), `wait_s`, and `repair: true` when the reply was unreadable and is being asked for again (no wait); a tool's retry has `cause` set to the error's class; `cost_usd` is what the failed attempt may have cost ([ADR 0015](adr/0015-one-retry-policy-at-the-model-port.md)). A page that does not know the kind ignores it |
+| `memory` | `orchestrator` | `summary`, `op` (`recall` at the start, `record` after the reply, `learn` for facts kept from the User's own message: `facts`, `ids`, `message_id`; `cost_usd` is the extraction call), `ok`; a successful recall has `ids` (what Memory handed over), `chars` and `ms`, and `skipped` if it was cut; a failed one has `cause`. Memory never fails a Run: a failure is this line and the Run goes on ([ADR 0016](adr/0016-memory-on-mem0-behind-the-seam.md)) |
 | `delta` | `orchestrator` | `text` (the next words of the reply), or `reset: true` (what came so far was not the answer: drop it). **Live only**: never saved or replayed; the finished reply still arrives as a `message`, which replaces the words shown. Not sent for a Run that has read a file ([ADR 0013](adr/0013-the-reply-streams.md)) |
 
 `screening` events exist in the Ledger but are not streamed.
@@ -48,6 +51,13 @@ The wire between the React page (`web/`) and the backend (`src/stepout/channels/
 | `GET /api/conversations` | `[{id, title, updated_at, preview, state}]`, newest first. `title` is the first request cut to 60 characters. `state` is `idle`, `queued` or `running` |
 | `POST /api/conversations` | `201` with `{id}`: a new empty chat (not stored until its first message is saved) |
 | `GET /api/conversations/{id}` | `{id, title, messages: [message…], runs: [{run_id, request, state, cost_usd, cap_usd, steps, started_at, ended_at}]}`; run `state` is `running\|done\|stopped\|failed` (an over-budget Run is `stopped`, with the reason in its `stop` event). A Run left open by a crash reads `failed` unless it is the live Run |
+| `GET /api/conversations?q=text` | the same list, only chats whose title or any message contains `text` (case-insensitive; a Run's trace is not searched) |
+| `PATCH /api/conversations/{id}` | body `{title}` (1 to 120 characters): rename; `200 {id, title}`, `422` for a bad title, `404` unknown. Needs `Origin` and JSON like `POST` |
+| `DELETE /api/conversations/{id}` | purge the chat: its messages, Runs, events and screenshots (and what Memory learned from it): `204`, `404` unknown, `409` while it has a Run in progress or waiting. Needs `Origin`. **Not undoable**: the page asks first |
+| `GET /api/conversations/{id}/export` | the chat as Markdown (`text/markdown`, attachment): title, then each message in order; no trace data |
+| `GET /api/memory` | `[{id, kind, text, source}]`: what Memory keeps (`kind`: `persona` a line the User wrote, `fact` learned from their message, `history` an earlier task). `404` when Memory is off ([ADR 0016](adr/0016-memory-on-mem0-behind-the-seam.md)) |
+| `POST /api/memory` | body `{text}` (1 to 500 characters): add a line to the Persona; `201` with the entry, `422` for a bad body. Needs `Origin` and JSON |
+| `DELETE /api/memory/{id}` | forget one entry (`p-…`, `f-…`, `h-…`, `m-…`): `204`, `404` if unknown. Needs `Origin` |
 | `GET /api/runs/{run_id}/events` | `[trace…]` in order: exactly what was streamed live (minus `delta`). `404` for an unknown Run or one with no events yet |
 | `GET /shots/{run}/{n}.jpg` | a page screenshot (`run` is 32 hex characters; only files the assistant wrote; JPEG quality 50, viewport 1000×700) |
 | `GET /live/{run_id}` | the live browser view, below |

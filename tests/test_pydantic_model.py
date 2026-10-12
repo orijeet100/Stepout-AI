@@ -69,7 +69,7 @@ async def test_a_search_on_a_provider_that_cannot_search_fails_instead_of_answer
 
 
 async def test_tool_calls_become_actions():
-    steps = [{"role": "direct", "goal": "find the news"}]
+    steps = [{"role": "web_research", "goal": "find the news"}]
     cases = [
         (tool("fetch", url="https://example.com"), FetchAction(url="https://example.com")),
         (tool("plan", steps=steps), PlanAction(steps=steps)),
@@ -130,7 +130,7 @@ async def test_the_browse_tool_and_the_browser_role_in_a_plan():
     _, info = await ask(tools=["browse", "plan"])
     by_name = {t.name: t.parameters_json_schema for t in info.function_tools}
     assert by_name["browse"]["required"] == ["op"] and by_name["browse"]["properties"]["op"]["enum"] == ["open", "click", "more"]
-    assert "browser" in by_name["plan"]["properties"]["steps"]["items"]["properties"]["role"]["enum"]
+    assert "web_browsing" in by_name["plan"]["properties"]["steps"]["items"]["properties"]["role"]["enum"]
 
 
 async def test_a_tool_that_reaches_the_web_says_so_for_the_gate():
@@ -256,3 +256,41 @@ def test_the_start_up_note_names_the_key_the_chosen_models_need(monkeypatch, tmp
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     notes = app.startup_notes(["OPENROUTER_API_KEY"])
     assert len(notes) == 1 and "OPENROUTER_API_KEY" in notes[0] and "ANTHROPIC" not in notes[0]
+
+
+# --- the retry policy's inputs (ADR 0015) ---
+
+
+async def test_a_rate_limit_carries_the_providers_retry_after():
+    def provider(messages, info):
+        raise ModelHTTPError(429, "claude-haiku-4-5", body="slow down", headers={"Retry-After": "9"})
+
+    model = PydanticModel({HAIKU: FunctionModel(provider, model_name="claude-haiku-4-5")})
+    with pytest.raises(Failure) as caught:
+        await model.call(ModelRequest(model=HAIKU, system="s", user_text="u"))
+    assert (caught.value.kind, caught.value.status, caught.value.retry_after) == ("rate_limit", 429, 9.0)
+
+
+async def test_a_reply_reports_the_tokens_it_was_billed_for():
+    response, _ = await ask(text("hi"))
+    assert (response.input_tokens, response.output_tokens) == (10, 2)
+
+
+async def test_an_unreadable_reply_says_what_was_wrong_without_the_value_and_keeps_its_cost():
+    with pytest.raises(Failure) as caught:
+        await ask(tool("delegate", step="the secret value in the file"))
+    failure = caught.value
+    assert failure.kind == "malformed" and "step" in failure.detail and "secret" not in failure.detail
+    assert failure.cost_usd > 0
+
+
+def test_the_providers_sdk_retries_are_switched_off_when_a_model_is_built():
+    from types import SimpleNamespace
+
+    class WithClient(FunctionModel):
+        client = SimpleNamespace(max_retries=2)
+
+    inner = WithClient(lambda messages, info: reply(text("ok")), model_name="claude-haiku-4-5")
+    model = PydanticModel({HAIKU: inner})
+    model._model(HAIKU)
+    assert inner.client.max_retries == 0

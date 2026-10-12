@@ -8,7 +8,7 @@ import re
 
 from playwright.sync_api import expect
 
-FINISHED = re.compile(r"^\d+ steps? · \$[\d.]+ · \d+ s$")
+FINISHED = re.compile(r"^\d+ actions? · \$[\d.]+ · \d+ s$")
 
 # records, on every change to the page, how much reply text is showing and how many assistant rows and tiles there are
 SAMPLER = """() => {

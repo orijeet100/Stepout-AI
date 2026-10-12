@@ -7,7 +7,7 @@ describe('parseFrame', () => {
   it('reads each v1 frame', () => {
     expect(parseFrame({ type: 'hello', v: 1 })).toEqual({ type: 'hello', v: 1 })
     expect(parseFrame({ type: 'message', ...base, role: 'user', text: 'hi', run_id: null, cost_usd: null })?.type).toBe('message')
-    const trace = parseFrame({ type: 'trace', ...base, run_id: 'r'.repeat(32), parent: null, kind: 'plan', role: 'orchestrator', cost_usd: 0, data: { steps: [{ role: 'browser', goal: 'g', status: 'running' }] } })
+    const trace = parseFrame({ type: 'trace', ...base, run_id: 'r'.repeat(32), parent: null, kind: 'plan', role: 'orchestrator', cost_usd: 0, data: { steps: [{ role: 'web_browsing', goal: 'g', status: 'running' }] } })
     expect(trace).toMatchObject({ type: 'trace', kind: 'plan', data: { steps: [{ status: 'running' }] } })
     expect(parseFrame({ type: 'status', state: 'running', active: { conversation_id: 'c', run_id: 'r', cap_usd: 1 }, queued: [{ conversation_id: 'd' }] })).toMatchObject({
       state: 'running',

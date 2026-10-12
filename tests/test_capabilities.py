@@ -89,7 +89,7 @@ async def test_a_capability_can_refuse_through_its_own_gate_rule(monkeypatch, tm
 
 
 def test_a_role_that_does_not_hold_the_capability_is_refused(with_echo):
-    assert isinstance(gate.check(EchoAction(text="x"), ROLES["direct"].actions), Refuse)
+    assert isinstance(gate.check(EchoAction(text="x"), ROLES["web_research"].actions), Refuse)
     assert isinstance(gate.check(EchoAction(text="x"), frozenset({"echo", "answer"})), Allow)
 
 
@@ -123,11 +123,11 @@ def test_web_search_is_an_ordinary_capability_a_role_may_take_and_the_gate_sees(
     from stepout.capabilities.web_search import WebSearchAction
 
     assert capabilities.parse("web_search", {"query": "x"}) == WebSearchAction(query="x")
-    assert ROLES["direct"].actions == {"web_search", "fetch", "answer"}
+    assert ROLES["web_research"].actions == {"web_search", "fetch", "answer"}
 
 
 def test_plan_roles_come_from_the_role_table():
-    assert SPECIALISTS == ("direct", "files", "browser", "reader")
+    assert SPECIALISTS == ("web_research", "local_file_finder", "web_browsing", "local_file_reader")
     for name in SPECIALISTS:
         assert PlanStep(role=name, goal="g").role == name
         assert f"{name} (" in ROLES["orchestrator"].system  # the prompt describes every role a Plan can name

@@ -3,6 +3,8 @@ import './App.css'
 import ChatView from './ChatView'
 import Composer from './Composer'
 import Icon from './Icon'
+import MemoryView from './MemoryView'
+import { parseChats } from './protocol'
 import ShotViewer from './ShotViewer'
 import Sidebar from './Sidebar'
 import { shotsOf } from './runview'
@@ -11,7 +13,7 @@ import { useBackend } from './useBackend'
 import { useNarrow } from './useNarrow'
 
 export default function App() {
-  const { state, send, stop, newChat, select, retry } = useBackend()
+  const { state, send, stop, newChat, select, rename, remove, retry } = useBackend()
   const { selected, conn, attempt, error } = state
   const [viewer, setViewer] = useState<{ run: string; index: number } | null>(null) // which saved page is open large
   const viewerShots = viewer && state.runs[viewer.run] ? shotsOf(state.runs[viewer.run]) : []
@@ -47,9 +49,26 @@ export default function App() {
     }
   }
 
-  const chats = chatList(state)
+  // Search: the backend looks through message text; the list shows the chats it names (a per-viewer, per-visit thing).
+  const [query, setQuery] = useState('')
+  const [found, setFound] = useState<string[] | null>(null)
+  const [memoryOpen, setMemoryOpen] = useState(false)
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) return // `found` is only read while there is a query
+    const timer = window.setTimeout(() => {
+      fetch(`/api/conversations?q=${encodeURIComponent(q)}`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((rows) => setFound(parseChats(rows).map((c) => c.id)))
+        .catch(() => setFound([]))
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [query, state.chats])
+
+  const everyChat = chatList(state)
+  const chats = found && query.trim() ? everyChat.filter((c) => found.includes(c.id)) : everyChat
   const waiting = selected ? !state.loaded[selected] : !state.listed && !state.draft // nothing to show yet, because it has not been read yet
-  const current = chats.find((c) => c.id === selected)
+  const current = everyChat.find((c) => c.id === selected)
   const items = selected ? timeline(state, selected) : []
   // After the first failure, "connecting" is just the next attempt: keep saying "reconnecting" instead of flickering.
   const banner =
@@ -70,12 +89,22 @@ export default function App() {
         collapsed={collapsed}
         onToggle={toggleRail}
         selected={selected}
+        query={query}
+        onQuery={setQuery}
+        onRename={rename}
+        onDelete={remove}
+        onMemory={() => {
+          setMemoryOpen(true)
+          setDrawer(false)
+        }}
         onSelect={(id) => {
           select(id)
+          setMemoryOpen(false)
           setDrawer(false)
         }}
         onNew={() => {
           newChat()
+          setMemoryOpen(false)
           setDrawer(false)
         }}
       />
@@ -96,8 +125,10 @@ export default function App() {
               {(conn !== 'open' || error) && <button className="btn" type="button" onClick={retry}>Retry now</button>}
             </div>
           )}
+          {memoryOpen ? <MemoryView onClose={() => setMemoryOpen(false)} /> : <>
           <ChatView key={selected ?? 'draft'} items={items} starting={!!selected && starting(state, selected, items)} empty={waiting ? (error ? 'failed' : 'loading') : 'new'} runState={(r) => runState(state, r)} runCap={(r) => runCap(state, r)} onStop={stop} onOpenShot={(run, index) => setViewer({ run, index })} />
           <Composer online={conn === 'open'} busy={state.status.state === 'running'} suggest={items.length === 0 && !waiting} onSend={send} />
+          </>}
         </div>
       </main>
       <ShotViewer

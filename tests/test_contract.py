@@ -60,6 +60,12 @@ def check_plan(d):
 
 def check_step(d):
     assert d["action"]["kind"] and d["verdict"] in ("allow", "refuse", "ask")
+    assert d["model"] and d["attempts"] >= 1 and d["duration_ms"] >= 0 and d["prompt_chars"] > 0  # what the call took (no text)
+    assert isinstance(d["input_tokens"], int) and isinstance(d["output_tokens"], int)
+
+
+def check_result(d):
+    assert d["chars"] >= 0 and d["duration_ms"] >= 0 and isinstance(d["cut"], bool)  # a size, never the tool's text
 
 
 def check_return(d):
@@ -70,12 +76,12 @@ def check_shot(d):
     assert d["shot"] and d["url"] and "title" in d
 
 
-DATA_CHECKS = {"plan": check_plan, "step": check_step, "return": check_return, "shot": check_shot, "stop": lambda d: None}
+DATA_CHECKS = {"plan": check_plan, "step": check_step, "result": check_result, "return": check_return, "shot": check_shot, "stop": lambda d: None}
 
 
 async def test_what_the_runner_emits_matches_the_contracts_event_table(tmp_path, monkeypatch):
     page = ("URL: https://example.com\nTitle: Example\nText: Example Domain", "abc/1.jpg")
-    script = [plan("read it", role="browser"), plan("sneaky", role="browser"), browse("open", "https://example.com"), say("found"), say("done")]  # the 2nd plan is refused
+    script = [plan("read it", role="web_browsing"), plan("sneaky", role="web_browsing"), browse("open", "https://example.com"), say("found"), say("done")]  # the 2nd plan is refused
     reopened = await serve(tmp_path, [ask("c1", "read https://example.com")], script, browser=FakeBrowser(page))
     monkeypatch.setenv("STEPOUT_TASK_CAP_USD", "0")  # set after the first Run started, so only this one has no budget and stops
     stopped = await serve(tmp_path / "2", [ask("c1", "what is the capital of France?")], [])

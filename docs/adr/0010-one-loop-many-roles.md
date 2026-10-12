@@ -1,6 +1,6 @@
 # 0010 — One loop, five Roles
 
-Status: accepted · 2026-10-07 · amended 2026-10-07 (Plan, Reader, read-only V0-basic) and 2026-10-11 (strict taint; search is a capability; models are tiers) · replaces the roadmap's "sub-agents later". [ADR 0001](0001-from-scratch.md) still holds: no agent framework.
+Status: accepted · 2026-10-07 · amended 2026-10-07 (Plan, Reader, read-only V0-basic) and 2026-10-11 (strict taint; search is a capability; models are tiers; Roles named by use case: `direct` is `web_research`, `files` is `local_file_finder`, `browser` is `web_browsing`, `reader` is `local_file_reader`; the body below keeps the first names) · replaces the roadmap's "sub-agents later". [ADR 0001](0001-from-scratch.md) still holds: no agent framework.
 
 **Decision.** The Runner's agent loop runs under a **Role**: a system prompt, a tool set, a model and a Step cap. V0 has five, each holding exactly one kind of hand:
 - **Orchestrator** — in charge of the Run, no hands. It writes a **Plan** (a short list of steps: Role, goal, status), Delegates one step at a time, re-plans if a step fails (at most twice), asks the User, and reports. Only it talks to the User.

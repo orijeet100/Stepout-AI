@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+from urllib.parse import urlparse
 
 from stepout.contract import ConversationDetail, ConversationSummary, MessageFrame, RunSummary, TraceFrame
 from stepout.domain import Exchange
@@ -44,9 +45,11 @@ def get_conversation(store: Store, conversation_id: str) -> ConversationDetail |
         RunSummary(
             run_id=r["id"], request=r["request"], state=_RUN_STATE.get(r["outcome"], "failed"), cost_usd=r["cost_usd"], cap_usd=r["cap_usd"],
             steps=r["steps"], started_at=r["started_at"], ended_at=r["ended_at"],
+            input_tokens=r["input_tokens"] or 0, output_tokens=r["output_tokens"] or 0, retries=r["retries"] or 0,
         )
         for r in store.query(
             "SELECT runs.id, tasks.request, runs.outcome, runs.cost_usd, runs.cap_usd, runs.started_at, runs.ended_at, "
+            "runs.input_tokens, runs.output_tokens, runs.retries, "
             "(SELECT COUNT(*) FROM events WHERE events.run_id = runs.id AND events.kind = 'step') AS steps "
             "FROM runs JOIN tasks ON tasks.id = runs.task_id WHERE tasks.conversation_id = ? ORDER BY runs.started_at",
             (conversation_id,),
@@ -66,15 +69,26 @@ def run_events(store: Store, run_id: str) -> list[TraceFrame]:
     ]
 
 
-def _did(store: Store, run_id: str) -> str:
-    """What the specialists' hands did in a Run, from the step summaries: "browse open luma.com/discover; fetch luma.com/tech"."""
+def did_line(events, *, hosts_only: bool = False) -> str:
+    """What the specialists' hands did in a Run, from its step events (anything with `.kind`, `.role` and `.data`): "browse open luma.com/discover; fetch luma.com/tech".
+    `hosts_only`: for Memory, which keeps it across chats. Only the kind of action and, for a web page, its host: no query, no path, no file name, nothing a page or a
+    file could have worded."""
     done: list[str] = []
-    for e in run_events(store, run_id):
+    for e in events:
         if e.kind == "step" and e.role != "orchestrator" and e.data.get("verdict") == "allow" and not e.data.get("repeat") and e.data["action"]["kind"] != "answer":
-            line = re.sub(r"https?://", "", e.data["summary"])
+            if hosts_only:
+                action = e.data["action"]
+                host = re.sub(r"[^A-Za-z0-9.:-]", "", urlparse(str(action.get("url") or "")).netloc)[:80]
+                line = f"{action['kind']} {host}".strip()
+            else:
+                line = re.sub(r"https?://", "", e.data["summary"])
             if line not in done:
                 done.append(line)
     return "; ".join(done)[:200]
+
+
+def _did(store: Store, run_id: str) -> str:
+    return did_line(run_events(store, run_id))
 
 
 def exchanges(store: Store, conversation_id: str, last: int = 10) -> list[Exchange]:
@@ -92,3 +106,35 @@ def exchanges(store: Store, conversation_id: str, last: int = 10) -> list[Exchan
         for n, r in enumerate(answered, start=1)
         if n > len(answered) - last
     ]
+
+
+def _like(text: str) -> str:
+    """A LIKE pattern for "contains `text`", with `!` as the escape character so a % or _ the User typed means itself."""
+    return "%" + text.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+
+
+def search_conversations(store: Store, text: str) -> list[ConversationSummary]:
+    """The chats whose title or any message contains `text` (case-insensitive), newest first. Message text only: a Run's trace is not searched.
+    ponytail: a substring scan, fine for a few thousand messages; full-text indexing only if this is measured slow."""
+    pattern = _like(text.strip())
+    hits = {
+        r["conversation_id"]
+        for r in store.query(
+            "SELECT DISTINCT conversation_id FROM events WHERE kind = 'message' AND conversation_id IS NOT NULL "
+            "AND json_extract(data, '$.text') LIKE ? ESCAPE '!'",
+            (pattern,),
+        )
+    }
+    hits |= {r["id"] for r in store.query("SELECT id FROM conversations WHERE title LIKE ? ESCAPE '!'", (pattern,))}
+    return [c for c in list_conversations(store) if c.id in hits]
+
+
+def export_markdown(store: Store, conversation_id: str) -> str | None:
+    """One chat as Markdown: its title, then each message in order. None if there is no such chat. No trace data."""
+    chat = get_conversation(store, conversation_id)
+    if chat is None:
+        return None
+    lines = [f"# {chat.title}", ""]
+    for m in chat.messages:
+        lines += [f"**{'You' if m.role == 'user' else 'Assistant'}** ({m.at:%Y-%m-%d %H:%M})", "", _COST_FOOTER.sub("", m.text), ""]
+    return "\n".join(lines)

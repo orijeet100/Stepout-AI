@@ -110,6 +110,9 @@ class RunSummary(_Wire):
     steps: int
     started_at: datetime
     ended_at: datetime | None
+    input_tokens: int = 0  # what its model calls were billed for
+    output_tokens: int = 0
+    retries: int = 0  # model-call retries it needed
 
 
 class ConversationDetail(_Wire):
@@ -125,3 +128,24 @@ class NewConversation(_Wire):
     """POST /api/conversations."""
 
     id: str
+
+
+class RenameConversation(_Wire):
+    """PATCH /api/conversations/{id}."""
+
+    title: str = Field(min_length=1, max_length=120)
+
+
+class MemoryEntryOut(_Wire):
+    """GET /api/memory (a list of these) and the body of the 201 for POST /api/memory."""
+
+    id: str
+    kind: Literal["persona", "fact", "history"]
+    text: str
+    source: str = ""
+
+
+class RememberRequest(_Wire):
+    """POST /api/memory: a line for the Persona file."""
+
+    text: str = Field(min_length=1, max_length=500)

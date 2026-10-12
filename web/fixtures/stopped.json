@@ -29,12 +29,12 @@
   "kind": "step",
   "role": "orchestrator",
   "data": {
-   "summary": "plan: browser: Open the engineering blog and read the three newest posts",
+   "summary": "plan: Web Browsing: Open the engineering blog and read the three newest posts",
    "action": {
     "kind": "plan",
     "steps": [
      {
-      "role": "browser",
+      "role": "web_browsing",
       "goal": "Open the engineering blog and read the three newest posts",
       "status": "pending"
      }
@@ -57,7 +57,7 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Open the engineering blog and read the three newest posts",
      "status": "running"
     }
@@ -73,7 +73,7 @@
   "run_id": "b617329283bea49463ba30655fa8a766",
   "parent": "edc449fd0ed3843755b0189fbcba30a8",
   "kind": "step",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "browse open https://blog.example/engineering",
    "action": {
@@ -94,7 +94,7 @@
   "run_id": "b617329283bea49463ba30655fa8a766",
   "parent": "faa406331ea428e0ccc3d4e296005084",
   "kind": "shot",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "page screenshot",
    "shot": "b617329283bea49463ba30655fa8a766/1.jpg",
@@ -111,7 +111,7 @@
   "run_id": "b617329283bea49463ba30655fa8a766",
   "parent": "edc449fd0ed3843755b0189fbcba30a8",
   "kind": "stop",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "Stopped by you."
   },
@@ -130,7 +130,7 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "browser",
+     "role": "web_browsing",
      "goal": "Open the engineering blog and read the three newest posts",
      "status": "failed"
     }
@@ -146,7 +146,7 @@
   "run_id": "b617329283bea49463ba30655fa8a766",
   "parent": "edc449fd0ed3843755b0189fbcba30a8",
   "kind": "return",
-  "role": "browser",
+  "role": "web_browsing",
   "data": {
    "summary": "failed: Stopped by you.",
    "ok": false

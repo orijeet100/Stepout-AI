@@ -128,7 +128,7 @@ async def test_trace_and_reply_frames_are_contract_frames_and_the_status_follows
     await asyncio.wait_for(anext(channel.messages()), 2)
     assert (await frames(ws, 1))[0]["state"] == "running"
 
-    await channel.trace(Event(kind="step", role="browser", run_id=run_id, conversation_id=cid, parent="p" * 32, data={"summary": "browse open https://x.example", "verdict": "allow"}, cost_usd=0.01))
+    await channel.trace(Event(kind="step", role="web_browsing", run_id=run_id, conversation_id=cid, parent="p" * 32, data={"summary": "browse open https://x.example", "verdict": "allow"}, cost_usd=0.01))
     status, step = await frames(ws, 2)
     assert status["state"] == "running" and status["active"] == {"conversation_id": cid, "run_id": run_id, "cap_usd": 1.0}  # first event: now we know the Run
     assert (step["type"], step["kind"], step["parent"], step["run_id"], step["cost_usd"]) == ("trace", "step", "p" * 32, run_id, 0.01)
@@ -356,7 +356,7 @@ async def test_a_page_message_runs_through_the_real_app_and_reads_back_from_the_
     store = Store(tmp_path / "real.db")
     ledger = Ledger(store)
     page = ("URL: https://example.com\nTitle: Example\nText: Example Domain", "abc/1.jpg")
-    model = ScriptedModel([plan("read it", role="browser"), browse("open", "https://example.com"), say("Heading: Example Domain"), say("It says Example Domain.")])
+    model = ScriptedModel([plan("read it", role="web_browsing"), browse("open", "https://example.com"), say("Heading: Example Domain"), say("It says Example Domain.")])
     channel = WebChannel(port=0, shots=tmp_path, history=StoreHistory(store))
     base = f"http://127.0.0.1:{await channel.start()}"
     saved = SavedChannel(channel, ledger)
@@ -376,7 +376,7 @@ async def test_a_page_message_runs_through_the_real_app_and_reads_back_from_the_
         active = [f for f in seen if f["type"] == "status" and f["active"]][0]["active"]
         assert active == {"conversation_id": chat, "run_id": run_id, "cap_usd": 1.0}
         traces = [f for f in seen if f["type"] == "trace"]
-        assert [t["kind"] for t in traces if t["kind"] != "plan"] == ["step", "step", "shot", "step", "return", "step"]
+        assert [t["kind"] for t in traces if t["kind"] != "plan"] == ["step", "step", "shot", "result", "step", "return", "step"]
         shot = next(t for t in traces if t["kind"] == "shot")["data"]
         assert shot == {"summary": "page screenshot", "shot": "abc/1.jpg", "url": "https://example.com", "title": "Example"}
         reply = next(f for f in seen if f["type"] == "message" and f["role"] == "assistant")
@@ -413,7 +413,7 @@ async def run_is_active(channel, ws, run_id=LIVE_RUN):
     gen = channel.messages()
     await asyncio.wait_for(anext(gen), 2)
     await frames(ws, 1)  # status running
-    await channel.trace(Event(kind="step", role="browser", run_id=run_id, conversation_id=cid, data={}))
+    await channel.trace(Event(kind="step", role="web_browsing", run_id=run_id, conversation_id=cid, data={}))
     await frames(ws, 2)  # status with the Run, then the step
     return cid
 

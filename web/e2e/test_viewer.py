@@ -7,7 +7,7 @@ import re
 
 from playwright.sync_api import expect
 
-FINISHED = re.compile(r"^\d+ steps? · \$[\d.]+ · \d+ s$")
+FINISHED = re.compile(r"^\d+ actions? · \$[\d.]+ · \d+ s$")
 ACTIVE = "(() => { const a = document.activeElement; return { cls: a.className, label: a.getAttribute('aria-label'), inDialog: !!a.closest('dialog[open]'), tag: a.tagName } })()"
 
 

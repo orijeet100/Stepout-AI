@@ -1,4 +1,4 @@
-"""Browser: the headless Chrome the Browser agent reads pages with. Read-only, isolated, network-policed (FR18).
+"""Browser: the headless Chrome the Web Browsing agent reads pages with. Read-only, isolated, network-policed (FR18).
 
 One fresh context per Run: no cookies, no logins, no downloads, no service workers. The agent can only
 open a URL, follow a numbered link from the last page, or read further down the page: it cannot type,

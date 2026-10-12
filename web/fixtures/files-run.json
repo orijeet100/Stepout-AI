@@ -29,12 +29,12 @@
   "kind": "step",
   "role": "orchestrator",
   "data": {
-   "summary": "plan: files: Count the PDF files under D:\\Example\\Projects",
+   "summary": "plan: Local File Finder: Count the PDF files under D:\\Example\\Projects",
    "action": {
     "kind": "plan",
     "steps": [
      {
-      "role": "files",
+      "role": "local_file_finder",
       "goal": "Count the PDF files under D:\\Example\\Projects",
       "status": "pending"
      }
@@ -57,7 +57,7 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "files",
+     "role": "local_file_finder",
      "goal": "Count the PDF files under D:\\Example\\Projects",
      "status": "running"
     }
@@ -73,7 +73,7 @@
   "run_id": "6d48346cd636252679d0ccc13622dcd6",
   "parent": "f6f2bc0572640bb5a8b896806b0f0242",
   "kind": "step",
-  "role": "files",
+  "role": "local_file_finder",
   "data": {
    "summary": "files count D:\\Example\\Projects *.pdf",
    "action": {
@@ -94,7 +94,7 @@
   "run_id": "6d48346cd636252679d0ccc13622dcd6",
   "parent": "f6f2bc0572640bb5a8b896806b0f0242",
   "kind": "step",
-  "role": "files",
+  "role": "local_file_finder",
   "data": {
    "summary": "answer",
    "action": {
@@ -118,7 +118,7 @@
    "summary": "plan updated",
    "steps": [
     {
-     "role": "files",
+     "role": "local_file_finder",
      "goal": "Count the PDF files under D:\\Example\\Projects",
      "status": "done"
     }
@@ -134,7 +134,7 @@
   "run_id": "6d48346cd636252679d0ccc13622dcd6",
   "parent": "f6f2bc0572640bb5a8b896806b0f0242",
   "kind": "return",
-  "role": "files",
+  "role": "local_file_finder",
   "data": {
    "summary": "done: 42 PDF files, in 9 folders.",
    "ok": true

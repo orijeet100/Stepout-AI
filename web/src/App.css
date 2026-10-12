@@ -216,7 +216,7 @@ a.page__url { color: var(--accent); }
   .app[data-rail='collapsed'] { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
   .app[data-rail='collapsed'] .side { align-items: center; padding-inline: 0; overflow: hidden; }
   .app[data-rail='collapsed'] .side__head { padding: 0; }
-  .app[data-rail='collapsed'] .side__head > :not(.rail), .app[data-rail='collapsed'] .side__nav, .app[data-rail='collapsed'] .newchat span { display: none; }
+  .app[data-rail='collapsed'] .side__head > :not(.rail), .app[data-rail='collapsed'] .side__nav, .app[data-rail='collapsed'] .side__tools, .app[data-rail='collapsed'] .newchat span { display: none; }
   .app[data-rail='collapsed'] .rail { margin: 0; }
   .app[data-rail='collapsed'] .newchat { justify-content: center; width: 2rem; padding: 0; }
 }
@@ -240,3 +240,26 @@ a.page__url { color: var(--accent); }
   .app, .app *, .app *::before, .app *::after { animation: none !important; transition: none !important; }
   .shimmer { color: var(--muted); background: none; } /* the words stand still, in the muted colour */
 }
+
+/* ---- chat management and Memory (iteration 2) ---- */
+.side__tools { display: flex; align-items: center; gap: var(--sp-1); padding-top: var(--sp-2); }
+.search { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-2); height: 2rem; padding: 0 10px; color: var(--muted); border: 1px solid var(--border-side); border-radius: var(--r-lg); }
+.search:focus-within { border-color: var(--text); color: var(--text); }
+.search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: var(--fs-sm); outline: none; }
+.chatrow { position: relative; display: flex; align-items: center; }
+.chatrow .chat { flex: 1; min-width: 0; }
+.chatrow__tools { display: none; align-items: center; gap: 2px; flex: none; }
+.chatrow:hover .chatrow__tools, .chatrow:focus-within .chatrow__tools { display: flex; }
+@media (hover: none) { .chatrow__tools { display: flex; } } /* a phone has no hover: the tools are always there */
+.is-note .steps__line { color: var(--muted); font-style: italic; }
+.memory { display: grid; gap: var(--sp-3); align-content: start; padding: var(--sp-4); overflow: auto; }
+.memory__head { display: flex; align-items: center; justify-content: space-between; }
+.memory__head h2 { margin: 0; font-size: var(--fs-lg); }
+.memory__note { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
+.memory__error { margin: 0; color: var(--err); font-size: var(--fs-sm); }
+.memory__add { display: flex; gap: var(--sp-2); }
+.memory__add input { flex: 1; min-width: 0; height: 2.25rem; padding: 0 var(--sp-3); color: var(--text); background: transparent; border: 1px solid var(--border); border-radius: var(--r-lg); font: inherit; font-size: var(--fs-sm); }
+.memory__group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
+.memory__group li { display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border-bottom: 1px dashed var(--border); }
+.memory__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.memory__source { color: var(--muted); font-size: var(--fs-2xs); white-space: nowrap; }

@@ -59,7 +59,7 @@ class ModelRequest(BaseModel):
     system: str
     user_text: str
     tools: list[str] = []  # control tool or capability names, offered as function tools; none = a plain completion
-    tool_defs: list[dict] = []  # one-off tools, sent as they are; a call to one comes back as a ToolCall (the front door's `screen`)
+    tool_defs: list[dict] = []  # one-off tools, sent as they are; a call to one comes back as a ToolCall (Screening's `screen`)
     temperature: float | None = None  # None = the API default (1.0). Models released after Opus 4.6 reject any other value with a 400: of ours only HAIKU (4.5) accepts one, SONNET (5) does not
     search: bool = False  # let the provider run its own web search in this call (only the Searcher asks); `max_searches` caps it
     max_searches: int = 3  # web searches this call may run, when `search` is set
@@ -77,6 +77,10 @@ class ModelResponse(BaseModel):
     action: BaseModel  # any Action; not the closed `Action` union, which cannot know a capability registered after import
     cost_usd: float
     searches: int = 0  # web searches this call used
+    input_tokens: int = 0  # what the provider billed, from its own usage figures
+    output_tokens: int = 0
+    attempts: int = 1  # tries it took (retry.py fills it); 1 = no retry
+    duration_ms: int = 0  # the successful try, from send to the finished reply (retry.py fills it)
 
 
 class Model(Protocol):
@@ -166,18 +170,37 @@ _WAIT = "Wait a minute, then send it again."
 _KEY_FIX = "Check ANTHROPIC_API_KEY in the .env file, then restart the app."
 
 
+def malformed_detail(exc: Exception) -> str:
+    """What was wrong with a reply, for the model to read back once: the field and the rule, never the value (it may be text from a file)."""
+    if isinstance(exc, ValidationError):
+        return "; ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['type']}" for e in exc.errors(include_input=False, include_url=False))[:300]
+    if isinstance(exc, KeyError) and exc.args:
+        return f"missing {exc.args[0]!r}"
+    return type(exc).__name__
+
+
+def _retry_after(exc: Exception) -> float | None:
+    """Seconds the provider asked us to wait (its Retry-After header, in seconds), if it said."""
+    try:
+        seconds = float(exc.response.headers.get("retry-after"))  # type: ignore[attr-defined]
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return seconds if seconds >= 0 else None
+
+
 def _explain(exc: anthropic.APIError) -> Failure:
-    """The API said no, or could not be reached: one line for the User and the cause for the Ledger. (The SDK has already retried what is worth retrying.)"""
+    """The API said no, or could not be reached: one line for the User and the cause for the Ledger. (No retry has happened here: the SDK's are off; retry.py owns them.)"""
     status = getattr(exc, "status_code", None)
+    wait = _retry_after(exc)
     match exc:
         case anthropic.AuthenticationError() | anthropic.PermissionDeniedError():
             return Failure("auth", f"Anthropic rejected the API key ({status}). {_KEY_FIX}", status)
         case anthropic.RateLimitError():
-            return Failure("rate_limit", f"Anthropic is rate-limiting requests right now ({status}). {_WAIT}", status)
+            return Failure("rate_limit", f"Anthropic is rate-limiting requests right now ({status}). {_WAIT}", status, retry_after=wait)
         case anthropic.OverloadedError():
-            return Failure("overloaded", f"Anthropic is overloaded right now ({status}). {_WAIT}", status)
+            return Failure("overloaded", f"Anthropic is overloaded right now ({status}). {_WAIT}", status, retry_after=wait)
         case anthropic.InternalServerError():
-            return Failure("server_error", f"Anthropic had a server error ({status}). Try again in a minute.", status)
+            return Failure("server_error", f"Anthropic had a server error ({status}). Try again in a minute.", status, retry_after=wait)
         case anthropic.APITimeoutError():
             return Failure("timeout", "The request to Anthropic timed out. Try again.")
         case anthropic.APIConnectionError():
@@ -192,7 +215,7 @@ class AnthropicModel:
     streams = True  # `call` can hand the words of a reply to `on_text` as they arrive
 
     def __init__(self) -> None:
-        self._client = anthropic.AsyncAnthropic()
+        self._client = anthropic.AsyncAnthropic(max_retries=0)  # the SDK's own retries are off: retry.py's policy is the only one, and records every attempt
 
     async def call(self, request: ModelRequest, on_text=None) -> ModelResponse:
         if not self._client.api_key:  # the SDK would only fail later, inside the request, with a TypeError
@@ -209,14 +232,21 @@ class AnthropicModel:
             response = await self._client.messages.create(**params) if on_text is None else await self._stream(params, on_text)
         except anthropic.APIError as exc:
             raise _explain(exc) from exc
+        cost = 0.0
         try:
             # ponytail: a long search can end with stop_reason "pause_turn"; we return the partial text instead of resuming.
             searches = sum(1 for b in response.content if b.type == "web_search_tool_result")
             cost = _cost(request.model, response.usage.input_tokens, response.usage.output_tokens, searches)
             one_off = frozenset(d["name"] for d in request.tool_defs)
-            return ModelResponse(action=_action(response.content, one_off), cost_usd=cost, searches=searches)
+            return ModelResponse(
+                action=_action(response.content, one_off), cost_usd=cost, searches=searches,
+                input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens,
+            )
         except (AttributeError, KeyError, TypeError, ValueError, ValidationError) as exc:  # a body that is not a message, or a tool call missing its arguments
-            raise Failure("malformed", "Anthropic's reply could not be understood. Try again; if it repeats, tell the developer.") from exc
+            raise Failure(
+                "malformed", "Anthropic's reply could not be understood. Try again; if it repeats, tell the developer.",
+                detail=malformed_detail(exc), cost_usd=cost,  # the reply came back, so it was billed
+            ) from exc
 
     async def _stream(self, params: dict, on_text):
         """The same request, streamed. The words of a text reply, and the growing `text` of the `answer` tool, go to `on_text` as they arrive;

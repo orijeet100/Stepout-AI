@@ -1,6 +1,6 @@
 # 0003 — Memory: plain files first, mem0 as a measured challenger
 
-Date: 2026-10-06 · Status: accepted, not built yet ([roadmap](../roadmap.md))
+Date: 2026-10-06 · Status: accepted; the file store is built (2026-10-12) and Mem0 was brought forward as the primary store, behind this seam, by [0016](0016-memory-on-mem0-behind-the-seam.md)
 
 **Decision.** Memory starts as plain files (Persona in `persona.md`, History, Notes) behind `recall`, `remember` and `forget`. The write rules sit above an internal storage seam; mem0 is added later as a second store behind that seam and compared on the golden set.
 

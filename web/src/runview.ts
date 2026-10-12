@@ -31,6 +31,13 @@ export function elapsedMs(run: Run, running: boolean, now: number): number {
   return (running ? now : last) - first || 0
 }
 
+// Chats saved before the Roles were renamed carry the first ids: they still read as the new names.
+const LEGACY_ROLE: Record<string, string> = { direct: 'web_research', files: 'local_file_finder', browser: 'web_browsing', reader: 'local_file_reader' }
+const roleId = (role: string) => LEGACY_ROLE[role] ?? role
+
+/** An agent as the User sees it: "local_file_finder" -> "Local File Finder" (the backend's agent_name does the same). */
+export const agentName = (role: string) => roleId(role).split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+
 export const planProgress = (plan: PlanStep[]) => ({ done: plan.filter((p) => p.status === 'done').length, total: plan.length })
 
 // ---- the browser's pages: saved screenshots (`shot` events) and the live view -------------------------------------------
@@ -41,8 +48,8 @@ export type Shot = { path: string; url: string | null; title: string | null }
 export const shotsOf = (run: Run): Shot[] =>
   run.events.filter((e) => e.kind === 'shot' && e.data.shot).map((e) => ({ path: e.data.shot!, url: e.data.url ?? null, title: e.data.title ?? null }))
 
-/** Has the Browser agent done anything in this Run? Only then is there a page to watch. */
-export const hasBrowserStep = (run: Run) => run.events.some((e) => e.kind === 'step' && e.role === 'browser')
+/** Has the Web Browsing agent done anything in this Run? Only then is there a page to watch. */
+export const hasBrowserStep = (run: Run) => run.events.some((e) => e.kind === 'step' && roleId(e.role) === 'web_browsing')
 
 /** The address of a saved screenshot, or null if the path is not the `<run>/<n>.jpg` the backend writes: never built from anything else. */
 export const shotSrc = (path: string): string | null => (/^[0-9a-f]{32}\/\d+\.jpg$/.test(path) ? `/shots/${path}` : null)

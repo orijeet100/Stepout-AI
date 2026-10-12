@@ -1,8 +1,8 @@
-"""Live eval of the front door: the real Haiku against the labeled prompts. It costs about seven cents, so the default run skips it:
+"""Live eval of Screening: the real Haiku against the labeled prompts. It costs about seven cents, so the default run skips it:
 
     python -X utf8 -m pytest -m eval -s tests/test_live_screening.py
 
-Run it after changing the front door's prompt or model (it spends money). The bars are in tests/support/screening_eval.py:
+Run it after changing Screening's prompt or model (it spends money). The bars are in tests/support/screening_eval.py:
 tune them from a live run. `-s` prints every row and what the model decided.
 """
 

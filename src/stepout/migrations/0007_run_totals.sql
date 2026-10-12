@@ -1,0 +1,4 @@
+ALTER TABLE runs ADD COLUMN input_tokens INTEGER;
+ALTER TABLE runs ADD COLUMN output_tokens INTEGER;
+ALTER TABLE runs ADD COLUMN retries INTEGER;
+ALTER TABLE runs ADD COLUMN retry_wait_s REAL;

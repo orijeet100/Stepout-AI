@@ -15,7 +15,7 @@ describe('done: a collapsed summary with the numbers of the Run', () => {
   it('shows steps · cost · elapsed that match the fixture, collapsed, and the details inside', () => {
     const { steps, cost, seconds } = expected('web-run')
     const { container } = show(stateOf('web-run', { hint: 'done', cap: 1 }), 'web-run')
-    expect(summary(container)).toBe(`${steps} steps · ${dollars(cost)} · ${seconds} s`)
+    expect(summary(container)).toBe(`${steps} actions · ${dollars(cost)} · ${seconds} s`)
     expect(container.querySelector('details')!.open).toBe(false) // collapsed once finished; the body is still there to expand
     expect(screen.getByText('browse open luma.com/discover')).toBeTruthy() // a plain-language line
     expect(screen.getByText('browse open luma.com/discover').getAttribute('title')).toBe('browse open https://luma.com/discover') // the full text is one hover away
@@ -38,9 +38,9 @@ describe('done: a collapsed summary with the numbers of the Run', () => {
     show(stateOf('web-run', { hint: 'done', cap: 1 }), 'web-run')
     const plan = screen.getByRole('list', { name: 'Plan' })
     expect(within(plan).getAllByRole('img', { name: 'done' })).toHaveLength(2)
-    const steps = screen.getByRole('list', { name: 'Steps' })
+    const steps = screen.getByRole('list', { name: 'Actions' })
     const open = within(steps).getByText('browse open luma.com/discover').closest('li')!
-    expect(open.textContent).toContain('browser')
+    expect(open.textContent).toContain('Web Browsing')
     expect(open.textContent).toContain('Allowed')
     expect(open.textContent).toContain('$0.0124') // that step's own cost
   })
@@ -58,7 +58,7 @@ describe('done: a collapsed summary with the numbers of the Run', () => {
     show(stateOf('files-run', { hint: 'done', cap: 1 }), 'files-run')
     expect(screen.getByText('files count D:\\Example\\Projects *.pdf')).toBeTruthy()
     const { steps, cost, seconds } = expected('files-run')
-    expect(summary(document.body)).toBe(`${steps} steps · ${dollars(cost)} · ${seconds} s`)
+    expect(summary(document.body)).toBe(`${steps} actions · ${dollars(cost)} · ${seconds} s`)
   })
 
   it('a refused action shows as Refused, with its reason, and the Run is still done', () => {
@@ -66,7 +66,7 @@ describe('done: a collapsed summary with the numbers of the Run', () => {
     show(s, 'refused-action')
     const line = screen.getByText(/refused fetch: a fetch action is not available to this role/).closest('li')!
     expect(line.textContent).toContain('Refused')
-    expect(summary(document.body)).toMatch(/^\d+ steps · /) // not labelled stopped or failed
+    expect(summary(document.body)).toMatch(/^\d+ actions · /) // not labelled stopped or failed
   })
 })
 
@@ -119,7 +119,7 @@ describe('stopped, over budget, failed', () => {
   it('stopped by you: labelled, with the stop line and a failed plan step', () => {
     const { steps, cost, seconds } = expected('stopped')
     const { container } = show(stateOf('stopped', { hint: 'stopped', cap: 1 }), 'stopped')
-    expect(summary(container)).toBe(`Stopped by you · ${steps} steps · ${dollars(cost)} · ${seconds} s`)
+    expect(summary(container)).toBe(`Stopped by you · ${steps} actions · ${dollars(cost)} · ${seconds} s`)
     expect(screen.getAllByText('Stopped by you.').length).toBeGreaterThan(0)
     expect(within(screen.getByRole('list', { name: 'Plan' })).getByRole('img', { name: 'failed' })).toBeTruthy()
     expect(container.querySelector('.run')!.className).toContain('run--stopped')
@@ -128,7 +128,7 @@ describe('stopped, over budget, failed', () => {
   it('over budget: its own label, and a budget meter that is full and says so in numbers', () => {
     const { steps, cost, seconds } = expected('over-budget')
     const { container } = show(stateOf('over-budget', { hint: 'stopped', cap: 1 }), 'over-budget')
-    expect(summary(container)).toBe(`Over budget · ${steps} steps · ${dollars(cost)} · ${seconds} s`)
+    expect(summary(container)).toBe(`Over budget · ${steps} actions · ${dollars(cost)} · ${seconds} s`)
     expect(cost).toBeGreaterThanOrEqual(1) // the fixture really crosses its cap
     expect(bar('Budget').getAttribute('aria-valuetext')).toBe(`${dollars(cost)} of $1.00`)
     expect(bar('Budget').querySelector('span')!.className).toContain('is-full')
@@ -154,7 +154,7 @@ describe('stopped, over budget, failed', () => {
 
   it('failed (the API says so; no stop event): labelled Failed', () => {
     const { container } = show(stateOf('files-run', { hint: 'failed', cap: 1 }), 'files-run')
-    expect(summary(container)).toMatch(/^Failed · \d+ steps · /)
+    expect(summary(container)).toMatch(/^Failed · \d+ actions · /)
     expect(container.querySelector('.run')!.className).toContain('run--failed')
   })
 
@@ -185,5 +185,30 @@ describe('declined and queued', () => {
     const users = [...container.querySelectorAll('.user')]
     expect(users.map((u) => u.textContent)).toEqual(['What is 2 + 3?', 'and another thing' + 'Queued'])
     expect(screen.getAllByText('Queued')).toHaveLength(1)
+  })
+})
+
+describe('retries and Memory are lines of the Run, not steps', () => {
+  const event = (id: string, kind: string, role: string, data: Record<string, unknown>, cost = 0) => ({
+    id, conversation_id: 'c'.repeat(32), run_id: 'r'.repeat(32), parent: null, kind, role, data, cost_usd: cost, at: `2026-10-12T09:00:0${id}.000Z`,
+  })
+
+  it('shows a wait for the provider and what Memory handed over, and counts only real steps', () => {
+    const run = {
+      id: 'r'.repeat(32), conversationId: 'c'.repeat(32), startedAt: '2026-10-12T09:00:00.000Z', hint: 'done' as const, cap: 1,
+      events: [
+        event('1', 'memory', 'orchestrator', { summary: 'Memory handed over 2 item(s), 180 characters', op: 'recall', ok: true }),
+        event('2', 'retry', 'web_research', { summary: 'The provider is busy; trying again in 2 s (2 of 3)' }, 0.0003),
+        event('3', 'step', 'web_research', { summary: 'fetch https://example.com', verdict: 'allow', action: { kind: 'fetch' } }, 0.01),
+        event('4', 'memory', 'orchestrator', { summary: 'This task was not kept in Memory', op: 'record', ok: false }),
+      ],
+    }
+    const { container } = render(<RunBlock run={run} state="done" cap={1} now={0} onStop={() => {}} />)
+    const steps = screen.getByRole('list', { name: 'Actions' })
+    expect(within(steps).getByText('Memory handed over 2 item(s), 180 characters')).toBeTruthy()
+    expect(within(steps).getByText('The provider is busy; trying again in 2 s (2 of 3)')).toBeTruthy()
+    expect(within(steps).getAllByText('Memory')).toHaveLength(2) // the chip, not a role name
+    expect(container.querySelector('.run__sum')?.textContent).toContain('1 action ') // the retry and the Memory lines are not actions
+    expect(within(steps).getByText('This task was not kept in Memory').closest('li')!.className).toContain('is-note')
   })
 })

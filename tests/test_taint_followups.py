@@ -1,8 +1,8 @@
 """Taint across follow-ups: a Run that builds on an answer which used the User's files starts with the web closed, and the closing is remembered.
 
 Same rule as a single Run (tests/test_taint.py), carried through the chat: the Run that read a file saves `runs.tainted`, `history.exchanges` marks
-its Exchange, and a Run that is given that Exchange (the front door linked it, or its fail-open fallback did) is tainted from its first step.
-A new task the front door did not link to it is not. The real app loop, Store, Reader and Gate; a scripted model.
+its Exchange, and a Run that is given that Exchange (Screening linked it, or its fail-open fallback did) is tainted from its first step.
+A new task Screening did not link to it is not. The real app loop, Store, Reader and Gate; a scripted model.
 """
 
 import os
@@ -43,7 +43,7 @@ def refusals(h, task_request="and open the company site"):
 
 async def test_a_run_given_a_tainted_exchange_has_the_web_closed_from_its_first_step(tmp_path):
     browser = FakeBrowser(PAGE)
-    h = Harness(tmp_path, [plan("open the site", role="browser"), browse("open", URL), say("I could not open it."), say("The web is closed for this one.")], browser=browser)
+    h = Harness(tmp_path, [plan("open the site", role="web_browsing"), browse("open", URL), say("I could not open it."), say("The web is closed for this one.")], browser=browser)
     await follow_up(h, [x(1, tainted=True)])
 
     assert browser.calls == []  # the page was never opened
@@ -53,7 +53,7 @@ async def test_a_run_given_a_tainted_exchange_has_the_web_closed_from_its_first_
 
 async def test_a_run_given_only_untainted_exchanges_is_not_tainted(tmp_path):
     browser = FakeBrowser(PAGE)
-    h = Harness(tmp_path, [plan("open the site", role="browser"), browse("open", URL), say("Example Corp builds anvils."), say("Done.")], browser=browser)
+    h = Harness(tmp_path, [plan("open the site", role="web_browsing"), browse("open", URL), say("Example Corp builds anvils."), say("Done.")], browser=browser)
     await follow_up(h, [x(1, tainted=False), x(2, tainted=False)])
 
     assert [c[1:3] for c in browser.calls] == [("open", URL)] and refusals(h) == []
@@ -78,14 +78,14 @@ async def test_follow_ups_inherit_the_taint_through_the_chat_and_unlinked_tasks_
     messages = [
         ask("c1", f"Summarize {cv}"),  # 1 reads the file
         ask("c1", "and open the company site"),  # 2 builds on 1
-        ask("c1", "what is on example.com/about?"),  # 3 a new task: the front door links nothing
+        ask("c1", "what is on example.com/about?"),  # 3 a new task: Screening links nothing
         ask("c1", "and who else works there?"),  # 4 builds on 2, which only inherited the taint
     ]
     script = [
-        plan(f"read {cv}", role="reader"), reads(cv), say("Ana is a data engineer at Example Corp."), say("She is a data engineer."),
-        plan("open the site", role="browser"), browse("open", URL), say("I could not open it."), say("The web is closed after reading your file."),
-        plan("open the page", role="browser"), browse("open", URL), say("Example Corp builds anvils."), say("It builds anvils."),
-        plan("search for staff", role="browser"), browse("open", URL), say("I could not open it."), say("Still closed."),
+        plan(f"read {cv}", role="local_file_reader"), reads(cv), say("Ana is a data engineer at Example Corp."), say("She is a data engineer."),
+        plan("open the site", role="web_browsing"), browse("open", URL), say("I could not open it."), say("The web is closed after reading your file."),
+        plan("open the page", role="web_browsing"), browse("open", URL), say("Example Corp builds anvils."), say("It builds anvils."),
+        plan("search for staff", role="web_browsing"), browse("open", URL), say("I could not open it."), say("Still closed."),
     ]
     screener = FixedScreener((Proceed(), 0.0), (Proceed(related=[1]), 0.0), (Proceed(), 0.0), (Proceed(related=[2]), 0.0))
     store = await serve(tmp_path, messages, script, screener, files=Files([Grant(os.path.normcase(os.path.realpath(folder)), "read")]), browser=browser)
@@ -99,7 +99,7 @@ async def test_follow_ups_inherit_the_taint_through_the_chat_and_unlinked_tasks_
 
 
 async def test_the_fail_open_fallback_carries_taint_too(tmp_path):
-    """If the front door cannot answer, the last three Exchanges go with the message: a tainted one among them closes the web."""
+    """If Screening cannot answer, the last three Exchanges go with the message: a tainted one among them closes the web."""
     folder = tmp_path / "Docs"
     folder.mkdir()
     cv = folder / "cv.pdf"
@@ -107,10 +107,10 @@ async def test_the_fail_open_fallback_carries_taint_too(tmp_path):
     browser = FakeBrowser(PAGE)
     messages = [ask("c1", f"Summarize {cv}"), ask("c1", "open the company site")]
     script = [
-        plan(f"read {cv}", role="reader"), reads(cv), say("A data engineer."), say("Ana is a data engineer."),
-        plan("open the site", role="browser"), browse("open", URL), say("I could not open it."), say("Closed."),
+        plan(f"read {cv}", role="local_file_reader"), reads(cv), say("A data engineer."), say("Ana is a data engineer."),
+        plan("open the site", role="web_browsing"), browse("open", URL), say("I could not open it."), say("Closed."),
     ]
-    screener = FixedScreener((Proceed(), 0.0), RuntimeError("the front door is down"))
+    screener = FixedScreener((Proceed(), 0.0), RuntimeError("Screening is down"))
     store = await serve(tmp_path, messages, script, screener, files=Files([Grant(os.path.normcase(os.path.realpath(folder)), "read")]), browser=browser)
 
     assert browser.calls == []
@@ -123,7 +123,7 @@ async def test_a_run_that_fails_after_reading_a_file_still_saves_that_it_was_tai
     folder.mkdir()
     cv = folder / "cv.pdf"
     cv.write_bytes(make_pdf(["Ana Quinn - Data Engineer"]))
-    h = Harness(tmp_path, [plan(f"read {cv}", role="reader"), reads(cv)], files=Files([Grant(os.path.normcase(os.path.realpath(folder)), "read")]))
+    h = Harness(tmp_path, [plan(f"read {cv}", role="local_file_reader"), reads(cv)], files=Files([Grant(os.path.normcase(os.path.realpath(folder)), "read")]))
     await h.run(f"Summarize {cv}")
     (run,) = h.store.query("SELECT outcome, tainted FROM runs")
     assert run["outcome"] == "failed" and run["tainted"]

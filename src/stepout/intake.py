@@ -1,8 +1,8 @@
-"""Intake: slash commands, then the front door (stepout/screening.py).
+"""Intake: slash commands, then Screening (stepout/screening.py).
 
 Every other message gets one screening call. It may be declined, answered as plain chat, or let through with the
 earlier Exchanges it depends on. If the call fails or makes no sense, the message goes through anyway, carrying the
-last few Exchanges, and the failure is recorded: the front door must never be the reason a legitimate request dies.
+last few Exchanges, and the failure is recorded: Screening must never be the reason a legitimate request dies.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from stepout.failure import Failure
 from stepout.ledger import Ledger
 from stepout.screening import Screener
 
-_FALLBACK_EXCHANGES = 3  # how much history a message carries when the front door could not say what it links to
+_FALLBACK_EXCHANGES = 3  # how much history a message carries when Screening could not say what it links to
 _CANNOT_RUN = {"auth", "no_key", "credit"}  # a front-door failure that the Run's own calls would repeat: say so, do not start a Run
 
 
@@ -24,7 +24,7 @@ class NewTask(BaseModel):
     kind: Literal["new_task"] = "new_task"
     request: str
     previous: list[Exchange] = []  # the Exchanges it builds on, oldest first; none for a new Task
-    cost_usd: float = 0.0  # what the front door spent; it counts against the Run
+    cost_usd: float = 0.0  # what Screening spent; it counts against the Run
 
 
 class ChatReading(BaseModel):
