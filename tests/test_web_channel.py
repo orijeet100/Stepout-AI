@@ -376,7 +376,7 @@ async def test_a_page_message_runs_through_the_real_app_and_reads_back_from_the_
         active = [f for f in seen if f["type"] == "status" and f["active"]][0]["active"]
         assert active == {"conversation_id": chat, "run_id": run_id, "cap_usd": 1.0}
         traces = [f for f in seen if f["type"] == "trace"]
-        assert [t["kind"] for t in traces if t["kind"] != "plan"] == ["step", "step", "shot", "step", "return", "step"]
+        assert [t["kind"] for t in traces if t["kind"] != "plan"] == ["step", "step", "shot", "result", "step", "return", "step"]
         shot = next(t for t in traces if t["kind"] == "shot")["data"]
         assert shot == {"summary": "page screenshot", "shot": "abc/1.jpg", "url": "https://example.com", "title": "Example"}
         reply = next(f for f in seen if f["type"] == "message" and f["role"] == "assistant")

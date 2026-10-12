@@ -44,9 +44,11 @@ def get_conversation(store: Store, conversation_id: str) -> ConversationDetail |
         RunSummary(
             run_id=r["id"], request=r["request"], state=_RUN_STATE.get(r["outcome"], "failed"), cost_usd=r["cost_usd"], cap_usd=r["cap_usd"],
             steps=r["steps"], started_at=r["started_at"], ended_at=r["ended_at"],
+            input_tokens=r["input_tokens"] or 0, output_tokens=r["output_tokens"] or 0, retries=r["retries"] or 0,
         )
         for r in store.query(
             "SELECT runs.id, tasks.request, runs.outcome, runs.cost_usd, runs.cap_usd, runs.started_at, runs.ended_at, "
+            "runs.input_tokens, runs.output_tokens, runs.retries, "
             "(SELECT COUNT(*) FROM events WHERE events.run_id = runs.id AND events.kind = 'step') AS steps "
             "FROM runs JOIN tasks ON tasks.id = runs.task_id WHERE tasks.conversation_id = ? ORDER BY runs.started_at",
             (conversation_id,),

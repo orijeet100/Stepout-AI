@@ -74,3 +74,21 @@ async def test_a_reader_asked_for_a_blocked_file_gets_a_refusal_and_no_contents(
     )
     await h.run("show me my .env")
     assert "Denied: off-limits" in h.seen_by(2) and "not-a-real-key" not in h.seen_by(2) and "not-a-real-key" not in h.seen_by(3)
+
+
+async def test_what_a_file_said_is_not_in_the_ledger_only_where_it_was_read_and_how_big(tmp_path, folder):
+    import json
+
+    cv = folder / "cv.pdf"
+    cv.write_bytes(make_pdf(["Ana Quinn - Data Engineer\nPython, SQL, Airflow (5 years)"]))
+    h = Harness(
+        tmp_path,
+        [plan(f"read {cv}", role="local_file_reader"), reads(cv), say("A data engineer."), say("Your CV says you are a data engineer.")],
+        files=Files([Grant(norm(folder), "read")]),
+    )
+    task = await h.run("what does my cv say?")
+
+    events = h.ledger.query(task.id)
+    assert "Ana Quinn" not in json.dumps([e.data for e in events])  # the tool's text never reaches the Ledger (a Finding is the model's own words)
+    (result,) = [e for e in events if e.kind == "result"]
+    assert result.data["chars"] > 0 and result.role == "local_file_reader"

@@ -32,6 +32,7 @@ class Outcome(StrEnum):
     DONE = "done"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    INTERRUPTED = "interrupted"  # the app stopped while it was running (closed at the next start)
 
 
 DEFAULT_CONVERSATION = "default"  # the CLI's one chat, and the page's until it sends chat ids
@@ -170,7 +171,7 @@ class Event(BaseModel):
     task_id: str | None = None
     run_id: str | None = None
     conversation_id: str | None = None
-    kind: str  # "screening" | "plan" | "step" | "return" | "stop" | "shot" | "message"
+    kind: str  # "screening" | "plan" | "step" | "result" | "retry" | "return" | "stop" | "shot" | "error" | "message"
     role: str | None = None  # which Role acted
     parent: str | None = None  # the Delegate step event that started this Role's work
     data: dict

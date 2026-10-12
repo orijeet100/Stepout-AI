@@ -123,7 +123,7 @@ async def test_a_browser_run_reads_back_whole_from_a_new_store(tmp_path):
     assert chat.messages[1].run_id == r.run_id
 
     events = history.run_events(reopened, r.run_id)
-    assert [e.kind for e in events if e.kind != "plan"] == ["step", "step", "shot", "step", "return", "step"]
+    assert [e.kind for e in events if e.kind != "plan"] == ["step", "step", "shot", "result", "step", "return", "step"]
     assert all(isinstance(e, TraceFrame) and e.conversation_id == "c1" and e.run_id == r.run_id for e in events)
     planning = next(e for e in events if e.kind == "step")
     assert next(e for e in events if e.kind == "step" and e.role == "web_browsing").parent == planning.id  # the Role's work hangs off the plan step

@@ -305,3 +305,29 @@ async def test_roles_hold_only_their_own_hand(tmp_path):
     task = await h.run()
     assert h.fetcher.urls == []  # the Web Browsing agent cannot use the Fetcher
     assert any(e.data["verdict"] == "refuse" and e.role == "web_browsing" for e in h.ledger.query(task.id) if e.kind == "step")
+
+
+async def test_each_step_records_what_its_call_took_and_the_run_keeps_the_totals(tmp_path):
+    first = ModelResponse(action=PlanAction(steps=[PlanStep(role="web_research", goal="a")]), cost_usd=0.002, input_tokens=300, output_tokens=40)
+    h = Harness(tmp_path, [first, say("found", input_tokens=120, output_tokens=15), say("done", input_tokens=500, output_tokens=60)])
+    task = await h.run()
+
+    steps = [e for e in h.ledger.query(task.id) if e.kind == "step"]
+    assert [(e.data["input_tokens"], e.data["output_tokens"]) for e in steps] == [(300, 40), (120, 15), (500, 60)]
+    assert all(e.data["attempts"] == 1 and e.data["duration_ms"] >= 0 and e.data["prompt_chars"] > 0 and e.data["model"] for e in steps)
+    assert steps[0].data["model"] == SONNET and steps[1].data["model"] == HAIKU
+    totals = h.store.query("SELECT input_tokens, output_tokens, retries FROM runs")[0]
+    assert tuple(totals) == (920, 115, 0)
+
+
+async def test_a_tool_leaves_a_result_event_with_a_size_and_never_its_text(tmp_path):
+    h = Harness(tmp_path, [plan("read it"), fetch("https://example.com/p"), say("found it"), say("done")], fetcher=FakeFetcher("the secret page text " * 20))
+    task = await h.run()
+
+    events = h.ledger.query(task.id)
+    (result,) = [e for e in events if e.kind == "result"]
+    step = next(e for e in events if e.kind == "step" and e.data["action"]["kind"] == "fetch")
+    assert result.parent == step.id and result.role == "web_research"
+    assert result.data["chars"] > 400 and result.data["duration_ms"] >= 0 and result.data["cut"] is False
+    assert "secret page text" not in str([e.data for e in events if e.kind in ("result", "step", "return")])  # the Ledger gets sizes, not what the page said
+    assert [e.data["finding_chars"] for e in events if e.kind == "return"] == [len("found it")]

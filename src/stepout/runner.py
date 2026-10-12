@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable, Sequence
 from uuid import uuid4
@@ -58,6 +59,9 @@ class _Run:
     previous: str = ""  # the linked Exchanges, rendered; only the Orchestrator sees them
     state: RunState = field(default_factory=RunState)  # shared by every Role: read counters and, later, the taint
     urls: set[str] = field(default_factory=set)  # addresses a tainted Run's reply may still link to (see links.py)
+    input_tokens: int = 0  # what its model calls were billed for, in all
+    output_tokens: int = 0
+    scope: RunScope | None = None  # its retry counters (scope.py)
     id: str = field(default_factory=lambda: uuid4().hex)
 
 
@@ -126,15 +130,14 @@ class Runner:
         self._cancel.clear()
         run = _Run(task_id=task.id, conversation_id=task.conversation_id, cap=self._cap, spent=screening_cost, previous=_previous_block(previous))
         # What the model port and the log may know about this Run, for as long as it is in progress (see scope.py).
-        token = scope.enter(
-            RunScope(
-                run_id=run.id, task_id=task.id, conversation_id=task.conversation_id,
-                emit=lambda kind, summary, **data: self._emit(run, kind, run.acting, summary, **data),
-                reset_stream=lambda: self._reset_stream(run),
-                budget_left=lambda: run.cap - run.spent,
-                charge=lambda usd: setattr(run, "spent", run.spent + usd),
-            )
+        run.scope = RunScope(
+            run_id=run.id, task_id=task.id, conversation_id=task.conversation_id,
+            emit=lambda kind, summary, **data: self._emit(run, kind, run.acting, summary, **data),
+            reset_stream=lambda: self._reset_stream(run),
+            budget_left=lambda: run.cap - run.spent,
+            charge=lambda usd: setattr(run, "spent", run.spent + usd),
         )
+        token = scope.enter(run.scope)
         try:
             await self._submit(run, task, previous)
         finally:
@@ -159,7 +162,11 @@ class Runner:
         except Exception as exc:  # a model call or a hand failed: the Run fails, the User is told in a line, and the app serves the next message
             finding = await self._failed(run, exc)
         finally:
-            self._ledger.end_run(run.id, outcome, run.spent, run.state.tainted)
+            self._ledger.end_run(
+                run.id, outcome, run.spent, run.state.tainted,
+                input_tokens=run.input_tokens, output_tokens=run.output_tokens,
+                retries=run.scope.retries if run.scope else 0, retry_wait_s=run.scope.retry_wait_s if run.scope else 0.0,
+            )
             await self._browser.close(run.id)  # its pages are this Run's alone
         text = finding.text if finding.text.strip() else _NO_ANSWER
         text = defang(text, run.urls) if run.state.tainted else text  # a file may ask for a link that holds its own text
@@ -216,7 +223,7 @@ class Runner:
             run.urls |= urls(child.text)
         plan_step.status = "done" if child.ok else "failed"
         await self._emit_plan(run)
-        await self._emit(run, "return", plan_step.role, f"{plan_step.status}: {child.text[:200]}", parent=parent, ok=child.ok)
+        await self._emit(run, "return", plan_step.role, f"{plan_step.status}: {child.text[:200]}", parent=parent, ok=child.ok, finding_chars=len(child.text))
         notes.append(f"Finding for step {i} ({plan_step.status}):\n{child.text[:TEXT_CHARS]}")
 
     async def _agent(self, role_name: str, goal: str, run: _Run, parent: str | None) -> Finding:
@@ -263,6 +270,8 @@ class Runner:
             if streaming and not isinstance(response.action, AnswerAction):
                 await self._delta(run, reset=True)  # words that came before a tool call were not the answer
             run.spent += response.cost_usd
+            run.input_tokens += response.input_tokens
+            run.output_tokens += response.output_tokens
 
             action = response.action
             verdict = gate.check(action, role.actions, ctx)
@@ -273,7 +282,12 @@ class Runner:
             summary = _summary(action, run.plan) if allowed else f"refused {action.kind}: {verdict.reason}"
             if repeat:  # the Gate had nothing against it, but it is not run: say so, so the Trace does not show a page loaded twice
                 summary = f"repeat, not run again: {summary}"
-            step = await self._emit(run, "step", role_name, summary, parent=parent, cost=response.cost_usd, action=action.model_dump(), verdict=verdict.kind, **({"repeat": True} if repeat else {}))
+            step = await self._emit(
+                run, "step", role_name, summary, parent=parent, cost=response.cost_usd, action=action.model_dump(), verdict=verdict.kind,
+                model=request.model, input_tokens=response.input_tokens, output_tokens=response.output_tokens,
+                duration_ms=response.duration_ms, attempts=response.attempts, prompt_chars=len(request.system) + len(request.user_text),
+                **({"repeat": True} if repeat else {}),
+            )
             if not allowed:
                 notes.append(f"Refused: {verdict.reason}")
                 continue
@@ -299,10 +313,14 @@ class Runner:
                         notes.append(_REPEATED)
                         repeated = True  # a planted "read it again" loops a Reader until its steps run out and it never writes its Finding
                         continue
+                    began = time.monotonic()
                     try:
                         notes.append(await self._unless_stopped(cap.run(action, ctx)))
                     except _Stopped:
                         return await self._stop(run, role_name, parent, "Stopped by you.")
+                    chars = len(notes[-1])
+                    # what the tool gave back, as a size: never its text (the Ledger holds no file contents). ponytail: "cut" is a guess from the size
+                    await self._emit(run, "result", role_name, f"{action.kind}: {chars} characters", parent=step.id, duration_ms=round((time.monotonic() - began) * 1000), chars=chars, cut=chars >= TEXT_CHARS)
                     cap.compact(notes)
                     last = key
                     if cap.repeat_guard(action):

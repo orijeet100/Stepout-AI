@@ -110,6 +110,9 @@ class RunSummary(_Wire):
     steps: int
     started_at: datetime
     ended_at: datetime | None
+    input_tokens: int = 0  # what its model calls were billed for
+    output_tokens: int = 0
+    retries: int = 0  # model-call retries it needed
 
 
 class ConversationDetail(_Wire):

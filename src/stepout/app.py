@@ -109,6 +109,8 @@ async def main() -> None:
     model = RetryingModel(base)  # the one retry policy (ADR 0015), for the Runner, Screening and the Searcher alike
     store = Store(DB_PATH)
     ledger = Ledger(store)
+    if (cut_off := ledger.close_interrupted()):
+        logging.getLogger(__name__).warning("closed %d run(s) the last session left open", cut_off)
     fetcher = Fetcher()
     if "web" in sys.argv[1:]:
         channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store))  # the channel reads history from the app's own Store
