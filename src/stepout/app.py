@@ -149,7 +149,7 @@ async def main() -> None:
             capture_mod.Capture(CAPTURE_PATH).remove(run_ids)  # a deleted chat's prompts go with it, whether or not capture is on now
 
         keeper = ChatKeeper(ledger, SHOTS_PATH, [forget_chat, remove_capture])
-        channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store), keeper=keeper)  # the channel reads history from the app's own Store
+        channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store), keeper=keeper, memory=memory)  # the channel reads history from the app's own Store
         print(f"Stepout web chat: http://127.0.0.1:{await channel.start()}  (Ctrl+C to stop)")
     else:
         channel = CliChannel()

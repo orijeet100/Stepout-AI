@@ -7,6 +7,13 @@
       "runtimeArgs": ["-m", "stepout.app", "web"],
       "port": 8765,
       "autoPort": true
+    },
+    {
+      "name": "stepout-demo",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["web/mock/real_backend.py", "--port", "8791", "--delay", "0.2"],
+      "port": 8791,
+      "autoPort": true
     }
   ]
 }

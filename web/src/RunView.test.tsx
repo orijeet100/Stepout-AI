@@ -187,3 +187,28 @@ describe('declined and queued', () => {
     expect(screen.getAllByText('Queued')).toHaveLength(1)
   })
 })
+
+describe('retries and Memory are lines of the Run, not steps', () => {
+  const event = (id: string, kind: string, role: string, data: Record<string, unknown>, cost = 0) => ({
+    id, conversation_id: 'c'.repeat(32), run_id: 'r'.repeat(32), parent: null, kind, role, data, cost_usd: cost, at: `2026-10-12T09:00:0${id}.000Z`,
+  })
+
+  it('shows a wait for the provider and what Memory handed over, and counts only real steps', () => {
+    const run = {
+      id: 'r'.repeat(32), conversationId: 'c'.repeat(32), startedAt: '2026-10-12T09:00:00.000Z', hint: 'done' as const, cap: 1,
+      events: [
+        event('1', 'memory', 'orchestrator', { summary: 'Memory handed over 2 item(s), 180 characters', op: 'recall', ok: true }),
+        event('2', 'retry', 'web_research', { summary: 'The provider is busy; trying again in 2 s (2 of 3)' }, 0.0003),
+        event('3', 'step', 'web_research', { summary: 'fetch https://example.com', verdict: 'allow', action: { kind: 'fetch' } }, 0.01),
+        event('4', 'memory', 'orchestrator', { summary: 'This task was not kept in Memory', op: 'record', ok: false }),
+      ],
+    }
+    const { container } = render(<RunBlock run={run} state="done" cap={1} now={0} onStop={() => {}} />)
+    const steps = screen.getByRole('list', { name: 'Actions' })
+    expect(within(steps).getByText('Memory handed over 2 item(s), 180 characters')).toBeTruthy()
+    expect(within(steps).getByText('The provider is busy; trying again in 2 s (2 of 3)')).toBeTruthy()
+    expect(within(steps).getAllByText('Memory')).toHaveLength(2) // the chip, not a role name
+    expect(container.querySelector('.run__sum')?.textContent).toContain('1 action ') // the retry and the Memory lines are not actions
+    expect(within(steps).getByText('This task was not kept in Memory').closest('li')!.className).toContain('is-note')
+  })
+})

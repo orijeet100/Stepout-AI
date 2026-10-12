@@ -30,8 +30,8 @@ function Line({ e }: { e: Trace }) {
   const v = e.data.verdict ? VERDICT[e.data.verdict] : null
   const text = plainLine(e.data.summary ?? '')
   return (
-    <li className={e.kind === 'stop' ? 'is-stop' : undefined}>
-      <span className="chip">{agentName(e.role)}</span>
+    <li className={e.kind === 'stop' ? 'is-stop' : e.kind === 'retry' || (e.kind === 'memory' && e.data.ok === false) ? 'is-note' : undefined}>
+      <span className="chip">{e.kind === 'memory' || !e.role ? 'Memory' : agentName(e.role)}</span>
       <span className="steps__line" title={e.data.summary}>{text}</span>
       {v ? (
         <span className={`verdict verdict--${e.data.verdict}`}>
@@ -55,7 +55,8 @@ export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: P
   const time = elapsedText(elapsedMs(run, running, now))
   const steps = stepCount(run)
   const shots = shotsOf(run)
-  const lines = run.events.filter((e) => e.kind === 'step' || e.kind === 'return' || e.kind === 'stop')
+  // retries and what Memory did are lines too: a wait or a recollection the User should be able to see (they are not steps, so they are not counted as actions)
+  const lines = run.events.filter((e) => e.kind === 'step' || e.kind === 'return' || e.kind === 'stop' || e.kind === 'retry' || e.kind === 'memory')
   const summary = running
     ? ['Working…', total ? stepsOf(done, total) : '', time].filter(Boolean).join(' · ')
     : [STATE_LABEL[state], `${steps} action${steps === 1 ? '' : 's'}`, money(cost), time].filter(Boolean).join(' · ')

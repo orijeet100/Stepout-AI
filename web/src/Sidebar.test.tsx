@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from './Sidebar'
 
 const at = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString()
@@ -51,5 +51,56 @@ describe('Sidebar', () => {
     rerender(<Sidebar {...base} chats={[chat('a', 'First', 0)]} onToggle={onToggle} collapsed />)
     expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'New chat' }).getAttribute('title')).toBe('New chat') // an icon alone in the rail: it has a tooltip
+  })
+
+  describe('managing chats', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    it('searches as you type, and says so when nothing matches', () => {
+      const onQuery = vi.fn()
+      const { rerender } = render(<Sidebar {...base} chats={[chat('a', 'First', 0)]} query="" onQuery={onQuery} />)
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Search chats' }), { target: { value: 'oslo' } })
+      expect(onQuery).toHaveBeenCalledWith('oslo')
+      rerender(<Sidebar {...base} chats={[]} query="oslo" onQuery={onQuery} />)
+      expect(screen.getByText('No chats match.')).toBeTruthy()
+    })
+
+    it('renames a chat after asking for the new title, and does nothing if the question is dismissed', () => {
+      const onRename = vi.fn()
+      const ask = vi.spyOn(window, 'prompt').mockReturnValueOnce('  Oslo trip ').mockReturnValueOnce(null).mockReturnValueOnce('   ')
+      render(<Sidebar {...base} chats={[chat('a', 'First', 0)]} onRename={onRename} />)
+      const rename = screen.getByRole('button', { name: 'Rename chat' })
+      fireEvent.click(rename)
+      expect(ask).toHaveBeenCalledWith('Rename this chat', 'First')
+      expect(onRename).toHaveBeenCalledWith('a', 'Oslo trip')
+      fireEvent.click(rename)
+      fireEvent.click(rename)
+      expect(onRename).toHaveBeenCalledTimes(1) // cancelled, then blank
+    })
+
+    it('deletes only after the User confirms, and the question says it cannot be undone', () => {
+      const onDelete = vi.fn()
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+      render(<Sidebar {...base} chats={[chat('a', 'First', 0)]} onDelete={onDelete} />)
+      const del = screen.getByRole('button', { name: 'Delete chat' })
+      fireEvent.click(del)
+      expect(onDelete).not.toHaveBeenCalled()
+      fireEvent.click(del)
+      expect(onDelete).toHaveBeenCalledWith('a')
+      expect(String(confirm.mock.calls[0][0])).toContain('cannot be brought back')
+    })
+
+    it('offers neither while the chat is running or waiting, since the backend would refuse', () => {
+      render(<Sidebar {...base} chats={[chat('a', 'Busy', 0, 'running'), chat('b', 'Waiting', 0, 'queued')]} onRename={() => {}} onDelete={() => {}} />)
+      expect(screen.queryByRole('button', { name: 'Rename chat' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Delete chat' })).toBeNull()
+    })
+
+    it('opens Memory', () => {
+      const onMemory = vi.fn()
+      render(<Sidebar {...base} chats={[]} onMemory={onMemory} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Memory' }))
+      expect(onMemory).toHaveBeenCalled()
+    })
   })
 })

@@ -25,15 +25,17 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from stepout import history
 from stepout.chats import ChatKeeper
 from stepout.contract import (
-    Active, ClientFrame, ConversationDetail, ConversationSummary, HelloFrame, MessageFrame, NewConversation, Queued, RenameConversation, SendFrame, StatusFrame, StopFrame,
-    TraceFrame,
+    Active, ClientFrame, ConversationDetail, ConversationSummary, HelloFrame, MemoryEntryOut, MessageFrame, NewConversation, Queued, RememberRequest, RenameConversation,
+    SendFrame, StatusFrame, StopFrame, TraceFrame,
 )
+from stepout.memory_types import Memory
 from stepout.domain import DEFAULT_CONVERSATION, Event, Message, Reply
 from stepout.store import Store
 
 LOCAL_USER = "local"
 DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
 HEX32 = re.compile(r"[0-9a-f]{32}")
+MEMORY_ID = re.compile(r"[pfhm]-[0-9a-f]{6,12}")  # what Memory makes: p-3f9a1c, f-1a2b3c4d, h-..., m-...
 MAX_TEXT = 20_000  # characters in one message (a frame is capped at 64 KB)
 _CLIENT_FRAME = TypeAdapter(ClientFrame)
 
@@ -155,9 +157,10 @@ class LiveView:
 
 
 class WebChannel:
-    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path = Path("data/runs"), *, history: HistoryReader, keeper: ChatKeeper | None = None) -> None:
+    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path = Path("data/runs"), *, history: HistoryReader, keeper: ChatKeeper | None = None, memory: Memory | None = None) -> None:
         self._host, self._port, self._shots, self._history = host, port, shots, history
         self._keeper = keeper  # rename and delete (chats.py); without one the page can only read
+        self._memory = memory  # what the Memory panel lists and edits; None: the panel is not offered (404)
         self._sockets: set[web.WebSocketResponse] = set()
         self._waiting: deque[Message] = deque()  # sent while a Run is busy, in order
         self._wake = asyncio.Event()
@@ -328,6 +331,29 @@ class WebChannel:
             raise web.HTTPNotFound()
         return web.Response(text=text, content_type="text/markdown", headers={"Content-Disposition": f'attachment; filename="chat-{cid[:8]}.md"'})
 
+    async def _memory_list(self, request: web.Request) -> web.Response:
+        if self._memory is None or not self._memory.enabled:
+            raise web.HTTPNotFound()
+        return _json([MemoryEntryOut(id=e.id, kind=e.kind, text=e.text, source=e.source) for e in await self._memory.entries()])
+
+    async def _memory_add(self, request: web.Request) -> web.Response:
+        if self._memory is None or not self._memory.enabled:
+            raise web.HTTPNotFound()
+        try:
+            body = RememberRequest.model_validate(await request.json())
+        except (ValueError, ValidationError):
+            raise web.HTTPUnprocessableEntity(text="a line of 1 to 500 characters")
+        entry = await self._memory.remember(body.text)
+        return _json(MemoryEntryOut(id=entry.id, kind=entry.kind, text=entry.text, source=entry.source), status=201)
+
+    async def _memory_forget(self, request: web.Request) -> web.Response:
+        entry_id = request.match_info["id"]
+        if self._memory is None or not self._memory.enabled or not MEMORY_ID.fullmatch(entry_id):
+            raise web.HTTPNotFound()
+        if await self._memory.forget(entry_id) is None:
+            raise web.HTTPNotFound()
+        return web.Response(status=204)
+
     async def _run_events(self, request: web.Request) -> web.Response:
         run = request.match_info["run"]
         events = self._history.run_events(run) if HEX32.fullmatch(run) else []
@@ -407,6 +433,9 @@ class WebChannel:
                 web.patch("/api/conversations/{id}", self._rename),
                 web.delete("/api/conversations/{id}", self._delete),
                 web.get("/api/conversations/{id}/export", self._export),
+                web.get("/api/memory", self._memory_list),
+                web.post("/api/memory", self._memory_add),
+                web.delete("/api/memory/{id}", self._memory_forget),
                 web.get("/api/runs/{run}/events", self._run_events),
                 web.get("/shots/{run}/{name}", self._shot),
                 web.get("/live/{run}", self._live_stream),

@@ -53,6 +53,7 @@ export type Frame =
   | ({ type: 'status' } & Status)
 
 export type Chat = { id: string; title: string; updated_at: string; preview: string }
+export type MemoryEntry = { id: string; kind: 'persona' | 'fact' | 'history'; text: string; source: string }
 export type RunInfo = {
   run_id: string
   state: 'running' | 'done' | 'stopped' | 'failed'
@@ -192,5 +193,13 @@ export function parseDetail(v: unknown): Detail | null {
       })),
   }
 }
+
+/** GET /api/memory: what the assistant keeps about the User. Anything that is not a well-formed entry is left out. */
+export const parseMemory = (v: unknown): MemoryEntry[] =>
+  Array.isArray(v)
+    ? v
+        .filter((e): e is Record<string, unknown> => isRec(e) && isStr(e.id) && isStr(e.text) && (e.kind === 'persona' || e.kind === 'fact' || e.kind === 'history'))
+        .map((e) => ({ id: e.id as string, kind: e.kind as MemoryEntry['kind'], text: e.text as string, source: optStr(e.source) ?? '' }))
+    : []
 
 export const parseEvents = (v: unknown): Trace[] => (Array.isArray(v) ? v.map(parseTrace).filter((t): t is Trace => t !== null) : [])

@@ -25,6 +25,8 @@ from stepout import history  # noqa: E402
 from stepout.app import SavedChannel, run  # noqa: E402
 from stepout.capabilities.browse import BrowseAction  # noqa: E402
 from stepout.channels.web import StoreHistory, WebChannel  # noqa: E402
+from stepout.chats import ChatKeeper  # noqa: E402
+from stepout.memory import build as build_memory  # noqa: E402
 from stepout.domain import AnswerAction, ChatReply, DelegateAction, Decline, PlanAction, PlanStep, Proceed, Task  # noqa: E402
 from stepout.intake import Intake  # noqa: E402
 from stepout.ledger import Ledger  # noqa: E402
@@ -94,9 +96,9 @@ class DemoRunner(Runner):
         super().__init__(model, *args, **kwargs)
         self._demo = model
 
-    async def submit(self, task: Task, previous=(), screening_cost: float = 0.0) -> None:
+    async def submit(self, task: Task, previous=(), screening_cost: float = 0.0) -> str:
         self._demo.script = script_for(task.request)
-        await super().submit(task, previous, screening_cost)
+        return await super().submit(task, previous, screening_cost)
 
 
 class DemoBrowser:
@@ -131,13 +133,15 @@ async def main() -> None:
 
     store = Store(args.db)
     ledger = Ledger(store)
-    channel = WebChannel(port=args.port, shots=SHOTS, history=StoreHistory(store))
+    memory, _ = build_memory({"STEPOUT_MEMORY": "files"}, args.db.parent / "demo-memory")  # plain files: no key, no network
+    keeper = ChatKeeper(ledger, SHOTS)  # a delete here must not take the fixtures' screenshots: it removes only folders named for the chat's own Runs
+    channel = WebChannel(port=args.port, shots=SHOTS, history=StoreHistory(store), keeper=keeper, memory=memory)
     port = await channel.start()
     print(f"Real backend, scripted model (costs nothing): http://127.0.0.1:{port}   chats in {args.db}   (Ctrl+C to stop)")
     model = DemoModel(args.delay)
     saved = SavedChannel(channel, ledger)
-    runner = DemoRunner(model, NoFetcher(), ledger, saved.send, trace=channel.trace, cancel=channel.cancel, browser=DemoBrowser())
-    await run(saved, Intake(DemoScreener(), ledger, lambda conversation_id: history.exchanges(store, conversation_id)), runner)
+    runner = DemoRunner(model, NoFetcher(), ledger, saved.send, trace=channel.trace, cancel=channel.cancel, browser=DemoBrowser(), memory=memory)
+    await run(saved, Intake(DemoScreener(), ledger, lambda conversation_id: history.exchanges(store, conversation_id)), runner, memory=memory)
 
 
 if __name__ == "__main__":

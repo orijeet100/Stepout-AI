@@ -134,3 +134,18 @@ class RenameConversation(_Wire):
     """PATCH /api/conversations/{id}."""
 
     title: str = Field(min_length=1, max_length=120)
+
+
+class MemoryEntryOut(_Wire):
+    """GET /api/memory (a list of these) and the body of the 201 for POST /api/memory."""
+
+    id: str
+    kind: Literal["persona", "fact", "history"]
+    text: str
+    source: str = ""
+
+
+class RememberRequest(_Wire):
+    """POST /api/memory: a line for the Persona file."""
+
+    text: str = Field(min_length=1, max_length=500)

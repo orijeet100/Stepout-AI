@@ -48,6 +48,8 @@ export type Action =
   | { type: 'events'; runId: string; events: Trace[] }
   | { type: 'select'; id: string | null }
   | { type: 'created'; id: string; at: string }
+  | { type: 'renamed'; id: string; title: string }
+  | { type: 'removed'; id: string } // the User deleted this chat: everything the page held about it goes
   | { type: 'error'; error: string | null }
 
 const ms = (iso: string) => Date.parse(iso) || 0
@@ -149,6 +151,16 @@ export function reducer(s: State, a: Action): State {
       return { ...s, selected: a.id, draft: a.id === null }
     case 'created':
       return { ...s, selected: a.id, draft: false, loaded: { ...s.loaded, [a.id]: true }, chats: { ...s.chats, [a.id]: { id: a.id, title: '', updated_at: a.at, preview: '' } } }
+    case 'renamed':
+      return s.chats[a.id] ? { ...s, chats: { ...s.chats, [a.id]: { ...s.chats[a.id], title: a.title } } } : s
+    case 'removed': {
+      const { [a.id]: _chat, ...chats } = s.chats
+      const { [a.id]: _messages, ...messages } = s.messages
+      const { [a.id]: _loaded, ...loaded } = s.loaded
+      const runs = Object.fromEntries(Object.entries(s.runs).filter(([, r]) => r.conversationId !== a.id))
+      const was = s.selected === a.id
+      return { ...s, chats, messages, loaded, runs, selected: was ? null : s.selected, draft: was ? true : s.draft }
+    }
     case 'error':
       return { ...s, error: a.error }
   }

@@ -55,6 +55,9 @@ The wire between the React page (`web/`) and the backend (`src/stepout/channels/
 | `PATCH /api/conversations/{id}` | body `{title}` (1 to 120 characters): rename; `200 {id, title}`, `422` for a bad title, `404` unknown. Needs `Origin` and JSON like `POST` |
 | `DELETE /api/conversations/{id}` | purge the chat: its messages, Runs, events and screenshots (and what Memory learned from it): `204`, `404` unknown, `409` while it has a Run in progress or waiting. Needs `Origin`. **Not undoable**: the page asks first |
 | `GET /api/conversations/{id}/export` | the chat as Markdown (`text/markdown`, attachment): title, then each message in order; no trace data |
+| `GET /api/memory` | `[{id, kind, text, source}]`: what Memory keeps (`kind`: `persona` a line the User wrote, `fact` learned from their message, `history` an earlier task). `404` when Memory is off ([ADR 0016](adr/0016-memory-on-mem0-behind-the-seam.md)) |
+| `POST /api/memory` | body `{text}` (1 to 500 characters): add a line to the Persona; `201` with the entry, `422` for a bad body. Needs `Origin` and JSON |
+| `DELETE /api/memory/{id}` | forget one entry (`p-…`, `f-…`, `h-…`, `m-…`): `204`, `404` if unknown. Needs `Origin` |
 | `GET /api/runs/{run_id}/events` | `[trace…]` in order: exactly what was streamed live (minus `delta`). `404` for an unknown Run or one with no events yet |
 | `GET /shots/{run}/{n}.jpg` | a page screenshot (`run` is 32 hex characters; only files the assistant wrote; JPEG quality 50, viewport 1000×700) |
 | `GET /live/{run_id}` | the live browser view, below |

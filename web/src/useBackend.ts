@@ -12,6 +12,8 @@ export type Backend = {
   stop: () => void
   newChat: () => void
   select: (id: string) => void
+  rename: (id: string, title: string) => void
+  remove: (id: string) => void
   retry: () => void
 }
 
@@ -141,12 +143,39 @@ export function useBackend(): Backend {
     [createChat],
   )
 
+  const rename = useCallback((id: string, title: string) => {
+    void (async () => {
+      try {
+        const r = await fetch(`/api/conversations/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) })
+        if (!r.ok) throw new Error(String(r.status))
+        dispatch({ type: 'renamed', id, title })
+      } catch {
+        dispatch({ type: 'error', error: 'Could not rename this chat.' })
+      }
+    })()
+  }, [])
+
+  const remove = useCallback((id: string) => {
+    void (async () => {
+      try {
+        const r = await fetch(`/api/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' })
+        if (r.status === 409) return void dispatch({ type: 'error', error: 'This chat has a run in progress. Stop it first, then delete it.' })
+        if (!r.ok && r.status !== 404) throw new Error(String(r.status))
+        dispatch({ type: 'removed', id })
+      } catch {
+        dispatch({ type: 'error', error: 'Could not delete this chat.' })
+      }
+    })()
+  }, [])
+
   return {
     state,
     send,
     stop: () => socket.current?.send(JSON.stringify({ type: 'stop' })),
     newChat: () => dispatch({ type: 'select', id: null }), // instant: the chat is made when its first message is sent, so typing at once cannot land in the old chat
     select: (id) => dispatch({ type: 'select', id }),
+    rename,
+    remove,
     retry: () => {
       if (!state.error) return reconnect.current()
       void loadChats()

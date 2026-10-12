@@ -233,3 +233,31 @@ describe('chatGroups: the sidebar groups, as the template has them', () => {
     expect(chatGroups([], now)).toEqual([])
   })
 })
+
+describe('renaming and deleting a chat', () => {
+  const D = 'd'.repeat(32)
+
+  it('a rename changes the title and nothing else', () => {
+    const s = run(initial, ...frames(msg('m1', 'user', 'first request', 1)))
+    const after = run(s, { type: 'renamed', id: C, title: 'Oslo trip' })
+    expect(after.chats[C].title).toBe('Oslo trip')
+    expect(after.messages).toEqual(s.messages)
+    expect(run(s, { type: 'renamed', id: 'unknown', title: 'x' })).toBe(s)
+  })
+
+  it('a delete removes the chat, its messages and its runs, and leaves the others', () => {
+    const s = run(initial, ...frames(msg('m1', 'user', 'one', 1), trace('e1', 'r1', 'step', 2), msg('m2', 'user', 'two', 3, null, D), trace('e2', 'r2', 'step', 4, {}, D)))
+    const after = run(s, { type: 'removed', id: C })
+    expect(Object.keys(after.chats)).toEqual([D])
+    expect(Object.keys(after.messages)).toEqual([D])
+    expect(Object.keys(after.runs)).toEqual(['r2'])
+  })
+
+  it('deleting the open chat leaves nothing selected, on purpose, so the next list read does not reopen another', () => {
+    const s = run(initial, ...frames(msg('m1', 'user', 'one', 1)), { type: 'select', id: C } as Action)
+    const after = run(s, { type: 'removed', id: C })
+    expect(after.selected).toBeNull()
+    expect(after.draft).toBe(true)
+    expect(run(after, { type: 'chats', chats: [{ id: D, title: 'other', updated_at: t(5), preview: '' }] }).selected).toBeNull()
+  })
+})
