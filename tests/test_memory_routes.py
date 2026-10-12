@@ -47,6 +47,24 @@ async def test_a_line_is_added_to_persona_and_one_entry_is_forgotten(world):
     assert await world.memory.entries() == []
 
 
+async def test_an_entry_is_edited_in_place_and_a_bad_edit_or_a_missing_origin_is_refused(world):
+    await world.memory.remember("I live in Oslo")
+    (fact,) = await world.memory.learn(["I have a dog"], conversation_id="c1", message_at=NOW)
+    persona = (await world.memory.entries())[0]
+    async with world.http.patch(f"{world.base}/api/memory/{persona.id}", json={"text": "I live in  Bergen"}) as r:
+        assert r.status == 200 and (await r.json())["text"] == "I live in Bergen"
+    async with world.http.patch(f"{world.base}/api/memory/{fact.id}", json={"text": "I have two dogs"}) as r:
+        assert r.status == 200 and (await r.json())["kind"] == "fact"
+    assert [e.text for e in await world.memory.entries()] == ["I live in Bergen", "I have two dogs"]
+    async with world.http.patch(f"{world.base}/api/memory/{fact.id}", json={"text": "gone"}) as r:
+        assert r.status == 404  # the old id went with the old words
+    async with world.http.patch(f"{world.base}/api/memory/{persona.id}", json={"text": ""}) as r:
+        assert r.status in (404, 422)
+    async with aiohttp.ClientSession() as bare:
+        async with bare.patch(f"{world.base}/api/memory/p-000000", json={"text": "x"}) as r:
+            assert r.status == 403
+
+
 async def test_a_bad_line_an_odd_id_and_a_missing_origin_are_refused(world):
     for body in ({"text": ""}, {"text": "x" * 501}, {"nope": 1}):
         async with world.http.post(f"{world.base}/api/memory", json=body) as r:

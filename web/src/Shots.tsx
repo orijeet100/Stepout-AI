@@ -76,7 +76,7 @@ export function BrowserPanel({ runId, live, shots, onOpen }: PanelProps) {
                 happening instead of showing a white square. The stream stays connected underneath, ready when this lifts. */}
             {!last && (
               <div className="browser__loading" role="status">
-                <span className="glyph glyph--running" aria-hidden="true" />
+                <span className="spin" aria-hidden="true"><Icon name="loader" size={18} /></span>
                 <span>Opening the page…</span>
               </div>
             )}

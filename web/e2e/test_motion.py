@@ -10,10 +10,10 @@ FINISHED = re.compile(r"^\d+ actions? · \$[\d.]+ · \d+ s$")
 # the computed motion of every kind of thing that moves, read from the page while a run is going
 MOTION = """() => {
   const css = (sel) => { const e = document.querySelector(sel); return e ? getComputedStyle(e) : null }
-  const spin = css('.run--running .glyph--running') // a plan step that is running
-  const pulse = css('.run--running .dot--running')
+  const spin = css('.run--running .spin') // a plan step or a task that is running
+  const pulse = css('.side .dot--running') // the chat that is running, in the list
   const chev = css('.run__chev')
-  const bar = css('.meter__bar > span')
+  const bar = css('.bar > span')
   const side = css('.side')
   const app = css('.app') // the grid column the sidebar folds in
   return {
@@ -28,7 +28,7 @@ def go(page) -> dict:
     page.get_by_label("New chat", exact=True).click()
     page.get_by_label("Message").fill("What are the top events this weekend?")
     page.get_by_label("Message").press("Enter")
-    expect(page.locator(".run--running .glyph--running").first).to_be_visible(timeout=30000)  # a step that is working: the spinner
+    expect(page.locator(".run--running .spin").first).to_be_visible(timeout=30000)  # something working: the spinner
     return page.evaluate(MOTION)
 
 

@@ -21,3 +21,4 @@ An ADR records a decision that is hard to reverse, surprising, or a real trade-o
 | [0015](0015-one-retry-policy-at-the-model-port.md) | One retry policy, owned by the Model port | accepted |
 | [0016](0016-memory-on-mem0-behind-the-seam.md) | Memory: a Persona file, a learned store behind one seam, Mem0 as the primary store | accepted; built |
 | [0017](0017-the-page-follows-the-chatgpt-look.md) | The page follows the look of ChatGPT | accepted |
+| [0018](0018-agent-work-as-assistant-ui-draws-it.md) | A Run is drawn as assistant-ui draws agent work: a plan, task cards, tool calls | accepted |

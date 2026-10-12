@@ -7,6 +7,7 @@ A Run is never failed or delayed by Memory: the Runner bounds `recall` and `reco
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import uuid
 from datetime import datetime, timezone
@@ -105,6 +106,19 @@ class MemoryService:
         floor = datetime.min.replace(tzinfo=timezone.utc)
         return sorted([*self._persona.entries(), *learned], key=lambda e: (order[e.kind], -(e.at or floor).timestamp()))
 
+    async def edit(self, entry_id: str, text: str) -> Entry | None:
+        """The User rewrites one entry. A learned one is added again with the new words and its origin, then the old one is removed: in that
+        order, so a failure halfway leaves both, never neither. The same add and delete either store already does (no Mem0 model call)."""
+        text = _line(text)
+        if entry_id.startswith("p-"):
+            return self._persona.replace(entry_id, text)
+        old = next((e for e in await self._store.entries() if e.id == entry_id), None)
+        if old is None:
+            return None
+        new = await self._store.add(dataclasses.replace(old, id=f"{entry_id[0]}-{uuid.uuid4().hex[:8]}", text=text))
+        await self._store.delete(entry_id)
+        return new
+
     async def forget(self, entry_id: str) -> Entry | None:
         return self._persona.remove(entry_id) if entry_id.startswith("p-") else await self._store.delete(entry_id)
 
@@ -135,6 +149,9 @@ class NullMemory:
 
     async def entries(self) -> list[Entry]:
         return []
+
+    async def edit(self, entry_id: str, text: str) -> Entry | None:
+        return None
 
     async def forget(self, entry_id: str) -> Entry | None:
         return None

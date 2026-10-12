@@ -1,115 +1,80 @@
+import { useMemo } from 'react'
+import AgentPlan from './AgentPlan'
 import Icon from './Icon'
-import type { Trace, Verdict } from './protocol'
-import { agentName, elapsedMs, elapsedText, hasBrowserStep, money, plainLine, planOf, planProgress, shotsOf, spent, stepCost, stepCount } from './runview'
+import { elapsedMs, elapsedText, hasBrowserStep, money, planOf, planProgress, shotsOf, spent, workOf } from './runview'
 import { BrowserPanel, ThumbStrip } from './Shots'
 import type { Run, RunState } from './store'
+import TaskCard from './TaskCard'
+import ToolCall, { StateIcon } from './ToolCall'
 
-const VERDICT: Record<Verdict, { label: string; icon: 'check' | 'ban' | 'ask' }> = {
-  allow: { label: 'Allowed', icon: 'check' },
-  refuse: { label: 'Refused', icon: 'ban' },
-  ask: { label: 'Asks you', icon: 'ask' },
-}
-const STATE_ICON: Record<Exclude<RunState, 'running'>, 'checkcircle' | 'ban' | 'xcircle'> = { done: 'checkcircle', stopped: 'ban', overbudget: 'xcircle', failed: 'xcircle' }
 const STATE_LABEL: Record<RunState, string> = { running: 'Working…', done: '', stopped: 'Stopped by you', overbudget: 'Over budget', failed: 'Failed' }
 
 const stepsOf = (done: number, total: number) => `${done} of ${total} step${total === 1 ? '' : 's'}`
 
-/** A real number against its real limit: never an estimate, so no bar without both. */
-function Meter({ label, now, max, text, tone }: { label: string; now: number; max: number; text: string; tone?: 'warn' | 'full' }) {
+/** Spend against the Run's cap, drawn like the plan's header and bar: a real number against its real limit, so no bar without both. */
+function Budget({ cost, cap }: { cost: number; cap: number }) {
+  const text = `${money(cost)} of ${money(cap)}`
+  const tone = cost >= cap ? 'is-full' : cost >= cap * 0.8 ? 'is-warn' : undefined
   return (
     <div className="meter">
-      <div className="meter__head"><span>{label}</span><span>{text}</span></div>
-      <div className="meter__bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.min(now, max)} aria-valuetext={text}>
-        <span className={tone ? `is-${tone}` : undefined} style={{ width: `${Math.min(100, (now / max) * 100)}%` }} />
+      <div className="aplan__head"><span className="aplan__title">Budget</span><span className="mono">{text}</span></div>
+      <div className="bar" role="progressbar" aria-label="Budget" aria-valuemin={0} aria-valuemax={cap} aria-valuenow={Math.min(cost, cap)} aria-valuetext={text}>
+        <span className={tone} style={{ width: `${Math.min(100, (cost / cap) * 100)}%` }} />
       </div>
     </div>
   )
 }
 
-function Line({ e }: { e: Trace }) {
-  const v = e.data.verdict ? VERDICT[e.data.verdict] : null
-  const text = plainLine(e.data.summary ?? '')
-  return (
-    <li className={e.kind === 'stop' ? 'is-stop' : e.kind === 'retry' || (e.kind === 'memory' && e.data.ok === false) ? 'is-note' : undefined}>
-      <span className="chip">{e.kind === 'memory' || !e.role ? 'Memory' : agentName(e.role)}</span>
-      <span className="steps__line" title={e.data.summary}>{text}</span>
-      {v ? (
-        <span className={`verdict verdict--${e.data.verdict}`}>
-          <Icon name={v.icon} size={13} /> {v.label}
-        </span>
-      ) : (
-        <span />
-      )}
-      <span className="steps__cost">{e.cost_usd > 0 ? stepCost(e.cost_usd) : ''}</span>
-    </li>
-  )
-}
-
 type Props = { run: Run; state: RunState; cap: number | null; now: number; onStop: () => void; onOpenShot?: (index: number) => void }
 
+/** A Run as assistant-ui draws agent work: one line that opens onto the plan, the budget, and a card for each task the Orchestrator handed
+ *  to a specialist, whose tool calls are inside it. The pages its browser saved sit under the line. */
 export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: Props) {
   const running = state === 'running'
   const plan = planOf(run)
   const { done, total } = planProgress(plan)
   const cost = spent(run)
   const time = elapsedText(elapsedMs(run, running, now))
-  const steps = stepCount(run)
   const shots = shotsOf(run)
-  // retries and what Memory did are lines too: a wait or a recollection the User should be able to see (they are not steps, so they are not counted as actions)
-  const lines = run.events.filter((e) => e.kind === 'step' || e.kind === 'return' || e.kind === 'stop' || e.kind === 'retry' || e.kind === 'memory')
+  const { calls, tasks } = useMemo(() => workOf(run, running), [run, running])
+  const steps = [...calls, ...tasks.flatMap((t) => t.calls)].filter((c) => !c.note).length // the tool calls you can see, not every model call behind them
   const summary = running
     ? ['Working…', total ? stepsOf(done, total) : '', time].filter(Boolean).join(' · ')
     : [STATE_LABEL[state], `${steps} action${steps === 1 ? '' : 's'}`, money(cost), time].filter(Boolean).join(' · ')
+  const busy = tasks.filter((t) => t.state === 'running').length
   return (
     <div className="runblock">
       <details className={`run run--${state}`} open={running}>
         <summary>
-          <span className={`run__state run__state--${state}`} aria-hidden="true">
-            {state === 'running' ? <span className="dot dot--running" /> : <Icon name={STATE_ICON[state]} />}
-          </span>
+          <span className="run__chev" aria-hidden="true"><Icon name="right" size={14} /></span>
           <span className="run__sum">{summary}</span>
-          <span className="run__chev"><Icon name="down" /></span>
+          <span className={`run__state run__state--${state}`} aria-hidden="true">
+            <StateIcon state={running ? 'running' : state === 'done' ? 'done' : state === 'stopped' ? 'stopped' : 'failed'} />
+          </span>
         </summary>
         <div className="run__body">
-          {(total > 0 || cap) && (
-            <div className="progress">
-              {total > 0 && <Meter label="Plan" now={done} max={total} text={stepsOf(done, total)} />}
-              {cap && <Meter label="Budget" now={cost} max={cap} text={`${money(cost)} of ${money(cap)}`} tone={cost >= cap ? 'full' : cost >= cap * 0.8 ? 'warn' : undefined} />}
-            </div>
-          )}
           {running && (
             <button className="btn btn--stop" type="button" onClick={onStop}>
               <Icon name="stop" size={14} /> Stop
             </button>
           )}
+          {plan.length > 1 && <AgentPlan steps={plan} />}{/* one step is just its task card: no checklist of one */}
+          {tasks.length > 0 && (
+            <section className="tasks" aria-label="Tasks">
+              {tasks.length > 1 && <p className="tasks__sum mono">{tasks.length} tasks{busy ? ` · ${busy} running` : ''}</p>}
+              {tasks.map((t) => <TaskCard key={t.id} task={t} now={now} />)}
+            </section>
+          )}
+          {calls.length > 0 && (
+            <div className="run__calls">
+              {calls.map((c) => <ToolCall key={c.id} call={c} />)}
+            </div>
+          )}
+          {cap ? <Budget cost={cost} cap={cap} /> : null}
           <BrowserPanel runId={run.id} live={running && hasBrowserStep(run)} shots={shots} onOpen={onOpenShot} />
-          {plan.length > 0 && (
-            <section className="run__section">
-              <p className="run__label" aria-hidden="true">Plan</p>
-              <ol className="plan" aria-label="Plan">
-                {plan.map((s, i) => (
-                  <li key={i} className={`plan__${s.status}`}>
-                    <span className={`glyph glyph--${s.status}`} role="img" aria-label={s.status}>
-                      {s.status === 'done' && <Icon name="check" size={12} />}
-                      {s.status === 'failed' && <Icon name="x" size={12} />}
-                    </span>
-                    <span className="chip">{agentName(s.role)}</span> {s.goal}
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-          {lines.length > 0 && (
-            <section className="run__section">
-              <p className="run__label" aria-hidden="true">Actions</p>
-              <ul className="steps" aria-label="Actions">
-                {lines.map((e) => <Line key={e.id} e={e} />)}
-              </ul>
-            </section>
-          )}
         </div>
       </details>
-      {/* under the card, not in it: a finished run's pages are reachable without opening the summary */}
+      {/* under the line, not in it: a finished run's pages are reachable without opening it */}
       {onOpenShot && <ThumbStrip shots={shots} onOpen={onOpenShot} />}
     </div>
   )

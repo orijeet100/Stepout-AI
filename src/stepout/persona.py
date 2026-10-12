@@ -1,7 +1,8 @@
 """Persona: facts and preferences the User keeps about themselves, in one plain Markdown file they can open and edit.
 
 One entry per bullet line (`- ...`); every other line is the User's own notes and is left alone. A line the User wrote is Pinned: nothing here
-changes or removes one except the User's own `/remember` (adds a line at the end) and `/forget` (removes the one line). An entry's id is a
+changes or removes one except the User's own `/remember` (adds a line at the end), an edit in the Memory panel (rewrites the one line) and
+`/forget` (removes the one line). An entry's id is a
 short hash of its text, so editing other lines never renumbers it.
 """
 
@@ -53,6 +54,16 @@ class Persona:
                 removed = Entry(id=entry_id, kind="persona", text=line[len(_BULLET):].strip(), source="you wrote it in persona.md")
                 self._write(lines[:i] + lines[i + 1 :])
                 return removed
+        return None
+
+    def replace(self, entry_id: str, text: str) -> Entry | None:
+        """Rewrite the one line with this id where it stands (the User's own edit). Nothing else in the file changes."""
+        text = " ".join(text.split())
+        lines = self._lines()
+        for i, line in enumerate(lines):
+            if line.startswith(_BULLET) and persona_id(line[len(_BULLET):]) == entry_id:
+                self._write([*lines[:i], f"{_BULLET}{text}", *lines[i + 1 :]])
+                return Entry(id=persona_id(text), kind="persona", text=text, source="you wrote it in persona.md")
         return None
 
     def _write(self, lines: list[str]) -> None:

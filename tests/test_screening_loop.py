@@ -105,8 +105,8 @@ async def test_related_exchanges_reach_the_orchestrator_in_full_and_a_new_task_g
     assert "#3\nrequest: list the PDFs on D:\nreply: Three: a, b, c." in last
     assert "what is 2+3?" not in last  # linked 1 and 3, not 2
     screener_view = model.requests[6].user_text  # what Screening was shown for the 4th message
-    for line in ('#1 "what does example.com say?" -> It says Example Domain.', '#2 "what is 2+3?" -> 5', '#3 "list the PDFs on D:" -> Three: a, b, c.'):
-        assert line in screener_view  # it was shown all three, one line each, with their numbers
+    for pair in ("#1\nUser: what does example.com say?\nAssistant: It says Example Domain.", "#2\nUser: what is 2+3?\nAssistant: 5", "#3\nUser: list the PDFs on D:\nAssistant: Three: a, b, c."):
+        assert pair in screener_view  # it was shown all three, whole, with their numbers
 
 
 async def test_website_then_something_random_then_the_website_again_links_back_to_the_website(tmp_path):
@@ -114,6 +114,14 @@ async def test_website_then_something_random_then_the_website_again_links_back_t
     model, _, _ = await converse(tmp_path, [FOUR_CHATS[0], FOUR_CHATS[1], ask("c1", "check that website again")], script)
     last = [r for r in model.requests if r.model == SONNET][2].user_text
     assert "reply: It says Example Domain." in last and "what is 2+3?" not in last  # a link across the unrelated message in between
+
+
+async def test_screening_is_shown_the_last_five_exchanges_whole(tmp_path):
+    script = [step for n in range(1, 7) for step in (proceed(), answer(f"Answer {n}.\nSecond line {n}."))] + [proceed(), answer("final")]
+    model, _, _ = await converse(tmp_path, [*(ask("c1", f"question {n}") for n in range(1, 7)), ask("c1", "go on")], script)
+    view = [r for r in model.requests if r.model != SONNET][-1].user_text  # the 7th message's screening
+    assert all(f"#{n}\nUser: question {n}\nAssistant: Answer {n}.\nSecond line {n}." in view for n in range(2, 7))  # five, each in full
+    assert "question 1" not in view
 
 
 async def test_a_failed_call_proceeds_with_the_last_three_exchanges_and_records_it(tmp_path):

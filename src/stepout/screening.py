@@ -54,12 +54,11 @@ class Screener(Protocol):
 
 
 def _index(recent: Sequence[Exchange]) -> str:
-    """One line per Exchange, the numbers the model answers with: `#7 "list Luma tech events" -> listed 14 events from luma.com/tech`."""
+    """The chat's recent Exchanges in full (history.exchanges: the last 5), each under the number the model answers with in `related`.
+    Whole, not one-line summaries: a reply's point is often past its first line, and small talk needs what was actually said."""
     if not recent:
         return "No earlier exchanges."
-    return "Earlier exchanges in this chat:\n" + "\n".join(
-        f'#{x.id} "{x.request[:80]}" -> {(x.reply.strip().splitlines() or [""])[0][:100]}' for x in recent
-    )
+    return "Earlier exchanges in this chat:\n\n" + "\n\n".join(f"#{x.id}\nUser: {x.request.strip()}\nAssistant: {x.reply.strip()}" for x in recent)
 
 
 def _text(args: dict, key: str) -> str:

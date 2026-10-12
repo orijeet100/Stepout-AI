@@ -33,7 +33,7 @@ export function expected(name: string) {
   const traces = raw(name).filter((f) => f.type === 'trace')
   const at = (f: Record<string, unknown>) => Date.parse(f.at as string)
   return {
-    steps: traces.filter((f) => f.kind === 'step').length,
+    steps: traces.filter((f) => f.kind === 'step' && !['plan', 'delegate', 'answer'].includes((f.data as { action?: { kind?: string } }).action?.kind ?? 'answer')).length, // the tool calls, not the model's planning and answering
     cost: traces.reduce((sum, f) => sum + (f.cost_usd as number), 0),
     seconds: Math.floor((at(traces.at(-1)!) - at(traces[0])) / 1000),
   }

@@ -24,7 +24,7 @@ def look_of(page) -> dict:
     block = page.locator(".runblock").last
     if not block.locator("details").evaluate("el => el.open"):
         block.locator("summary").click()
-    expect(block.locator(".steps li").first).to_be_visible()
+    expect(block.locator(".task").first).to_be_visible()
     return {
         "block": block.evaluate("el => el.outerHTML"),
         "reply": page.locator(".reply").last.evaluate("el => el.outerHTML"),
@@ -61,7 +61,7 @@ def test_a_run_still_going_comes_back_live_after_a_reload(request, backend):
     page = request.getfixturevalue("page" if backend == "mock" else "real_page")
     ask_in_a_new_chat(page)
     block = page.locator(".runblock").last
-    expect(block.locator(".steps li").nth(1)).to_be_visible(timeout=30000)  # under way
+    expect(block.locator(".task").first).to_be_visible(timeout=30000)  # under way: the first task has been handed out
 
     page.reload()
     page.wait_for_selector(".banner", state="detached")
@@ -70,7 +70,7 @@ def test_a_run_still_going_comes_back_live_after_a_reload(request, backend):
     expect(block.locator(".run__sum")).to_have_text(re.compile(r"^Working…"))  # as it was: working, open, with Stop
     assert block.locator("details").evaluate("el => el.open") is True
     expect(page.get_by_role("button", name="Stop", exact=True)).to_be_visible()
-    steps_then = block.locator(".steps li").count()
-    expect(block.locator(".steps li")).not_to_have_count(steps_then, timeout=30000)  # and it keeps filling in from the wire
+    lines_then = block.locator(".tool").count()
+    expect(block.locator(".tool")).not_to_have_count(lines_then, timeout=30000)  # and it keeps filling in from the wire
     expect(block.locator(".run__sum")).to_have_text(FINISHED, timeout=45000)  # and ends like any other
     expect(page.locator(".reply").last).to_be_visible()

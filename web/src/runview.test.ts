@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { agentName, elapsedMs, elapsedText, hasBrowserStep, liveSrc, money, plainLine, planProgress, safeHref, shotSrc, shotsOf, stepCost } from './runview'
+import { agentName, elapsedMs, elapsedText, hasBrowserStep, liveSrc, money, plainLine, planProgress, safeHref, shortModel, shotSrc, shotsOf, stepCost, workOf } from './runview'
 import type { Run } from './store'
+import { runOf, stateOf } from './testFixtures'
 
 const ev = (at: string) => ({ id: at, conversation_id: 'c', run_id: 'r', parent: null, kind: 'step', role: 'x', data: {}, cost_usd: 0, at })
 const run = (...ats: string[]): Run => ({ id: 'r', conversationId: 'c', startedAt: ats[0], hint: null, cap: null, events: ats.map(ev) })
@@ -78,5 +79,55 @@ describe("the browser's pages", () => {
     expect(safeHref('https://luma.com/discover?x=1#top')).toBe('https://luma.com/discover?x=1#top')
     expect(safeHref('http://localhost:8080/a')).toBe('http://localhost:8080/a')
     for (const bad of [null, '', 'luma.com', 'javascript:alert(1)', 'data:text/html,<script>', 'file:///etc/passwd', 'ftp://x.example', '//evil.example', 'vbscript:x']) expect(safeHref(bad), String(bad)).toBeNull()
+  })
+})
+
+describe('the work of a Run: the Orchestrator’s delegations are tasks, and each hand action is a tool call', () => {
+  const work = (name: string, opts: Parameters<typeof stateOf>[1] = { hint: 'done' }, running = false) => workOf(stateOf(name, opts).runs[runOf(name)!], running)
+
+  it('a web run: two tasks, in plan order, each with its own tool calls and what it reported back', () => {
+    const { tasks, calls } = work('web-run')
+    expect(calls).toEqual([]) // the Orchestrator only planned, delegated and answered
+    expect(tasks.map((t) => [t.goal, t.role, t.state])).toEqual([
+      ['Open the Luma discover page for New York', 'web_browsing', 'done'],
+      ['Read the three most popular weekend events', 'web_browsing', 'done'],
+    ])
+    expect(tasks.map((t) => t.calls.map((c) => [c.label, c.arg]))).toEqual([
+      [['Opened a page', 'luma.com/discover']],
+      [['Followed a link', 'link 3'], ['Scrolled the page', '']],
+    ])
+    expect(tasks[0].result).toBe('The discover page is open; the New York list is behind link 3.') // "done: " is the state, not the words
+    expect(tasks[0].calls[0].request).toBe('{"op": "open", "url": "https://luma.com/discover"}')
+    expect(tasks[0].calls[0].cost).toBe(0.0124)
+  })
+
+  it('while it runs: the task under way is running, and so is its newest call that has no result yet', () => {
+    const { tasks } = work('web-run', { upTo: 12, active: 1 }, true) // the second task has just followed a link
+    expect(tasks.map((t) => t.state)).toEqual(['done', 'running'])
+    expect(tasks[1].calls.map((c) => [c.state, c.doing])).toEqual([['running', 'Following a link']])
+  })
+
+  it('a refused action is a call that did not run, with the Gate’s reason as its result', () => {
+    const [task] = work('refused-action').tasks
+    const [refused, opened] = task.calls
+    expect([refused.label, refused.state, refused.result]).toEqual(['Not allowed to read a page', 'refused', 'Refused: a fetch action is not available to this role'])
+    expect([opened.label, opened.state]).toEqual(['Opened a page', 'done'])
+  })
+
+  it('a stop: the task says stopped, once, and is not relabelled failed by the return that follows', () => {
+    const { tasks, calls } = work('stopped', { hint: 'stopped' })
+    expect(tasks.map((t) => [t.state, t.result])).toEqual([['stopped', 'Stopped by you.']])
+    expect(calls).toEqual([]) // the Orchestrator's own "Stopped by you." is not a second line
+    expect(work('over-budget', { hint: 'stopped' }).tasks[0].result).toBe('Stopped: the $1.00 budget for this run is used up.')
+  })
+
+  it('a Run that ended before its task reported back leaves the task stopped, not spinning', () => {
+    const { tasks } = work('web-run', { upTo: 12, hint: 'failed' }, false)
+    expect(tasks[1].state).toBe('stopped')
+    expect(tasks[1].calls.every((c) => c.state !== 'running')).toBe(true)
+  })
+
+  it('a model id reads as its family; another provider keeps its own name', () => {
+    expect(['claude-haiku-5-5', 'claude-sonnet-5-5', 'anthropic/claude-opus-5-5', 'openai/gpt-5-mini', 'qwen3'].map(shortModel)).toEqual(['haiku', 'sonnet', 'opus', 'gpt-5-mini', 'qwen3'])
   })
 })

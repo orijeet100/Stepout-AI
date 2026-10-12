@@ -33,6 +33,24 @@ describe('MemoryView', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/memory/f-1a2b3c4d', { method: 'DELETE' }))
   })
 
+  it('edits an entry in place: Edit opens its words, Save sends them, Escape leaves it as it was', async () => {
+    fetchMock.mockImplementation((_url: string, init?: RequestInit) => (init?.method === 'PATCH' ? reply({ ...entries[1], id: 'f-99999999', text: 'I have two dogs' }) : reply(entries)))
+    render(<MemoryView onClose={() => {}} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit: I live in Oslo' }))
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Edit: I live in Oslo' }), { key: 'Escape' })
+    expect(screen.queryByRole('textbox', { name: 'Edit: I live in Oslo' })).toBeNull() // nothing sent
+    fireEvent.click(screen.getByRole('button', { name: 'Edit: I have a dog called Mo' }))
+    const box = screen.getByRole('textbox', { name: 'Edit: I have a dog called Mo' })
+    expect((box as HTMLInputElement).value).toBe('I have a dog called Mo') // starts from its words
+    fireEvent.change(box, { target: { value: ' I have two dogs ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: /^Edit:/ })).toBeNull())
+    const patch = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH')
+    expect(patch).toHaveLength(1)
+    expect(patch[0][0]).toBe('/api/memory/f-1a2b3c4d')
+    expect(JSON.parse(patch[0][1].body)).toEqual({ text: 'I have two dogs' })
+  })
+
   it('keeps a typed line in the Persona and clears the box', async () => {
     fetchMock.mockImplementation((_url: string, init?: RequestInit) => (init?.method === 'POST' ? reply({ id: 'p-aaaaaa', kind: 'persona', text: 'x', source: '' }, 201) : reply([])))
     render(<MemoryView onClose={() => {}} />)

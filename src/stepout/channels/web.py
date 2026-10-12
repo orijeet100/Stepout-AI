@@ -346,6 +346,19 @@ class WebChannel:
         entry = await self._memory.remember(body.text)
         return _json(MemoryEntryOut(id=entry.id, kind=entry.kind, text=entry.text, source=entry.source), status=201)
 
+    async def _memory_edit(self, request: web.Request) -> web.Response:
+        entry_id = request.match_info["id"]
+        if self._memory is None or not self._memory.enabled or not MEMORY_ID.fullmatch(entry_id):
+            raise web.HTTPNotFound()
+        try:
+            body = RememberRequest.model_validate(await request.json())
+        except (ValueError, ValidationError):
+            raise web.HTTPUnprocessableEntity(text="a line of 1 to 500 characters")
+        entry = await self._memory.edit(entry_id, body.text)
+        if entry is None:
+            raise web.HTTPNotFound()
+        return _json(MemoryEntryOut(id=entry.id, kind=entry.kind, text=entry.text, source=entry.source))
+
     async def _memory_forget(self, request: web.Request) -> web.Response:
         entry_id = request.match_info["id"]
         if self._memory is None or not self._memory.enabled or not MEMORY_ID.fullmatch(entry_id):
@@ -435,6 +448,7 @@ class WebChannel:
                 web.get("/api/conversations/{id}/export", self._export),
                 web.get("/api/memory", self._memory_list),
                 web.post("/api/memory", self._memory_add),
+                web.patch("/api/memory/{id}", self._memory_edit),
                 web.delete("/api/memory/{id}", self._memory_forget),
                 web.get("/api/runs/{run}/events", self._run_events),
                 web.get("/shots/{run}/{name}", self._shot),

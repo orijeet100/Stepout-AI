@@ -77,7 +77,7 @@ class Exchange(BaseModel):
     reply: str  # without the cost footer
     did: str  # one line: what the hands did ("browse open luma.com/discover"); empty if it only answered
     tainted: bool = False  # its Run held data from the User's files (it read a file, or built on an answer that did): whatever builds on it starts with the web closed
-    run_id: str
+    run_id: str = ""  # empty for a reply that needed no Run (Screening answered it, or declined it)
 
 
 # --- Actions the model may propose ---------------------------------------

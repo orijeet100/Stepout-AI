@@ -1,6 +1,19 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import Sidebar from './Sidebar'
+
+// jsdom has no <dialog>.showModal: the same stand-in as ShotViewer.test.tsx (the real modal is checked in Chrome by web/e2e/test_chat_manage.py).
+beforeAll(() => {
+  Object.assign(HTMLDialogElement.prototype, {
+    showModal(this: HTMLDialogElement) {
+      this.setAttribute('open', '')
+    },
+    close(this: HTMLDialogElement) {
+      this.removeAttribute('open')
+      this.dispatchEvent(new Event('close'))
+    },
+  })
+})
 
 const at = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString()
 const chat = (id: string, title: string, days: number, state: 'idle' | 'queued' | 'running' = 'idle') => ({ id, title, updated_at: at(days), preview: 'a reply', state })
@@ -65,29 +78,46 @@ describe('Sidebar', () => {
       expect(screen.getByText('No chats match.')).toBeTruthy()
     })
 
-    it('renames a chat after asking for the new title, and does nothing if the question is dismissed', () => {
+    it('renames a chat in its own row: Enter keeps the new title, Esc and a blank or unchanged title keep the old one', () => {
       const onRename = vi.fn()
-      const ask = vi.spyOn(window, 'prompt').mockReturnValueOnce('  Oslo trip ').mockReturnValueOnce(null).mockReturnValueOnce('   ')
       render(<Sidebar {...base} chats={[chat('a', 'First', 0)]} onRename={onRename} />)
-      const rename = screen.getByRole('button', { name: 'Rename chat' })
-      fireEvent.click(rename)
-      expect(ask).toHaveBeenCalledWith('Rename this chat', 'First')
+      const edit = () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Rename chat' }))
+        return screen.getByRole('textbox', { name: 'Chat title' }) as HTMLInputElement
+      }
+      let box = edit()
+      expect(box.value).toBe('First') // starts from the title
+      fireEvent.change(box, { target: { value: '  Oslo trip ' } })
+      fireEvent.submit(box.closest('form')!)
       expect(onRename).toHaveBeenCalledWith('a', 'Oslo trip')
-      fireEvent.click(rename)
-      fireEvent.click(rename)
-      expect(onRename).toHaveBeenCalledTimes(1) // cancelled, then blank
+      expect(screen.queryByRole('textbox', { name: 'Chat title' })).toBeNull() // back to the row
+
+      box = edit()
+      fireEvent.change(box, { target: { value: 'Never mind' } })
+      fireEvent.keyDown(box, { key: 'Escape' })
+      box = edit()
+      fireEvent.change(box, { target: { value: '   ' } })
+      fireEvent.blur(box)
+      box = edit()
+      fireEvent.blur(box) // unchanged
+      expect(onRename).toHaveBeenCalledTimes(1)
     })
 
-    it('deletes only after the User confirms, and the question says it cannot be undone', () => {
+    it('deletes only after the User confirms in a dialog that names the chat and says it cannot be undone', () => {
       const onDelete = vi.fn()
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
       render(<Sidebar {...base} chats={[chat('a', 'First', 0)]} onDelete={onDelete} />)
-      const del = screen.getByRole('button', { name: 'Delete chat' })
-      fireEvent.click(del)
+      fireEvent.click(screen.getByRole('button', { name: 'Delete chat' }))
+      const dialog = screen.getByRole('dialog', { name: 'Delete chat?' })
+      expect(dialog.textContent).toContain('First')
+      expect(dialog.textContent).toContain('cannot be brought back')
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
       expect(onDelete).not.toHaveBeenCalled()
-      fireEvent.click(del)
+      expect(dialog.hasAttribute('open')).toBe(false)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete chat' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
       expect(onDelete).toHaveBeenCalledWith('a')
-      expect(String(confirm.mock.calls[0][0])).toContain('cannot be brought back')
+      expect(dialog.hasAttribute('open')).toBe(false)
     })
 
     it('offers neither while the chat is running or waiting, since the backend would refuse', () => {

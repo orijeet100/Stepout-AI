@@ -12,7 +12,7 @@ const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
 const tokens = { light: {}, dark: {} }
 for (const [, name, l, d] of css.matchAll(/--([\w-]+): light-dark\((#\w{6}), (#\w{6})\)/g)) { tokens.light[name] = l; tokens.dark[name] = d }
 
-const grounds = ['bg', 'surface', 'surface-2', 'fill', 'sidebar', 'active', 'hover'] // every fill text can sit on (a bubble runs surface-2 to fill)
+const grounds = ['bg', 'surface', 'surface-2', 'fill', 'sidebar', 'active', 'hover', 'card', 'well', 'track'] // every fill text can sit on (a bubble runs surface-2 to fill)
 const pairs = [
   ...grounds.flatMap((g) => [['text', g, 4.5], ['muted', g, 4.5]]),
   ...['bg', 'surface', 'sidebar'].map((g) => ['accent', g, 4.5]), // links, and the strong fill of the send button
