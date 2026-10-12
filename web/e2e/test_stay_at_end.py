@@ -44,7 +44,7 @@ def test_a_taller_composer_does_not_cover_the_last_lines(page):
 
 def test_a_reader_who_scrolled_up_is_not_pulled_down_by_a_running_run(page):
     ask(page, "What are the top events this weekend?")
-    steps = page.locator(".run").last.locator(".steps li")
+    steps = page.locator(".run").last.locator(".tool")
     expect(steps.nth(1)).to_be_visible(timeout=30000)  # it is under way
     page.wait_for_function("() => { const s = document.querySelector('.scroll'); return s.scrollHeight - s.clientHeight > 150 }")  # and well taller than the screen
     page.locator(".scroll").evaluate("el => el.scrollTop = 0")  # the reader goes back up to the top

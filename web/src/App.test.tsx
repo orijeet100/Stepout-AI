@@ -246,6 +246,18 @@ describe('App', () => {
     expect(localStorage.getItem('stepout.sidebar')).toBe('open')
   })
 
+  it('switches between light and dark, and keeps the choice in this browser', async () => {
+    delete document.documentElement.dataset.theme
+    await connected() // jsdom has no matchMedia: the system reads as light
+    fireEvent.click(screen.getByRole('button', { name: 'Dark mode' }))
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(localStorage.getItem('stepout.theme')).toBe('dark')
+    fireEvent.click(screen.getByRole('button', { name: 'Light mode' }))
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(localStorage.getItem('stepout.theme')).toBe('light')
+    delete document.documentElement.dataset.theme
+  })
+
   it('sends a message as a v1 `send` frame for the open chat', async () => {
     const ws = await connected()
     const box = screen.getByLabelText('Message')
@@ -258,10 +270,12 @@ describe('App', () => {
     const ws = await connected()
     ws.push({ type: 'message', id: 'm3', conversation_id: C, role: 'user', text: 'And the cheapest?', run_id: null, cost_usd: null, at: t(10) })
     ws.push({ type: 'status', state: 'running', active: { conversation_id: C, run_id: R2, cap_usd: 1 }, queued: [], at: t(10) })
-    ws.push({ type: 'trace', id: 'e9', conversation_id: C, run_id: R2, parent: null, kind: 'step', role: 'orchestrator', data: { summary: 'plan: browser: Look it up', verdict: 'allow' }, cost_usd: 0.0141, at: t(11) })
+    ws.push({ type: 'trace', id: 'e9', conversation_id: C, run_id: R2, parent: null, kind: 'step', role: 'orchestrator', data: { summary: 'plan: Web Browsing: Look it up', action: { kind: 'plan' }, verdict: 'allow' }, cost_usd: 0.0141, at: t(11) })
+    ws.push({ type: 'trace', id: 'e9p', conversation_id: C, run_id: R2, parent: null, kind: 'plan', role: 'orchestrator', data: { summary: 'plan updated', steps: [{ role: 'web_browsing', goal: 'Look it up', status: 'running' }] }, cost_usd: 0, at: t(11) })
     expect(await screen.findByText(/^Working…/)).toBeTruthy()
     expect(screen.getAllByRole('progressbar', { name: 'Budget' }).at(-1)!.getAttribute('aria-valuetext')).toBe('$0.01 of $1.00') // the live Run's spend against cap_usd from the status frame
-    expect(screen.getByText('plan: browser: Look it up')).toBeTruthy()
+    expect(screen.getAllByText('Look it up')).toHaveLength(2) // in the plan, and as the task under way
+    expect(screen.getByRole('progressbar', { name: 'Look it up progress' }).getAttribute('aria-valuetext')).toBe('working')
     expect(screen.getAllByText('Running').length).toBeGreaterThan(0) // the header pill
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
     expect(JSON.parse(ws.sent.at(-1)!)).toEqual({ type: 'stop' })

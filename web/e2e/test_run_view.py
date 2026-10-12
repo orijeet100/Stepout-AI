@@ -52,10 +52,17 @@ def test_a_run_updates_live_and_ends_with_the_numbers_of_its_events(page, stack,
     assert int(m["secs"]) == seconds(events[0]["at"], events[-1]["at"])
     page.screenshot(path=str(tmp_path / "finished.png"))
 
-    # expanding shows the plan and the steps
+    # expanding shows the plan and a card per task; a task opens onto its tool calls, and a call onto its request
     run.locator("summary").click()
     expect(run.get_by_role("list", name="Plan")).to_be_visible()
-    expect(run.get_by_text("browse open luma.com/discover")).to_be_visible()
+    tasks = run.get_by_role("region", name="Tasks")
+    expect(tasks.locator(".task")).to_have_count(2)
+    tasks.get_by_role("button", name=re.compile("Open the Luma discover page")).click()
+    call = tasks.get_by_role("button", name=re.compile("Opened a page"))
+    expect(call).to_contain_text("luma.com/discover")
+    call.click()
+    expect(tasks.get_by_text('"url": "https://luma.com/discover"', exact=False)).to_be_visible()
+    page.screenshot(path=str(tmp_path / "opened.png"))
 
 
 def test_stop_ends_a_run_and_says_so(page):

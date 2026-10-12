@@ -49,6 +49,19 @@ export default function App() {
     }
   }
 
+  // Light or dark: the system's until the User picks one here (index.html applies a kept choice before the first paint).
+  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme ?? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
+  const flipTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    document.documentElement.dataset.theme = next
+    setTheme(next)
+    try {
+      localStorage.setItem('stepout.theme', next)
+    } catch {
+      // private window or blocked storage: it still works for this visit
+    }
+  }
+
   // Search: the backend looks through message text; the list shows the chats it names (a per-viewer, per-visit thing).
   const [query, setQuery] = useState('')
   const [found, setFound] = useState<string[] | null>(null)
@@ -117,6 +130,9 @@ export default function App() {
           <h1>{current?.title || 'New chat'}</h1>
           {current?.state === 'running' && <span className="pill"><span className="dot dot--running" aria-hidden="true" /> Running</span>}
           {current?.state === 'queued' && <span className="pill">Queued</span>}
+          <button className="btn btn--icon btn--ghost" type="button" aria-label={theme === 'dark' ? 'Light mode' : 'Dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'} onClick={flipTheme}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+          </button>
         </header>
         <div className="panel">
           {banner && (

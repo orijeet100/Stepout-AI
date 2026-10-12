@@ -16,6 +16,9 @@ export type TraceData = {
   title?: string
   text?: string // `delta`: the next words of the reply
   reset?: boolean // `delta`: drop what came so far
+  action?: Record<string, string | number | boolean | null> // `step`: what the Role asked for (`kind` and its plain fields; nested values are dropped)
+  model?: string // `step`: the model that made the call
+  repeat?: boolean // `step`: asked again for something it already had, so not run again
 }
 
 export type Message = {
@@ -101,6 +104,10 @@ function parseSteps(v: unknown): PlanStep[] | undefined {
   }))
 }
 
+type Plain = string | number | boolean | null
+const isPlain = (v: unknown): v is Plain => v === null || isStr(v) || isNum(v) || typeof v === 'boolean'
+const parseAction = (v: unknown) => (isRec(v) && isStr(v.kind) ? Object.fromEntries(Object.entries(v).filter(([, x]) => isPlain(x))) as Record<string, Plain> : undefined)
+
 function parseData(v: unknown): TraceData {
   if (!isRec(v)) return {}
   return {
@@ -113,6 +120,9 @@ function parseData(v: unknown): TraceData {
     title: optStr(v.title),
     text: optStr(v.text),
     reset: v.reset === true ? true : undefined,
+    action: parseAction(v.action),
+    model: optStr(v.model),
+    repeat: v.repeat === true ? true : undefined,
   }
 }
 
