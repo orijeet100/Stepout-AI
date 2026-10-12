@@ -26,7 +26,7 @@ export default function Sidebar({ chats, listed, failed, selected, onSelect, onN
   return (
     <aside id="chats" ref={ref} className="side" aria-label="Chats" inert={inert}>
       <div className="side__head">
-        <Icon name="message" />
+        <img className="logo" src="/icon.png" alt="" width={20} height={20} />
         <strong>Stepout</strong>
         {onToggle && (
           <button className="btn btn--icon btn--ghost rail" type="button" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={onToggle}>
