@@ -91,7 +91,7 @@ def _did(store: Store, run_id: str) -> str:
     return did_line(run_events(store, run_id))
 
 
-def exchanges(store: Store, conversation_id: str, last: int = 10) -> list[Exchange]:
+def exchanges(store: Store, conversation_id: str, last: int = 5) -> list[Exchange]:
     """The chat's answered messages, in the order they were answered, numbered from 1; only the newest `last` are built (the numbers stay the
     chat's own). A Run's reply answers its Run's Request; a reply with no Run (Screening's chat answer, a decline, an error) answers the message
     just before it, so small talk is context for what follows too. A Run that never replied (a crash) is not an Exchange."""

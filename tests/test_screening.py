@@ -29,8 +29,8 @@ async def test_the_call_is_one_haiku_request_with_the_screen_tool_the_index_and_
     (_, cost), request = await screen(decided(decision="proceed", related=[]))
     assert cost == pytest.approx(0.0007)
     assert (request.model, request.tools, [t["name"] for t in request.tool_defs]) == (HAIKU, [], ["screen"])
-    assert '#1 "what does example.com say?" -> It says Example Domain.' in request.user_text  # the first line of the reply
-    assert '#3 "list the PDFs on D:" -> Three: a, b, c.' in request.user_text
+    assert "#1\nUser: what does example.com say?\nAssistant: It says Example Domain.\n\nSources: ..." in request.user_text  # the whole reply, not its first line
+    assert "#3\nUser: list the PDFs on D:\nAssistant: Three: a, b, c." in request.user_text
     assert request.user_text.endswith("User's message:\nand again please")
     for name, blurb in capabilities.blurbs().items():  # what it can say "we can do" about, straight from the registry
         assert f"- {name}: {blurb}" in request.system
