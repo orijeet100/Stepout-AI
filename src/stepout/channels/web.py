@@ -23,8 +23,10 @@ from aiohttp import WSMsgType, web
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from stepout import history
+from stepout.chats import ChatKeeper
 from stepout.contract import (
-    Active, ClientFrame, ConversationDetail, ConversationSummary, HelloFrame, MessageFrame, NewConversation, Queued, SendFrame, StatusFrame, StopFrame, TraceFrame,
+    Active, ClientFrame, ConversationDetail, ConversationSummary, HelloFrame, MessageFrame, NewConversation, Queued, RenameConversation, SendFrame, StatusFrame, StopFrame,
+    TraceFrame,
 )
 from stepout.domain import DEFAULT_CONVERSATION, Event, Message, Reply
 from stepout.store import Store
@@ -42,6 +44,8 @@ class HistoryReader(Protocol):
     def list_conversations(self) -> list[ConversationSummary]: ...
     def get_conversation(self, conversation_id: str) -> ConversationDetail | None: ...
     def run_events(self, run_id: str) -> list[TraceFrame]: ...
+    def search_conversations(self, text: str) -> list[ConversationSummary]: ...
+    def export_markdown(self, conversation_id: str) -> str | None: ...
 
 
 class StoreHistory:
@@ -58,6 +62,12 @@ class StoreHistory:
 
     def run_events(self, run_id: str) -> list[TraceFrame]:
         return history.run_events(self._store, run_id)
+
+    def search_conversations(self, text: str) -> list[ConversationSummary]:
+        return history.search_conversations(self._store, text)
+
+    def export_markdown(self, conversation_id: str) -> str | None:
+        return history.export_markdown(self._store, conversation_id)
 
 
 def _now() -> datetime:
@@ -145,8 +155,9 @@ class LiveView:
 
 
 class WebChannel:
-    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path = Path("data/runs"), *, history: HistoryReader) -> None:
+    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path = Path("data/runs"), *, history: HistoryReader, keeper: ChatKeeper | None = None) -> None:
         self._host, self._port, self._shots, self._history = host, port, shots, history
+        self._keeper = keeper  # rename and delete (chats.py); without one the page can only read
         self._sockets: set[web.WebSocketResponse] = set()
         self._waiting: deque[Message] = deque()  # sent while a Run is busy, in order
         self._wake = asyncio.Event()
@@ -243,19 +254,21 @@ class WebChannel:
         origin = request.headers.get("Origin")
         if origin is not None and origin not in self._origins:
             raise web.HTTPForbidden(text="origin not allowed")  # any page in your browser can open ws://localhost; only ours may talk to the Assistant
-        if request.method == "POST":
+        if request.method in ("POST", "PATCH", "DELETE"):  # anything that changes something
             if origin is None:
                 raise web.HTTPForbidden(text="origin required")
-            if request.content_type != "application/json":
+            if request.method != "DELETE" and request.content_type != "application/json":
                 raise web.HTTPUnsupportedMediaType(text="application/json only")
         return await handler(request)
 
     # ---- HTTP ------------------------------------------------------------------------------------------------
 
     async def _conversations(self, request: web.Request) -> web.Response:
-        rows = {c.id: c for c in self._history.list_conversations()}
+        query = request.query.get("q", "").strip()[:200]
+        rows = {c.id: c for c in (self._history.search_conversations(query) if query else self._history.list_conversations())}
         for m in self._waiting:  # a chat whose first message is still queued is not saved yet
-            rows.setdefault(m.conversation_id, ConversationSummary(id=m.conversation_id, title=m.text[:60], updated_at=m.at, preview=m.text[:80], state="queued"))
+            if not query or query.lower() in m.text.lower():
+                rows.setdefault(m.conversation_id, ConversationSummary(id=m.conversation_id, title=m.text[:60], updated_at=m.at, preview=m.text[:80], state="queued"))
         out = [c.model_copy(update={"state": self._chat_state(c.id)}) for c in rows.values()]
         return _json(sorted(out, key=lambda c: c.updated_at, reverse=True))
 
@@ -281,6 +294,39 @@ class WebChannel:
         live = {self._run[1]} if self._run else {detail.runs[-1].run_id} if busy_here and detail.runs else set()
         runs = [r.model_copy(update={"state": "failed"}) if r.state == "running" and r.run_id not in live else r for r in detail.runs]
         return _json(detail.model_copy(update={"messages": [*detail.messages, *queued], "runs": runs}))
+
+    async def _rename(self, request: web.Request) -> web.Response:
+        cid = request.match_info["id"]
+        if self._keeper is None or not _valid_id(cid):
+            raise web.HTTPNotFound()
+        try:
+            body = RenameConversation.model_validate(await request.json())
+        except (ValueError, ValidationError):
+            raise web.HTTPUnprocessableEntity(text="a title of 1 to 120 characters")
+        if not self._keeper.rename(cid, body.title):
+            raise web.HTTPNotFound()
+        return web.json_response({"id": cid, "title": body.title.strip()})
+
+    async def _delete(self, request: web.Request) -> web.Response:
+        cid = request.match_info["id"]
+        if self._keeper is None or not _valid_id(cid):
+            raise web.HTTPNotFound()
+        if self._chat_state(cid) != "idle":
+            raise web.HTTPConflict(text="this chat has a run in progress or waiting: stop it first")
+        if not await self._keeper.delete(cid):
+            if cid in self._issued:  # a chat that was made and never used: nothing saved, nothing to remove
+                self._issued.discard(cid)
+                return web.Response(status=204)
+            raise web.HTTPNotFound()
+        self._issued.discard(cid)
+        return web.Response(status=204)
+
+    async def _export(self, request: web.Request) -> web.Response:
+        cid = request.match_info["id"]
+        text = self._history.export_markdown(cid) if _valid_id(cid) else None
+        if text is None:
+            raise web.HTTPNotFound()
+        return web.Response(text=text, content_type="text/markdown", headers={"Content-Disposition": f'attachment; filename="chat-{cid[:8]}.md"'})
 
     async def _run_events(self, request: web.Request) -> web.Response:
         run = request.match_info["run"]
@@ -358,6 +404,9 @@ class WebChannel:
                 web.get("/api/conversations", self._conversations),
                 web.post("/api/conversations", self._new_conversation),
                 web.get("/api/conversations/{id}", self._conversation),
+                web.patch("/api/conversations/{id}", self._rename),
+                web.delete("/api/conversations/{id}", self._delete),
+                web.get("/api/conversations/{id}/export", self._export),
                 web.get("/api/runs/{run}/events", self._run_events),
                 web.get("/shots/{run}/{name}", self._shot),
                 web.get("/live/{run}", self._live_stream),

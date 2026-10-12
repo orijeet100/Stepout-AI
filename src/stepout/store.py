@@ -31,6 +31,16 @@ class Store:
         self._conn.commit()
         return cur
 
+    def atomic(self, statements: list[tuple[str, tuple]]) -> None:
+        """Run the statements as one unit: all of them or, if one fails, none."""
+        try:
+            for sql, params in statements:
+                self._conn.execute(sql, params)
+        except Exception:
+            self._conn.rollback()
+            raise
+        self._conn.commit()
+
     def query(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
         return self._conn.execute(sql, params).fetchall()
 

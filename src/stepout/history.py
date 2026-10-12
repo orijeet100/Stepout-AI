@@ -94,3 +94,35 @@ def exchanges(store: Store, conversation_id: str, last: int = 10) -> list[Exchan
         for n, r in enumerate(answered, start=1)
         if n > len(answered) - last
     ]
+
+
+def _like(text: str) -> str:
+    """A LIKE pattern for "contains `text`", with `!` as the escape character so a % or _ the User typed means itself."""
+    return "%" + text.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+
+
+def search_conversations(store: Store, text: str) -> list[ConversationSummary]:
+    """The chats whose title or any message contains `text` (case-insensitive), newest first. Message text only: a Run's trace is not searched.
+    ponytail: a substring scan, fine for a few thousand messages; full-text indexing only if this is measured slow."""
+    pattern = _like(text.strip())
+    hits = {
+        r["conversation_id"]
+        for r in store.query(
+            "SELECT DISTINCT conversation_id FROM events WHERE kind = 'message' AND conversation_id IS NOT NULL "
+            "AND json_extract(data, '$.text') LIKE ? ESCAPE '!'",
+            (pattern,),
+        )
+    }
+    hits |= {r["id"] for r in store.query("SELECT id FROM conversations WHERE title LIKE ? ESCAPE '!'", (pattern,))}
+    return [c for c in list_conversations(store) if c.id in hits]
+
+
+def export_markdown(store: Store, conversation_id: str) -> str | None:
+    """One chat as Markdown: its title, then each message in order. None if there is no such chat. No trace data."""
+    chat = get_conversation(store, conversation_id)
+    if chat is None:
+        return None
+    lines = [f"# {chat.title}", ""]
+    for m in chat.messages:
+        lines += [f"**{'You' if m.role == 'user' else 'Assistant'}** ({m.at:%Y-%m-%d %H:%M})", "", _COST_FOOTER.sub("", m.text), ""]
+    return "\n".join(lines)

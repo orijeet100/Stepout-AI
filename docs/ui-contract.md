@@ -50,6 +50,10 @@ The wire between the React page (`web/`) and the backend (`src/stepout/channels/
 | `GET /api/conversations` | `[{id, title, updated_at, preview, state}]`, newest first. `title` is the first request cut to 60 characters. `state` is `idle`, `queued` or `running` |
 | `POST /api/conversations` | `201` with `{id}`: a new empty chat (not stored until its first message is saved) |
 | `GET /api/conversations/{id}` | `{id, title, messages: [message…], runs: [{run_id, request, state, cost_usd, cap_usd, steps, started_at, ended_at}]}`; run `state` is `running\|done\|stopped\|failed` (an over-budget Run is `stopped`, with the reason in its `stop` event). A Run left open by a crash reads `failed` unless it is the live Run |
+| `GET /api/conversations?q=text` | the same list, only chats whose title or any message contains `text` (case-insensitive; a Run's trace is not searched) |
+| `PATCH /api/conversations/{id}` | body `{title}` (1 to 120 characters): rename; `200 {id, title}`, `422` for a bad title, `404` unknown. Needs `Origin` and JSON like `POST` |
+| `DELETE /api/conversations/{id}` | purge the chat: its messages, Runs, events and screenshots (and what Memory learned from it): `204`, `404` unknown, `409` while it has a Run in progress or waiting. Needs `Origin`. **Not undoable**: the page asks first |
+| `GET /api/conversations/{id}/export` | the chat as Markdown (`text/markdown`, attachment): title, then each message in order; no trace data |
 | `GET /api/runs/{run_id}/events` | `[trace…]` in order: exactly what was streamed live (minus `delta`). `404` for an unknown Run or one with no events yet |
 | `GET /shots/{run}/{n}.jpg` | a page screenshot (`run` is 32 hex characters; only files the assistant wrote; JPEG quality 50, viewport 1000×700) |
 | `GET /live/{run_id}` | the live browser view, below |

@@ -87,6 +87,32 @@ class Ledger:
         self._store.execute("UPDATE conversations SET updated_at = MAX(updated_at, ?) WHERE id = ?", (when, conversation_id))  # never backwards
         self.record(event)
 
+    def rename_conversation(self, conversation_id: str, title: str) -> bool:
+        """Give a saved chat a new title. False if there is no such chat."""
+        return self._store.execute("UPDATE conversations SET title = ? WHERE id = ?", (title, conversation_id)).rowcount > 0
+
+    def delete_conversation(self, conversation_id: str) -> list[str] | None:
+        """Purge a chat: its messages, every event of its Runs, the Runs and Tasks, and the chat itself, all or nothing.
+        -> the ids of its Runs (their screenshots and the like are the caller's to remove), or None if there is no such chat.
+        Only the User asks for this (`chats.py`); the Assistant never edits the Ledger."""
+        if not self._store.query("SELECT 1 FROM conversations WHERE id = ?", (conversation_id,)):
+            return None
+        run_ids = [
+            r["id"]
+            for r in self._store.query("SELECT runs.id FROM runs JOIN tasks ON tasks.id = runs.task_id WHERE tasks.conversation_id = ?", (conversation_id,))
+        ]
+        of_tasks = "SELECT id FROM tasks WHERE conversation_id = ?"
+        self._store.atomic(
+            [
+                ("DELETE FROM events WHERE conversation_id = ?", (conversation_id,)),
+                (f"DELETE FROM events WHERE task_id IN ({of_tasks})", (conversation_id,)),  # events from before chats carried their id
+                (f"DELETE FROM runs WHERE task_id IN ({of_tasks})", (conversation_id,)),
+                ("DELETE FROM tasks WHERE conversation_id = ?", (conversation_id,)),
+                ("DELETE FROM conversations WHERE id = ?", (conversation_id,)),
+            ]
+        )
+        return run_ids
+
     def query(self, task_id: str | None = None) -> list[Event]:
         if task_id is not None:
             rows = self._store.query("SELECT * FROM events WHERE task_id = ? ORDER BY at", (task_id,))

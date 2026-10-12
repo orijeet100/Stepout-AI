@@ -232,7 +232,7 @@ The User removing something from Memory.
 ### Record
 
 **Ledger**:
-The append-only record of everything that happened — Messages, Steps, Verdicts, Questions, Approvals, files opened (paths and sizes, never contents), money spent, Egress, and the Role and parent of every event. It is not Memory and the model never sees it.
+The record of everything that happened, append-only for the Assistant (it never edits or deletes a row; only the User deletes, and then a whole chat, with everything about it) — Messages, Steps, Verdicts, Questions, Approvals, files opened (paths and sizes, never contents), money spent, Egress, and the Role and parent of every event. It is not Memory and the model never sees it.
 _Avoid_: log, trace, audit trail
 
 **Egress** *(planned)*:

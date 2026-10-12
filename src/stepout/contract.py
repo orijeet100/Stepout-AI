@@ -128,3 +128,9 @@ class NewConversation(_Wire):
     """POST /api/conversations."""
 
     id: str
+
+
+class RenameConversation(_Wire):
+    """PATCH /api/conversations/{id}."""
+
+    title: str = Field(min_length=1, max_length=120)

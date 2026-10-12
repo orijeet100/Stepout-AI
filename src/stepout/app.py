@@ -12,6 +12,7 @@ from typing import Sequence
 from dotenv import load_dotenv
 
 from stepout import history, logs
+from stepout.chats import ChatKeeper
 from stepout.channels.cli import CliChannel
 from stepout.channels.web import StoreHistory, WebChannel
 from stepout.browser import Browser
@@ -113,7 +114,8 @@ async def main() -> None:
         logging.getLogger(__name__).warning("closed %d run(s) the last session left open", cut_off)
     fetcher = Fetcher()
     if "web" in sys.argv[1:]:
-        channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store))  # the channel reads history from the app's own Store
+        keeper = ChatKeeper(ledger, SHOTS_PATH)  # rename and delete; Memory and Capture add their cleanup here when they exist
+        channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store), keeper=keeper)  # the channel reads history from the app's own Store
         print(f"Stepout web chat: http://127.0.0.1:{await channel.start()}  (Ctrl+C to stop)")
     else:
         channel = CliChannel()
