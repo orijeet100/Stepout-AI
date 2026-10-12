@@ -22,6 +22,7 @@ from stepout.files import Files
 from stepout.intake import ChatReading, CommandReading, DeclinedReading, FailedReading, Intake, NewTask
 from stepout.ledger import Ledger
 from stepout.pydantic_model import PydanticModel, default_model
+from stepout.retry import RetryingModel
 from stepout.roles import HAIKU, SONNET
 from stepout.runner import Runner
 from stepout.screening import HaikuScreener
@@ -98,13 +99,14 @@ async def run(channel, intake: Intake, runner: Runner) -> None:
 async def main() -> None:
     load_dotenv()
     log_file = logs.configure(LOGS_PATH)
-    model = default_model()
-    other = isinstance(model, PydanticModel)  # a tier is re-pointed in the environment (STEPOUT_STRONG_MODEL / STEPOUT_CHEAP_MODEL)
+    base = default_model()
+    other = isinstance(base, PydanticModel)  # a tier is re-pointed in the environment (STEPOUT_STRONG_MODEL / STEPOUT_CHEAP_MODEL)
     if other:
-        print(f"Models: strong = {model.target(SONNET)}, cheap = {model.target(HAIKU)}")
-    logging.getLogger(__name__).info("start: log=%s models=%s", log_file, f"{model.target(SONNET)} / {model.target(HAIKU)}" if other else "anthropic default")
-    for note in startup_notes(model.key_vars() if other else ("ANTHROPIC_API_KEY",)):
+        print(f"Models: strong = {base.target(SONNET)}, cheap = {base.target(HAIKU)}")
+    logging.getLogger(__name__).info("start: log=%s models=%s", log_file, f"{base.target(SONNET)} / {base.target(HAIKU)}" if other else "anthropic default")
+    for note in startup_notes(base.key_vars() if other else ("ANTHROPIC_API_KEY",)):
         print(note)
+    model = RetryingModel(base)  # the one retry policy (ADR 0015), for the Runner, Screening and the Searcher alike
     store = Store(DB_PATH)
     ledger = Ledger(store)
     fetcher = Fetcher()

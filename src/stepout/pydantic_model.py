@@ -21,7 +21,7 @@ from pydantic_ai.models import ModelRequestParameters, infer_model
 from stepout import capabilities
 from stepout.domain import AnswerAction
 from stepout.failure import Failure
-from stepout.model import PRICING, WEB_SEARCH_COST_PER_USE, AnthropicModel, ModelRequest, ModelResponse, call_to_action, client_tools
+from stepout.model import PRICING, WEB_SEARCH_COST_PER_USE, AnthropicModel, ModelRequest, ModelResponse, call_to_action, client_tools, malformed_detail
 from stepout.roles import HAIKU, SONNET
 
 # Which environment variable holds the key for each provider prefix of a model string ("openrouter:openai/gpt-5.2").
@@ -61,6 +61,7 @@ class PydanticModel:
                 self._built[logical] = infer_model(target) if isinstance(target, str) else target
             except UserError as exc:  # the provider's key (or package) is missing
                 raise _explain(exc) from exc
+            _no_sdk_retries(self._built[logical])
         return self._built[logical]
 
     async def call(self, request: ModelRequest) -> ModelResponse:
@@ -88,15 +89,22 @@ class PydanticModel:
             )
         except (ModelAPIError, UnexpectedModelBehavior, UserError) as exc:
             raise _explain(exc) from exc
+        searches = sum(1 for p in response.parts if isinstance(p, pai.NativeToolCallPart) and p.tool_name == WebSearchTool.kind)
+        cost = self._cost(request.model, response, searches)  # first: a reply we cannot read was still billed
         try:
             calls = [p for p in response.parts if isinstance(p, pai.ToolCallPart)]
             action = call_to_action(calls[0].tool_name, calls[0].args_as_dict(), frozenset(d["name"] for d in request.tool_defs)) if calls else None
             if action is None:  # no tool call, or one we did not offer: the words are the answer
                 action = AnswerAction(text="".join(p.content for p in response.parts if isinstance(p, pai.TextPart)))
-            searches = sum(1 for p in response.parts if isinstance(p, pai.NativeToolCallPart) and p.tool_name == WebSearchTool.kind)
-            return ModelResponse(action=action, cost_usd=self._cost(request.model, response, searches), searches=searches)
+            return ModelResponse(
+                action=action, cost_usd=cost, searches=searches,
+                input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens,
+            )
         except (AttributeError, KeyError, TypeError, ValueError, ValidationError) as exc:
-            raise Failure("malformed", "The model's reply could not be understood. Try again; if it repeats, tell the developer.") from exc
+            raise Failure(
+                "malformed", "The model's reply could not be understood. Try again; if it repeats, tell the developer.",
+                detail=malformed_detail(exc), cost_usd=cost,
+            ) from exc
 
     def _cost(self, logical: str, response: pai.ModelResponse, searches: int) -> float:
         usage = response.usage
@@ -109,6 +117,17 @@ class PydanticModel:
             raise Failure("pricing", f"No price is known for {response.model_name}, so the spending cap could not be enforced. Pick a model with a published price.") from exc
 
 
+def _no_sdk_retries(model: PaiModel) -> None:
+    """Switch off the provider SDK's own retries (the Anthropic and OpenAI clients behind Anthropic, OpenAI and OpenRouter keep a `max_retries` that is read on every
+    request), so retry.py's policy is the only one. ponytail: a provider whose client has no such setting (Google's, Bedrock's boto3) keeps its own; tests/test_pydantic_model.py counts requests."""
+    try:
+        client = model.client  # type: ignore[attr-defined]
+    except AttributeError:
+        return
+    if getattr(client, "max_retries", 0):
+        client.max_retries = 0
+
+
 def _explain(exc: Exception) -> Failure:
     """The provider said no, or could not be reached: one line for the User and the cause for the Ledger."""
     match exc:
@@ -119,11 +138,11 @@ def _explain(exc: Exception) -> Failure:
         case ModelHTTPError(status_code=402 as status):
             return Failure("credit", "Your model provider account is out of credit. Add credit with the provider, then try again.", status)
         case ModelHTTPError(status_code=429 as status):
-            return Failure("rate_limit", f"The model provider is rate-limiting requests right now ({status}). Wait a minute, then send it again.", status)
+            return Failure("rate_limit", f"The model provider is rate-limiting requests right now ({status}). Wait a minute, then send it again.", status, retry_after=exc.retry_after)
         case ModelHTTPError(status_code=status) if "credit balance" in str(exc.body).lower():
             return Failure("credit", "Your model provider account is out of credit. Add credit with the provider, then try again.", status)
         case ModelHTTPError(status_code=status) if status >= 500:
-            return Failure("server_error", f"The model provider had a server error ({status}). Try again in a minute.", status)
+            return Failure("server_error", f"The model provider had a server error ({status}). Try again in a minute.", status, retry_after=exc.retry_after)
         case ModelHTTPError(status_code=status):
             return Failure("rejected", f"The model provider rejected the request ({status}). Try again; if it repeats, tell the developer.", status)
         case UnexpectedModelBehavior():

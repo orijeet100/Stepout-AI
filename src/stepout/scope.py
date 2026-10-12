@@ -25,6 +25,7 @@ class RunScope:
     emit: Callable[..., Awaitable[Any]] = _nothing  # emit(kind, summary, **data): a Trace event of this Run, under the Role acting
     reset_stream: Callable[[], Awaitable[None]] = _nothing  # tell the page to drop the words streamed so far (they were not the answer)
     budget_left: Callable[[], float] = lambda: math.inf  # dollars the Run may still spend
+    charge: Callable[[float], None] = lambda usd: None  # add money a failed attempt may have cost to this Run's spend
     retries: int = 0  # model-call retries so far in this Run
     retry_wait_s: float = 0.0  # seconds spent waiting between them
     repairs: int = 0  # replies repaired so far

@@ -132,6 +132,7 @@ class Runner:
                 emit=lambda kind, summary, **data: self._emit(run, kind, run.acting, summary, **data),
                 reset_stream=lambda: self._reset_stream(run),
                 budget_left=lambda: run.cap - run.spent,
+                charge=lambda usd: setattr(run, "spent", run.spent + usd),
             )
         )
         try:

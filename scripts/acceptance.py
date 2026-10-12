@@ -37,6 +37,7 @@ from stepout.files import Files  # noqa: E402
 from stepout.intake import Intake  # noqa: E402
 from stepout.ledger import Ledger  # noqa: E402
 from stepout.pydantic_model import default_model  # noqa: E402
+from stepout.retry import RetryingModel  # noqa: E402
 from stepout.runner import Runner  # noqa: E402
 from stepout.screening import HaikuScreener  # noqa: E402
 from stepout.store import Store  # noqa: E402
@@ -234,7 +235,7 @@ async def execute(rows: list[dict], args, work: Path, out_path: Path | None = No
     store = Store(work / "acceptance.db")
     ledger = Ledger(store)
     if args.live:
-        model, fetcher, browser = default_model(), Fetcher(), Browser(shots=work / "shots")  # STEPOUT_STRONG_MODEL / _CHEAP_MODEL re-point the tiers
+        model, fetcher, browser = RetryingModel(default_model()), Fetcher(), Browser(shots=work / "shots")  # STEPOUT_STRONG_MODEL / _CHEAP_MODEL re-point the tiers
     else:
         from tests.support import acceptance_offline  # only here: the live path needs nothing from tests/
 
