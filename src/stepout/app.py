@@ -11,7 +11,7 @@ from typing import Sequence
 
 from dotenv import load_dotenv
 
-from stepout import history
+from stepout import history, logs
 from stepout.channels.cli import CliChannel
 from stepout.channels.web import StoreHistory, WebChannel
 from stepout.browser import Browser
@@ -30,6 +30,7 @@ from stepout.store import Store
 DB_PATH = Path("data/stepout.db")
 GRANTS_PATH = Path("data/config/grants.toml")  # only the User edits this
 SHOTS_PATH = Path("data/runs")  # page screenshots, one folder per Run
+LOGS_PATH = Path("data/logs")  # the app log (logs.py)
 
 
 def make_browser(channel) -> Browser:
@@ -96,10 +97,12 @@ async def run(channel, intake: Intake, runner: Runner) -> None:
 
 async def main() -> None:
     load_dotenv()
+    log_file = logs.configure(LOGS_PATH)
     model = default_model()
     other = isinstance(model, PydanticModel)  # a tier is re-pointed in the environment (STEPOUT_STRONG_MODEL / STEPOUT_CHEAP_MODEL)
     if other:
         print(f"Models: strong = {model.target(SONNET)}, cheap = {model.target(HAIKU)}")
+    logging.getLogger(__name__).info("start: log=%s models=%s", log_file, f"{model.target(SONNET)} / {model.target(HAIKU)}" if other else "anthropic default")
     for note in startup_notes(model.key_vars() if other else ("ANTHROPIC_API_KEY",)):
         print(note)
     store = Store(DB_PATH)

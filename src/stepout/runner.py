@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Awaitable, Callable, Sequence
 from uuid import uuid4
 
-from stepout import capabilities, gate
+from stepout import capabilities, gate, scope
 from stepout.capabilities.base import TEXT_CHARS, RunContext, RunState
 from stepout.domain import Allow, AnswerAction, DelegateAction, Event, Exchange, Outcome, PlanAction, PlanStep, Reply, Task
 from stepout.browser import Browser
@@ -25,6 +25,7 @@ from stepout.links import defang, links_in, urls
 from stepout.model import Model, ModelRequest
 from stepout.reader import Reader
 from stepout.roles import ROLES, agent_name
+from stepout.scope import RunScope
 from stepout.search import Searcher
 
 _MAX_PLANS = 3  # the first plan plus two re-plans
@@ -124,6 +125,25 @@ class Runner:
         """`previous`: the earlier Exchanges this Task builds on (none for a new Task). `screening_cost`: what Screening spent, counted against this Run's cap."""
         self._cancel.clear()
         run = _Run(task_id=task.id, conversation_id=task.conversation_id, cap=self._cap, spent=screening_cost, previous=_previous_block(previous))
+        # What the model port and the log may know about this Run, for as long as it is in progress (see scope.py).
+        token = scope.enter(
+            RunScope(
+                run_id=run.id, task_id=task.id, conversation_id=task.conversation_id,
+                emit=lambda kind, summary, **data: self._emit(run, kind, run.acting, summary, **data),
+                reset_stream=lambda: self._reset_stream(run),
+                budget_left=lambda: run.cap - run.spent,
+            )
+        )
+        try:
+            await self._submit(run, task, previous)
+        finally:
+            scope.leave(token)
+
+    async def _reset_stream(self, run: _Run) -> None:
+        if self._trace is not None:  # nothing was streamed to a page that is not there
+            await self._delta(run, reset=True)
+
+    async def _submit(self, run: _Run, task: Task, previous: Sequence[Exchange]) -> None:
         # what a tainted Run's reply may link to: the request, and an earlier reply's addresses (only the links that survived, for a tainted reply: a
         # bare address in it was only ever text, and must not become a link now)
         run.urls = urls(task.request).union(*(links_in(x.reply) if x.tainted else urls(x.reply) for x in previous))
