@@ -38,20 +38,19 @@ export default function Sidebar({ chats, listed, failed, selected, onSelect, onN
         <Icon name="compose" />
         <span>New chat</span>
       </button>
-      {(onQuery || onMemory) && (
+      {onQuery && (
         <div className="side__tools">
-          {onQuery && (
-            <label className="search">
-              <Icon name="search" size={14} />
-              <input type="search" value={query} placeholder="Search chats" aria-label="Search chats" onChange={(e) => onQuery(e.target.value)} />
-            </label>
-          )}
-          {onMemory && (
-            <button className="btn btn--icon btn--ghost" type="button" aria-label="Memory" title="What the assistant remembers about you" onClick={onMemory}>
-              <Icon name="bookmark" />
-            </button>
-          )}
+          <label className="search">
+            <Icon name="search" />
+            <input type="search" value={query} placeholder="Search chats" aria-label="Search chats" onChange={(e) => onQuery(e.target.value)} />
+          </label>
         </div>
+      )}
+      {onMemory && (
+        <button className="newchat" type="button" aria-label="Memory" title={collapsed ? 'Memory' : 'What the assistant remembers about you'} onClick={onMemory}>
+          <Icon name="brain" />
+          <span>Memory</span>
+        </button>
       )}
       <nav className="side__nav" aria-label="Your chats">
         {chats.length === 0 ? (
