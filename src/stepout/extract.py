@@ -75,6 +75,7 @@ class Learner:
             added = await asyncio.wait_for(
                 self._memory.learn(facts, conversation_id=message.conversation_id, message_at=message.at), WRITE_SECONDS
             ) if facts else []
+            cost += self._memory.take_cost()  # the embeddings of what was kept
             data.update(ok=True, ids=[e.id for e in added], facts=[e.text for e in added])
             data["summary"] = f"Kept {len(added)} fact(s) from your message" if added else "Nothing to keep from your message"
         except Exception as exc:  # Memory is never the reason a message fails

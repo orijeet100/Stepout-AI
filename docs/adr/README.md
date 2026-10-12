@@ -19,4 +19,4 @@ An ADR records a decision that is hard to reverse, surprising, or a real trade-o
 | [0013](0013-the-reply-streams.md) | The reply streams, but never for a Run that has read a file | accepted |
 | [0014](0014-the-page-follows-the-vercel-chatbot-look.md) | The page follows the look of the Vercel Chatbot template | accepted |
 | [0015](0015-one-retry-policy-at-the-model-port.md) | One retry policy, owned by the Model port | accepted |
-| [0016](0016-memory-on-mem0-behind-the-seam.md) | Memory: a Persona file, a learned store behind one seam, Mem0 as the primary store | accepted; files built, Mem0 pending |
+| [0016](0016-memory-on-mem0-behind-the-seam.md) | Memory: a Persona file, a learned store behind one seam, Mem0 as the primary store | accepted; built |

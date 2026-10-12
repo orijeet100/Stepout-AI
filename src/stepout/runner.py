@@ -167,9 +167,11 @@ class Runner:
             logging.getLogger(__name__).warning("memory recall failed: %s", type(exc).__name__)
             await self._emit(run, "memory", "orchestrator", "Memory was not available; carrying on without it", op="recall", ok=False, cause=type(exc).__name__)
             return ""
-        if recollection.text:
+        cost = self._memory.take_cost()  # what it cost to look (embedding the request, for Mem0)
+        run.spent += cost
+        if recollection.text or cost:
             await self._emit(
-                run, "memory", "orchestrator", f"Memory handed over {len(recollection.ids)} item(s), {recollection.chars} characters",
+                run, "memory", "orchestrator", f"Memory handed over {len(recollection.ids)} item(s), {recollection.chars} characters", cost=cost,
                 op="recall", ok=True, ids=list(recollection.ids), chars=recollection.chars, ms=round((time.monotonic() - began) * 1000),
                 **({"skipped": recollection.skipped} if recollection.skipped else {}),
             )
@@ -190,7 +192,7 @@ class Runner:
             logging.getLogger(__name__).warning("memory write failed: %s", type(exc).__name__)
             await self._emit(run, "memory", "orchestrator", "This task was not kept in Memory", op="record", ok=False, cause=type(exc).__name__)
             return
-        await self._emit(run, "memory", "orchestrator", "Kept in Memory as an earlier task", op="record", ok=True)
+        await self._emit(run, "memory", "orchestrator", "Kept in Memory as an earlier task", cost=self._memory.take_cost(), op="record", ok=True)
 
     async def _reset_stream(self, run: _Run) -> None:
         if self._trace is not None:  # nothing was streamed to a page that is not there

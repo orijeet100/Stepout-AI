@@ -6,6 +6,7 @@ dependencies = [
     "aiohttp>=3.10",
     "anthropic>=0.40",
     "httpx>=0.27",
+    "mem0ai==2.2.1",  # the learned-memory store (ADR 0016); pinned: its search and listing calls are what the adapter is written to
     "playwright>=1.59",  # page.screencast (the live view) arrived in 1.59
     "pydantic>=2.9",
     "pydantic-ai-slim[anthropic,openai]>=2.54,<3",  # the model layer under any provider (OpenRouter, OpenAI, ...); see docs/adr/0011

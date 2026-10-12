@@ -111,6 +111,10 @@ class MemoryService:
     async def forget_chat(self, conversation_id: str) -> int:
         return await self._store.delete_chat(conversation_id)
 
+    def take_cost(self) -> float:
+        take = getattr(self._store, "take_cost", None)  # the plain files cost nothing; Mem0 reports its embedding calls
+        return take() if take is not None else 0.0
+
 
 class NullMemory:
     """Memory off (STEPOUT_MEMORY=off): nothing recalled, nothing written."""
@@ -138,11 +142,30 @@ class NullMemory:
     async def forget_chat(self, conversation_id: str) -> int:
         return 0
 
+    def take_cost(self) -> float:
+        return 0.0
+
 
 def build(environ: Mapping[str, str] = os.environ, root: Path = Path("data/memory")) -> tuple[Memory, str]:
-    """The Memory the app runs, and a line saying which (for the start-up and the log). STEPOUT_MEMORY: off | files (the default until Mem0 is wired)."""
-    mode = environ.get("STEPOUT_MEMORY", "").strip().lower() or "files"
+    """The Memory the app runs, and a line saying which (for the start-up and the log).
+
+    STEPOUT_MEMORY: `off`, `files` (plain files only) or `mem0`. Unset means Mem0 if OPENAI_API_KEY is there to embed with, else plain files.
+    A Mem0 that cannot start (no key, or the library or its store will not open) falls back to plain files and says why: Memory is never why the app does not start.
+    """
+    mode = environ.get("STEPOUT_MEMORY", "").strip().lower()
     if mode == "off":
         return NullMemory(), "Memory is off (STEPOUT_MEMORY=off)."
-    store: LearnedStore = FileStore(root / "learned.jsonl")
-    return MemoryService(Persona(root / "persona.md"), store), f"Memory: plain files in {root}."
+    persona = Persona(root / "persona.md")
+    if mode in ("", "mem0"):
+        key = environ.get("OPENAI_API_KEY", "").strip()
+        if not key:
+            if mode == "mem0":
+                return MemoryService(persona, FileStore(root / "learned.jsonl")), f"Memory: STEPOUT_MEMORY=mem0 but there is no OPENAI_API_KEY to embed with, so plain files in {root} are used."
+        else:
+            try:
+                from stepout.memory_mem0 import Mem0Store
+
+                return MemoryService(persona, Mem0Store(root, api_key=key)), f"Memory: Persona in {root}, learned facts and earlier tasks in Mem0 (embedded with OpenAI)."
+            except Exception as exc:
+                return MemoryService(persona, FileStore(root / "learned.jsonl")), f"Memory: Mem0 could not start ({type(exc).__name__}), so plain files in {root} are used."
+    return MemoryService(persona, FileStore(root / "learned.jsonl")), f"Memory: plain files in {root}."
