@@ -32,8 +32,9 @@ class FakeWS {
 }
 
 const events = [
+  { id: 'e0', conversation_id: C, run_id: R, parent: null, kind: 'step', role: 'orchestrator', data: { summary: 'plan: Web Browsing: Open the page', action: { kind: 'plan' }, verdict: 'allow' }, cost_usd: 0, at: t(2) },
   { id: 'e1', conversation_id: C, run_id: R, parent: null, kind: 'plan', role: 'orchestrator', data: { summary: 'plan updated', steps: [{ role: 'web_browsing', goal: 'Open the page', status: 'done' }] }, cost_usd: 0, at: t(2) },
-  { id: 'e2', conversation_id: C, run_id: R, parent: null, kind: 'step', role: 'web_browsing', data: { summary: 'browse open https://example.com', verdict: 'allow' }, cost_usd: 0.0124, at: t(3) },
+  { id: 'e2', conversation_id: C, run_id: R, parent: 'e0', kind: 'step', role: 'web_browsing', data: { summary: 'browse open https://example.com', action: { kind: 'browse', op: 'open', url: 'https://example.com' }, verdict: 'allow' }, cost_usd: 0.0124, at: t(3) },
 ]
 const API: Record<string, unknown> = {
   '/api/conversations': [{ id: C, title: 'Which events are free?', updated_at: t(5), preview: 'Two of them.', state: 'idle' }],
@@ -274,7 +275,7 @@ describe('App', () => {
     ws.push({ type: 'trace', id: 'e9p', conversation_id: C, run_id: R2, parent: null, kind: 'plan', role: 'orchestrator', data: { summary: 'plan updated', steps: [{ role: 'web_browsing', goal: 'Look it up', status: 'running' }] }, cost_usd: 0, at: t(11) })
     expect(await screen.findByText(/^Working…/)).toBeTruthy()
     expect(screen.getAllByRole('progressbar', { name: 'Budget' }).at(-1)!.getAttribute('aria-valuetext')).toBe('$0.01 of $1.00') // the live Run's spend against cap_usd from the status frame
-    expect(screen.getAllByText('Look it up')).toHaveLength(2) // in the plan, and as the task under way
+    expect(screen.getAllByText('Look it up')).toHaveLength(1) // a plan of one step is just its task card
     expect(screen.getByRole('progressbar', { name: 'Look it up progress' }).getAttribute('aria-valuetext')).toBe('working')
     expect(screen.getAllByText('Running').length).toBeGreaterThan(0) // the header pill
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
@@ -283,7 +284,7 @@ describe('App', () => {
     ws.push({ type: 'trace', id: 'e10', conversation_id: C, run_id: R2, parent: null, kind: 'stop', role: 'orchestrator', data: { summary: 'Stopped by you.' }, cost_usd: 0, at: t(12) })
     ws.push({ type: 'status', state: 'idle', active: null, queued: [], at: t(12) })
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
-    expect(screen.getByText(/^Stopped by you · 1 action · /)).toBeTruthy()
+    expect(screen.getByText(/^Stopped by you · 0 actions · /)).toBeTruthy() // it only planned: no tool was called
   })
 
   it('marks a chat that is waiting behind a run as queued', async () => {

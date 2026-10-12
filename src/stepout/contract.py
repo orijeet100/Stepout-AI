@@ -146,6 +146,6 @@ class MemoryEntryOut(_Wire):
 
 
 class RememberRequest(_Wire):
-    """POST /api/memory: a line for the Persona file."""
+    """POST /api/memory: a line for the Persona file; PATCH /api/memory/{id}: the new words of one entry."""
 
     text: str = Field(min_length=1, max_length=500)

@@ -20,7 +20,7 @@ async function read(): Promise<{ status: 'ready' | 'off' | 'failed'; entries: Me
   }
 }
 
-/** What the assistant keeps about the User: read from the backend, one entry at a time removable, and a line can be added to the Persona file. */
+/** What the assistant keeps about the User: read from the backend; each entry can be edited or forgotten, and a line can be added to the Persona file. */
 export default function MemoryView({ onClose }: { onClose: () => void }) {
   const [entries, setEntries] = useState<MemoryEntry[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'off' | 'failed'>('loading')
@@ -56,6 +56,22 @@ export default function MemoryView({ onClose }: { onClose: () => void }) {
       await load()
     } catch {
       setError('Could not keep that.')
+    }
+  }
+
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
+  async function save(e: FormEvent) {
+    e.preventDefault()
+    const text = editing?.text.trim()
+    if (!editing || !text) return
+    try {
+      const r = await fetch(`/api/memory/${encodeURIComponent(editing.id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) })
+      if (!r.ok) throw new Error(String(r.status))
+      setEditing(null)
+      setError(null)
+      await load()
+    } catch {
+      setError('Could not save that.')
     }
   }
 
@@ -102,13 +118,30 @@ export default function MemoryView({ onClose }: { onClose: () => void }) {
                 <section key={kind} className="memory__group" aria-label={TITLES[kind]}>
                   <p className="group__label" aria-hidden="true">{TITLES[kind]}</p>
                   <ul>
-                    {group.map((e) => (
-                      <li key={e.id}>
-                        <span className="memory__text">{e.text}</span>
-                        {e.source && <span className="memory__source">{e.source}</span>}
-                        <button className="btn btn--ghost" type="button" aria-label={`Forget: ${e.text}`} onClick={() => void forget(e.id)}>Forget</button>
-                      </li>
-                    ))}
+                    {group.map((e) =>
+                      editing?.id === e.id ? (
+                        <li key={e.id}>
+                          <form className="memory__edit" onSubmit={save} onKeyDown={(k) => k.key === 'Escape' && setEditing(null)}>
+                            <input type="text" value={editing.text} maxLength={500} aria-label={`Edit: ${e.text}`} autoFocus onChange={(c) => setEditing({ id: e.id, text: c.target.value })} />
+                            <button className="btn btn--primary" type="submit" disabled={!editing.text.trim()}>Save</button>
+                            <button className="btn btn--ghost" type="button" onClick={() => setEditing(null)}>Cancel</button>
+                          </form>
+                        </li>
+                      ) : (
+                        <li key={e.id}>
+                          <span className="memory__text">
+                            {e.text}
+                            {e.source && <span className="memory__source">{e.source}</span>}
+                          </span>
+                          <button className="btn btn--icon btn--ghost" type="button" aria-label={`Edit: ${e.text}`} title="Edit" onClick={() => setEditing({ id: e.id, text: e.text })}>
+                            <Icon name="pencil" size={14} />
+                          </button>
+                          <button className="btn btn--icon btn--ghost" type="button" aria-label={`Forget: ${e.text}`} title="Forget" onClick={() => void forget(e.id)}>
+                            <Icon name="trash" size={14} />
+                          </button>
+                        </li>
+                      ),
+                    )}
                   </ul>
                 </section>
               )

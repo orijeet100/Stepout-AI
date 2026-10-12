@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Icon from './Icon'
 import { agentName, elapsedText, type Task } from './runview'
+import { plain } from './store'
 import ToolCall, { StateIcon } from './ToolCall'
 
 const SAID: Record<Task['state'], string> = { running: 'working', done: 'done', failed: 'failed', stopped: 'stopped' }
@@ -33,7 +34,7 @@ export default function TaskCard({ task, now }: { task: Task; now: number }) {
           {task.calls.map((c) => <ToolCall key={c.id} call={c} />)}
         </div>
       )}
-      {task.result && <div className="task__result">{task.result}</div>}
+      {task.result && <div className="task__result">{plain(task.result)}</div>}{/* what it found, as words: no stray markdown */}
     </div>
   )
 }

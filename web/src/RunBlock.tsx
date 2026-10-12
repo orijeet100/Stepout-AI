@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import AgentPlan from './AgentPlan'
 import Icon from './Icon'
-import { elapsedMs, elapsedText, hasBrowserStep, money, planOf, planProgress, shotsOf, spent, stepCount, workOf } from './runview'
+import { elapsedMs, elapsedText, hasBrowserStep, money, planOf, planProgress, shotsOf, spent, workOf } from './runview'
 import { BrowserPanel, ThumbStrip } from './Shots'
 import type { Run, RunState } from './store'
 import TaskCard from './TaskCard'
@@ -35,9 +35,9 @@ export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: P
   const { done, total } = planProgress(plan)
   const cost = spent(run)
   const time = elapsedText(elapsedMs(run, running, now))
-  const steps = stepCount(run)
   const shots = shotsOf(run)
   const { calls, tasks } = useMemo(() => workOf(run, running), [run, running])
+  const steps = [...calls, ...tasks.flatMap((t) => t.calls)].filter((c) => !c.note).length // the tool calls you can see, not every model call behind them
   const summary = running
     ? ['Working…', total ? stepsOf(done, total) : '', time].filter(Boolean).join(' · ')
     : [STATE_LABEL[state], `${steps} action${steps === 1 ? '' : 's'}`, money(cost), time].filter(Boolean).join(' · ')
@@ -58,19 +58,19 @@ export default function RunBlock({ run, state, cap, now, onStop, onOpenShot }: P
               <Icon name="stop" size={14} /> Stop
             </button>
           )}
-          {plan.length > 0 && <AgentPlan steps={plan} />}
-          {cap ? <Budget cost={cost} cap={cap} /> : null}
-          {calls.length > 0 && (
-            <div className="run__calls">
-              {calls.map((c) => <ToolCall key={c.id} call={c} />)}
-            </div>
-          )}
+          {plan.length > 1 && <AgentPlan steps={plan} />}{/* one step is just its task card: no checklist of one */}
           {tasks.length > 0 && (
             <section className="tasks" aria-label="Tasks">
               {tasks.length > 1 && <p className="tasks__sum mono">{tasks.length} tasks{busy ? ` · ${busy} running` : ''}</p>}
               {tasks.map((t) => <TaskCard key={t.id} task={t} now={now} />)}
             </section>
           )}
+          {calls.length > 0 && (
+            <div className="run__calls">
+              {calls.map((c) => <ToolCall key={c.id} call={c} />)}
+            </div>
+          )}
+          {cap ? <Budget cost={cost} cap={cap} /> : null}
           <BrowserPanel runId={run.id} live={running && hasBrowserStep(run)} shots={shots} onOpen={onOpenShot} />
         </div>
       </details>

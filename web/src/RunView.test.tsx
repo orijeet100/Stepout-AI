@@ -15,7 +15,7 @@ describe('done: a collapsed summary with the numbers of the Run', () => {
   it('shows steps · cost · elapsed that match the fixture, collapsed, and the details inside', () => {
     const { steps, cost, seconds } = expected('web-run')
     const { container } = show(stateOf('web-run', { hint: 'done', cap: 1 }), 'web-run')
-    expect(summary(container)).toBe(`${steps} actions · ${dollars(cost)} · ${seconds} s`)
+    expect(summary(container)).toBe(`${steps} action${steps === 1 ? '' : 's'} · ${dollars(cost)} · ${seconds} s`)
     expect(container.querySelector('details')!.open).toBe(false) // collapsed once finished; the body is still there to expand
     const tasks = screen.getByRole('region', { name: 'Tasks' })
     expect([...tasks.querySelectorAll('.task__goal')].map((g) => g.textContent)).toEqual(['Open the Luma discover page for New York', 'Read the three most popular weekend events'])
@@ -70,7 +70,7 @@ describe('done: a collapsed summary with the numbers of the Run', () => {
     fireEvent.click(screen.getByRole('button', { name: /Count the PDF files/ }))
     expect(screen.getByRole('button', { name: /Counted files/ }).textContent).toContain('D:\\Example\\Projects *.pdf')
     const { steps, cost, seconds } = expected('files-run')
-    expect(summary(document.body)).toBe(`${steps} actions · ${dollars(cost)} · ${seconds} s`)
+    expect(summary(document.body)).toBe(`${steps} action${steps === 1 ? '' : 's'} · ${dollars(cost)} · ${seconds} s`)
   })
 
   it('a refused action shows as Refused, with its reason, and the Run is still done', () => {
@@ -131,19 +131,20 @@ describe('running: progress, elapsed, Stop', () => {
 })
 
 describe('stopped, over budget, failed', () => {
-  it('stopped by you: labelled, with the stop line and a failed plan step', () => {
+  it('stopped by you: labelled, with the stop line on its task, which says stopped', () => {
     const { steps, cost, seconds } = expected('stopped')
     const { container } = show(stateOf('stopped', { hint: 'stopped', cap: 1 }), 'stopped')
-    expect(summary(container)).toBe(`Stopped by you · ${steps} actions · ${dollars(cost)} · ${seconds} s`)
+    expect(summary(container)).toBe(`Stopped by you · ${steps} action${steps === 1 ? '' : 's'} · ${dollars(cost)} · ${seconds} s`)
     expect(screen.getAllByText('Stopped by you.').length).toBeGreaterThan(0)
-    expect(within(screen.getByRole('list', { name: 'Plan' })).getByRole('img', { name: 'failed' })).toBeTruthy()
+    expect(container.querySelector('.task')!.getAttribute('data-state')).toBe('stopped') // a one-step plan is its task card alone
+    expect(screen.queryByRole('list', { name: 'Plan' })).toBeNull()
     expect(container.querySelector('.run')!.className).toContain('run--stopped')
   })
 
   it('over budget: its own label, and a budget meter that is full and says so in numbers', () => {
     const { steps, cost, seconds } = expected('over-budget')
     const { container } = show(stateOf('over-budget', { hint: 'stopped', cap: 1 }), 'over-budget')
-    expect(summary(container)).toBe(`Over budget · ${steps} actions · ${dollars(cost)} · ${seconds} s`)
+    expect(summary(container)).toBe(`Over budget · ${steps} action${steps === 1 ? '' : 's'} · ${dollars(cost)} · ${seconds} s`)
     expect(cost).toBeGreaterThanOrEqual(1) // the fixture really crosses its cap
     expect(bar('Budget').getAttribute('aria-valuetext')).toBe(`${dollars(cost)} of $1.00`)
     expect(bar('Budget').querySelector('span')!.className).toContain('is-full')
@@ -169,7 +170,7 @@ describe('stopped, over budget, failed', () => {
 
   it('failed (the API says so; no stop event): labelled Failed', () => {
     const { container } = show(stateOf('files-run', { hint: 'failed', cap: 1 }), 'files-run')
-    expect(summary(container)).toMatch(/^Failed · \d+ actions · /)
+    expect(summary(container)).toMatch(/^Failed · \d+ actions? · /)
     expect(container.querySelector('.run')!.className).toContain('run--failed')
   })
 
@@ -208,18 +209,18 @@ describe('retries and Memory are lines of the Run, not steps', () => {
     id, conversation_id: 'c'.repeat(32), run_id: 'r'.repeat(32), parent: null, kind, role, data, cost_usd: cost, at: `2026-10-12T09:00:0${id}.000Z`,
   })
 
-  it('shows a wait for the provider and what Memory handed over, and counts only real steps', () => {
+  it('shows a wait for the provider and a Memory miss, not Memory doing its job, and counts only tool calls', () => {
     const run = {
       id: 'r'.repeat(32), conversationId: 'c'.repeat(32), startedAt: '2026-10-12T09:00:00.000Z', hint: 'done' as const, cap: 1,
       events: [
         event('1', 'memory', 'orchestrator', { summary: 'Memory handed over 2 item(s), 180 characters', op: 'recall', ok: true }),
         event('2', 'retry', 'web_research', { summary: 'The provider is busy; trying again in 2 s (2 of 3)' }, 0.0003),
-        event('3', 'step', 'web_research', { summary: 'fetch https://example.com', verdict: 'allow', action: { kind: 'fetch' } }, 0.01),
+        event('3', 'step', 'orchestrator', { summary: 'fetch https://example.com', verdict: 'allow', action: { kind: 'fetch', url: 'https://example.com' } }, 0.01),
         event('4', 'memory', 'orchestrator', { summary: 'This task was not kept in Memory', op: 'record', ok: false }),
       ],
     }
     const { container } = render(<RunBlock run={run} state="done" cap={1} now={0} onStop={() => {}} />)
-    expect(screen.getByText('Memory handed over 2 item(s), 180 characters')).toBeTruthy()
+    expect(screen.queryByText('Memory handed over 2 item(s), 180 characters')).toBeNull() // Memory doing its job is bookkeeping; the Memory panel shows what it keeps
     expect(screen.getByText('The provider is busy; trying again in 2 s (2 of 3)')).toBeTruthy()
     expect(container.querySelector('.run__sum')?.textContent).toContain('1 action ') // the retry and the Memory lines are not actions
     const missed = screen.getByText('This task was not kept in Memory').closest('.tool')!

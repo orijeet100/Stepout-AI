@@ -21,7 +21,6 @@ export function elapsedText(ms: number): string {
 export const plainLine = (summary: string) => summary.replace(/\bhttps?:\/\//g, '')
 
 export const planOf = (run: Run): PlanStep[] => run.events.findLast((e) => e.kind === 'plan')?.data.steps ?? []
-export const stepCount = (run: Run) => run.events.filter((e) => e.kind === 'step').length
 export const spent = (run: Run) => run.events.reduce((sum, e) => sum + e.cost_usd, 0)
 
 /** From the Run's first event to its last, or to `now` while it runs. */
@@ -170,6 +169,8 @@ export function workOf(run: Run, running: boolean): { calls: ToolCall[]; tasks: 
       t.endedAt = e.at
     } else if (e.kind === 'stop' && last?.state === 'stopped') {
       continue // the Orchestrator passing on the stop its task already shows
+    } else if (e.kind === 'memory' && e.data.ok !== false) {
+      continue // Memory doing its job is bookkeeping (the Memory panel shows what it keeps); only a miss is worth a line
     } else if (e.kind === 'retry' || e.kind === 'memory' || e.kind === 'stop' || e.kind === 'error') {
       ;(!orchestrating && last?.state === 'running' ? last.calls : calls).push(noteOf(e)) // a specialist's wait belongs to its task
     }

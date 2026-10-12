@@ -47,7 +47,7 @@ def test_a_run_updates_live_and_ends_with_the_numbers_of_its_events(page, stack,
     chats = page.request.get(f"{stack[0]}/api/conversations").json()
     detail = page.request.get(f"{stack[0]}/api/conversations/{chats[0]['id']}").json()
     events = page.request.get(f"{stack[0]}/api/runs/{detail['runs'][-1]['run_id']}/events").json()
-    assert int(m["steps"]) == sum(e["kind"] == "step" for e in events)
+    assert int(m["steps"]) == sum(e["kind"] == "step" and e["data"].get("action", {}).get("kind") not in ("plan", "delegate", "answer") for e in events)  # the tool calls, not the planning and answering
     assert float(m["cost"]) == round(sum(e["cost_usd"] for e in events), 2)
     assert int(m["secs"]) == seconds(events[0]["at"], events[-1]["at"])
     page.screenshot(path=str(tmp_path / "finished.png"))

@@ -4,10 +4,10 @@ Status: accepted · 2026-10-12 · amends [0017](0017-the-page-follows-the-chatgp
 
 **Decision.** The run card follows four assistant-ui designs (assistant-ui.com: Agent Tool, Agent plan, Subagent list, Task card), rebuilt in our CSS from their markup and measured sizes (13.5 px text, 11 px mono tags, 3 px bars, 16 px cards with a 14 by 10 px inset):
 
-- **The Run** is one quiet line (chevron, the summary, a state icon) that opens; it is open while the Run works and closed once it ends.
-- **The plan** is the Agent plan: a title and "n of m", a thin bar, a checklist with a tick, a spinner or a dot; only the step in progress names its agent. The budget uses the same header and bar.
+- **The Run** is one quiet line (chevron, the summary, a state icon) that opens; it is open while the Run works and closed once it ends. Its count is the tool calls you can see ("1 action"), not every model call behind them (planning, delegating and answering are not actions).
+- **The plan** (two steps or more; one step is just its task card) is the Agent plan: a title and "n of m", a thin bar, a checklist with a tick, a spinner or a dot; only the step in progress names its agent. The budget uses the same header and bar.
 - **A delegation is a task card.** Each plan step handed to a specialist is the Task card (state, goal, agent, time, a chevron, its result under a rule) with the Subagent list's model tag and bar. It is open while it works.
-- **A hand action is a tool call.** Inside a task, each action is the Agent Tool line: what it did in plain words ("Searched the web", "Opened a page"; "Searching the web" while it runs), the argument in a chip, and a tick, spinner or cross. It opens onto the request (and what the model call cost) and the result. Retries and what Memory did are lines of the same kind, without a chip.
+- **A hand action is a tool call.** Inside a task, each action is the Agent Tool line: what it did in plain words ("Searched the web", "Opened a page"; "Searching the web" while it runs), the argument in a chip, and a tick, spinner or cross. It opens onto the request (and what the model call cost) and the result. Retries and a Memory miss are lines of the same kind, without a chip; Memory doing its job is not a line (the Memory panel shows what it keeps).
 
 **The layer.** `workOf(run)` in `runview.ts` turns a Run's events into tasks and tool calls; the components (`AgentPlan`, `TaskCard`, `ToolCall`) only draw what it gives them. A delegation is the events whose `parent` is the Orchestrator's plan or delegate step, and its goal is the step the next `plan` event marks running. The page now reads `action` (its plain fields), `model` and `repeat` from a `step`, which the contract already carries. The backend is unchanged.
 

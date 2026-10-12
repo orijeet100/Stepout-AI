@@ -128,6 +128,21 @@ async def test_both_stores_forget_one_entry_and_a_whole_chat(service):
     assert [e.text for e in await service.entries()] == ["I run on Saturdays"]
 
 
+async def test_both_stores_edit_one_entry_keeping_where_it_came_from(service):
+    await service.remember("I live in Oslo")
+    (fact, other) = await service.learn(["I have a dog called Mo", "I like green tea"], conversation_id="c1", message_at=NOW)
+    persona = (await service.entries())[0]
+
+    edited = await service.edit(fact.id, "I have two dogs,  Mo and Pip")
+    assert edited.text == "I have two dogs, Mo and Pip" and edited.id != fact.id and edited.id.startswith("f-")
+    assert (edited.kind, edited.conversation_id, edited.source) == ("fact", "c1", fact.source)  # the origin stays: deleting chat c1 still removes it
+    assert (await service.edit(persona.id, "I live in Bergen")).text == "I live in Bergen"
+    assert sorted(e.text for e in await service.entries()) == ["I have two dogs, Mo and Pip", "I like green tea", "I live in Bergen"]
+    assert "two dogs" in (await service.recall("how many dogs do I have")).text  # recalled by its new words
+    assert await service.edit(fact.id, "again") is None  # the old id is gone
+    assert await service.forget_chat("c1") == 2
+
+
 async def test_both_stores_keep_a_fact_once(service):
     first = await service.learn(["I have a dog called Mo"], conversation_id="c1", message_at=NOW)
     again = await service.learn(["i have a dog called mo"], conversation_id="c2", message_at=NOW)

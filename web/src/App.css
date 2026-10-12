@@ -168,7 +168,7 @@
 .task[data-state='running'] .task__bar > span { width: 100%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 45%, transparent), transparent) 0 0 / 40% 100% no-repeat; animation: sweep 1.6s ease-in-out infinite; } /* no percentage to show: a sweep */
 @keyframes sweep { from { background-position: -40% 0; } to { background-position: 140% 0; } }
 .task__transcript { display: grid; gap: 2px; padding: 6px 14px; border-top: 1px solid var(--card-edge); }
-.task__result { padding: var(--sp-2) 14px; color: color-mix(in srgb, var(--text) 70%, transparent); border-top: 1px solid var(--card-edge); font-size: var(--fs-xs); line-height: 1.625; overflow-wrap: anywhere; }
+.task__result { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; padding: var(--sp-2) 14px; color: color-mix(in srgb, var(--text) 70%, transparent); border-top: 1px solid var(--card-edge); font-size: var(--fs-xs); line-height: 1.625; overflow-wrap: anywhere; }
 
 /* Agent Tool: chevron, what it did, the argument in a mono chip, the state at the far end; open, the request and the result in a well */
 .tool { min-width: 0; }
@@ -312,4 +312,8 @@ a.page__url { color: var(--accent); }
 .memory__group li { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-lg); }
 .memory__group li:hover { background: var(--hover); }
 .memory__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.memory__source { color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; }
+.memory__source { display: block; margin-top: 2px; color: var(--muted); font-size: var(--fs-xs); } /* where it came from, under its words */
+.memory__group li > .btn--icon { color: var(--muted); }
+.memory__group li > .btn--icon:hover { color: var(--text); }
+.memory__edit { display: flex; flex: 1; gap: var(--sp-2); min-width: 0; }
+.memory__edit input { flex: 1; min-width: 0; height: 2.25rem; padding: 0 var(--sp-4); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 999px; font: inherit; font-size: var(--fs-sm); outline: none; }
