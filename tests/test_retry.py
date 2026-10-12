@@ -194,3 +194,115 @@ async def test_a_success_reports_how_long_it_took_and_how_many_tries():
 def test_what_the_inner_model_declares_is_passed_through():
     assert RetryingModel(FaultyModel()).streams is True
     assert getattr(RetryingModel(object()), "streams", False) is False
+
+
+# --- a reply that cannot be read is asked for once more, with what was wrong (never the value) ---
+
+
+def unreadable(cost=0.002, detail="step: int_parsing"):
+    return Failure("malformed", "The model's reply could not be understood.", detail=detail, cost_usd=cost)
+
+
+async def test_an_unreadable_reply_is_repaired_once_with_what_was_wrong():
+    rig = Rig(unreadable(), ok("fixed"))
+    response = await rig.call()
+    assert response.action.text == "fixed" and response.attempts == 2
+    first, second = (r.user_text for r in rig.inner.requests)
+    assert first == "u" and second.startswith("u\n\n") and "step: int_parsing" in second
+    assert "could not be understood" not in second  # the User-facing line is not fed back
+    (event,) = rig.retries()
+    assert event["cause"] == "malformed" and event["repair"] is True and rig.sleeps == []
+    assert rig.charged == pytest.approx(0.002) and rig.scope.repairs == 1
+
+
+async def test_a_second_unreadable_reply_ends_the_call_and_both_were_billed():
+    rig = Rig(unreadable(0.002), unreadable(0.003), ok())
+    with pytest.raises(Failure) as caught:
+        await rig.call()
+    assert caught.value.kind == "malformed" and rig.inner.calls == 2
+    assert rig.charged == pytest.approx(0.005)
+
+
+async def test_a_run_repairs_at_most_three_replies():
+    rig = Rig(unreadable(), ok())
+    rig.scope.repairs = 3
+    with pytest.raises(Failure):
+        await rig.call()
+    assert rig.inner.calls == 1
+
+
+async def test_no_repair_is_asked_for_when_the_budget_is_used_up():
+    rig = Rig(unreadable(), ok(), budget=0.0)
+    with pytest.raises(Failure):
+        await rig.call()
+    assert rig.inner.calls == 1
+
+
+# --- the Fetcher retries what a second try can cure, and nothing else ---
+
+
+class FlakyFetcher:
+    def __init__(self, *outcomes):
+        self._outcomes, self.urls = list(outcomes), []
+
+    async def get(self, url):
+        from stepout.fetch import FetchedPage
+
+        self.urls.append(url)
+        outcome = self._outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return FetchedPage(url=url, text=outcome)
+
+
+def status_error(code, **headers):
+    import httpx
+
+    request = httpx.Request("GET", "https://example.com/p")
+    return httpx.HTTPStatusError(f"{code}", request=request, response=httpx.Response(code, headers=headers, request=request))
+
+
+async def fetch_with(monkeypatch, *outcomes):
+    from stepout.capabilities import fetch as fetch_module
+    from stepout.capabilities.base import RunContext
+    from stepout.domain import FetchAction
+
+    waits, events = [], []
+
+    async def no_sleep(seconds):
+        waits.append(seconds)
+
+    async def emit(kind, summary, **data):
+        events.append((kind, data))
+
+    monkeypatch.setattr(fetch_module.asyncio, "sleep", no_sleep)
+    fetcher = FlakyFetcher(*outcomes)
+    ctx = RunContext(run_id="r", role="web_research", hands={"fetch": fetcher}, cancelled=lambda: False, emit=emit)
+    text = await fetch_module.Fetch().run(FetchAction(url="https://example.com/p"), ctx)
+    return text, fetcher, waits, events
+
+
+async def test_a_busy_site_is_fetched_again_once(monkeypatch):
+    text, fetcher, waits, events = await fetch_with(monkeypatch, status_error(503), "the page")
+    assert text.startswith("Fetched") and "the page" in text
+    assert len(fetcher.urls) == 2 and len(waits) == 1 and [k for k, _ in events] == ["retry"]
+
+
+async def test_a_dropped_connection_is_fetched_again(monkeypatch):
+    import httpx
+
+    text, fetcher, _, _ = await fetch_with(monkeypatch, httpx.ConnectError("reset"), "the page")
+    assert text.startswith("Fetched") and len(fetcher.urls) == 2
+
+
+async def test_a_missing_page_a_blocked_address_and_a_long_wait_are_not_retried(monkeypatch):
+    from stepout.fetch import BlockedUrl
+
+    for outcome in (status_error(404), BlockedUrl("private/local address blocked: 10.0.0.1"), status_error(429, **{"retry-after": "120"})):
+        text, fetcher, waits, events = await fetch_with(monkeypatch, outcome, "never reached")
+        assert text.startswith("Fetching https://example.com/p failed") and len(fetcher.urls) == 1 and not waits and not events
+
+
+async def test_a_site_that_keeps_failing_is_tried_twice_and_then_reported(monkeypatch):
+    text, fetcher, _, _ = await fetch_with(monkeypatch, status_error(503), status_error(503), "never reached")
+    assert text.startswith("Fetching https://example.com/p failed") and len(fetcher.urls) == 2

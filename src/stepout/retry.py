@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from stepout import scope as run_scope
+from stepout.backoff import RETRY_AFTER_CEILING_S, wait
 from stepout.failure import Failure
 from stepout.model import PRICING, Model, ModelRequest, ModelResponse
 
@@ -36,9 +37,10 @@ class Rule:
 _TRANSIENT = Rule(attempts=3, base_s=1.0, cap_s=8.0)
 RULES = {kind: _TRANSIENT for kind in ("rate_limit", "overloaded", "server_error", "timeout", "connection")}
 STREAM_CUT_ATTEMPTS = 2  # words had already reached the page: one more try, after the page drops them
-RETRY_AFTER_CEILING_S = 30.0  # a provider asking for longer than this is not waited for: the User is told how long instead
 RUN_MAX_RETRIES = 8  # all model-call retries of one Run together
 RUN_MAX_WAIT_S = 60.0
+REPAIRS_PER_RUN = 3  # replies re-asked after being unreadable, all calls of one Run together (one per call)
+_REPAIR = "Your last reply could not be used: {why}. Reply again with exactly one tool call that has every required argument."
 
 _SHORT = {
     "rate_limit": "The provider is rate-limiting requests",
@@ -72,7 +74,7 @@ class RetryingModel:
             streamed = streamed or bool(words)
             await on_text(words)
 
-        attempt = 0
+        attempt, repaired = 0, False
         while True:
             attempt += 1
             streamed = False
@@ -80,8 +82,20 @@ class RetryingModel:
             try:
                 response = await (self._inner.call(request, on_text=watched) if on_text is not None else self._inner.call(request))
             except Failure as failure:
+                if failure.kind == "malformed" and not repaired and (run is None or (run.repairs < REPAIRS_PER_RUN and run.budget_left() > 0)):
+                    repaired = True  # one repair per call: say what was wrong (the field and the rule, never the value) and ask again
+                    if run is not None:
+                        run.repairs += 1
+                        run.charge(failure.cost_usd)  # the unreadable reply was billed
+                        await run.emit("retry", "The reply could not be used; asking again", cost=failure.cost_usd, attempt=attempt, of=attempt + 1, cause="malformed", status=None, wait_s=0.0, repair=True)
+                    _log.warning("model reply unreadable (%s), asking again", failure.detail)
+                    why = failure.detail or "it was not a valid tool call"
+                    request = request.model_copy(update={"user_text": request.user_text + "\n\n" + _REPAIR.format(why=why)})
+                    continue
                 plan = self._next(failure, attempt, streamed, run, request)
                 if plan is None:
+                    if run is not None and failure.cost_usd:
+                        run.charge(failure.cost_usd)  # an unreadable reply that ends the call was still billed
                     raise
                 delay, allowed, cost = plan
                 if streamed and run is not None:
@@ -115,7 +129,7 @@ class RetryingModel:
         if failure.retry_after is not None:
             delay = failure.retry_after
         else:
-            delay = min(rule.cap_s, rule.base_s * 2 ** (attempt - 1)) * (0.5 + 0.5 * self._rng())  # exponential, with up to half shaved off so retries do not line up
+            delay = wait(attempt, rule.base_s, rule.cap_s, self._rng)
         if run is not None and (run.retries >= RUN_MAX_RETRIES or run.retry_wait_s + delay > RUN_MAX_WAIT_S or run.budget_left() <= 0):
             return None
         # ponytail: a cut stream is charged an estimate of its input only (about 4 characters a token, tool definitions not counted); the provider's billing of a cut stream is not known.
