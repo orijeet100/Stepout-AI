@@ -4,7 +4,7 @@ Where the project is and what comes next. The map is [`architecture.md`](archite
 
 ## State
 
-V0 is built: a read-only task assistant with a web chat, an Orchestrator and four specialists, a live browser view, file reading under Grants, strict taint, a $1 cap per Run (and a monthly limit), saved chats you can search, rename, export and delete, streaming replies, a rebuilt page, **Memory** (a Persona file, History, learned facts; Mem0 or plain files), **one retry policy**, and a Record with tokens, durations, a log and opt-in Capture. Eight acceptance queries pass live for about $0.27; the offline suite passes without a network. It runs on Claude by default and on any provider Pydantic AI speaks when a tier is re-pointed (OpenRouter is the intended route; nothing has run through it yet because no key has been available).
+V0 is built: a read-only task assistant with a web chat, an Orchestrator and four specialists, a live browser view, file reading under Grants, strict taint, a $1 cap per Run (and a monthly limit), saved chats you can search, rename, export and delete, streaming replies, a ChatGPT-style page (light and dark, agent work drawn as a plan, task cards and tool calls), **Memory** (a Persona file, History, learned facts; Mem0 or plain files; each entry editable in the page), **one retry policy**, and a Record with tokens, durations, a log and opt-in Capture. Eight acceptance queries pass live for about $0.27; the offline suite passes without a network. It runs on Claude by default and on any provider Pydantic AI speaks when a tier is re-pointed (OpenRouter is the intended route; nothing has run through it yet because no key has been available).
 
 ## Next, in order
 
@@ -17,7 +17,7 @@ Done in iteration 2 and no longer on this list: Memory, the retry policy, chat m
 
 ## Parked ideas
 
-Smarter file search (ask with options, rank folders, skip `node_modules`, `.git` and venvs, fuzzy names) · a Verifier that checks the answer against its sources before replying · a separate Planner and parallel steps · streaming for specialists' Findings · relaxing strict taint to "sites the User named" · a model picker and message actions in the page.
+Smarter file search (ask with options, rank folders, skip `node_modules`, `.git` and venvs, fuzzy names) · a Verifier that checks the answer against its sources before replying · a separate Planner and parallel steps · streaming for specialists' Findings · relaxing strict taint to "sites the User named" · a model picker in the page.
 
 ## Known code debt (from the 2026-10-11 audit)
 

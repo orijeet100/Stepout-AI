@@ -2,20 +2,21 @@
 
 A task assistant you drive from a chat page. Ask in plain English; an **Orchestrator** plans the task and hands each step to a specialist that holds one tool. You watch every step as it happens, including the assistant's headless browser, live, and the answer streams in as it is written. Read-only by design, local to your machine, with a hard cost cap per task. Built from scratch to learn how production agents work: permissions, state, tracing, evals.
 
-![A finished run: the plan, the budget against the cap, every step with its verdict and cost, and the streamed answer](docs/assets/run-light.jpg)
+![A finished run, opened: the plan, a card for each task an agent did, one tool call open on its request and result, and the budget](docs/assets/run-light.jpg)
 
 ## What it does
 
 - **Web:** searches and reads pages (a search-and-fetch agent, and a real headless Chrome you can watch).
 - **Your files:** names, sizes, dates and counts of the folders you grant it, and the **text of files and PDFs** (a Reader), with secret-looking values hidden.
-- **You stay in the loop:** a plan checklist, every step with its verdict and cost, spend against the $1 cap, a Stop button that ends the run within about a second, and a viewer for every page it opened.
-- **Chats that remember:** conversations and runs are saved and look the same after a restart; a follow-up ("and the second one?") is linked to the exchange it depends on.
+- **You stay in the loop:** the plan as a checklist, each task an agent took on as a card (its agent, model, time and result), every tool call with its request, result and cost, spend against the $1 cap, a Stop button that ends the run within about a second, and a viewer for every page it opened.
+- **Chats that remember:** conversations and runs are saved and look the same after a restart; each message is screened against the chat's last five exchanges, and a follow-up ("and the second one?") is handed the ones it depends on.
+- **Memory:** a Persona file you write, facts it learns from what you tell it, and one line per finished task, recalled at the start of a task. Read, edit or forget any of it in the Memory panel. Mem0 when `OPENAI_API_KEY` is set, plain files otherwise.
 - **Any model:** Claude by default; point the strong and cheap tiers at another provider (OpenRouter and others, through Pydantic AI) with two lines in `.env`.
-- Light and dark themes, a bottom sheet for the chat list on a phone, keyboard-friendly.
+- A ChatGPT-style page: light and dark (the system's, or the switch in the header), the chat list slides in on a phone, keyboard-friendly.
 
 | Empty chat | A conversation, dark | Phone |
 |---|---|---|
-| ![Greeting and suggested questions](docs/assets/empty-light.jpg) | ![A conversation in dark mode](docs/assets/chat-dark.jpg) | ![The chat list as a bottom sheet](docs/assets/phone-dark.jpg) |
+| ![Greeting and suggested questions](docs/assets/empty-light.jpg) | ![A conversation in dark mode](docs/assets/chat-dark.jpg) | ![The chat list, slid in on a phone](docs/assets/phone-dark.jpg) |
 
 ## Safe by construction
 
@@ -33,7 +34,7 @@ You need Python 3.12+, Google Chrome, Node 20.19+ or 22.12+ (to build the page) 
 python -m venv .venv
 ./.venv/Scripts/python.exe -m pip install -e ".[dev]"
 cd web && npm install && npm run build && cd ..
-cp .env.example .env                       # then set ANTHROPIC_API_KEY in .env (never commit it)
+cp .env.example .env                       # then set ANTHROPIC_API_KEY in .env (never commit it); OPENAI_API_KEY too for Mem0
 mkdir -p data/config && cp grants.example.toml data/config/grants.toml   # edit: which folders it may see
 ./.venv/Scripts/python.exe -m stepout.app web                            # http://127.0.0.1:8765  (STEPOUT_PORT=... for another port)
 ```
@@ -60,7 +61,7 @@ Paid live checks (they say so): `pytest -m eval -s tests/test_live.py` and `pyte
 
 ## The claim to prove
 
-Human interventions per task fall across repeated attempts, against a memory-off control. No model training; improvement comes from recall. Memory and the evaluation harness are the next stage; this repository is the assistant they will be measured on.
+Human interventions per task fall across repeated attempts, against a memory-off control. No model training; improvement comes from recall. Memory is built; the comparison has its first form (`scripts/acceptance.py --memory ... --compare`), and a live comparison of the three Memory conditions is the next measurement.
 
 ## Where to read next
 

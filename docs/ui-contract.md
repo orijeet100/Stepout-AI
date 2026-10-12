@@ -35,7 +35,7 @@ The wire between the React page (`web/`) and the backend (`src/stepout/channels/
 | `step` | the acting Role | `summary` (e.g. `web_search new york news`, `browse open https://…`, `answer`), `action: {kind, …}`, `verdict: allow\|refuse\|ask`; `cost_usd` is that model call. A skipped repeat says `repeat, not run again` and carries `repeat: true`; also `model`, `input_tokens`, `output_tokens`, `duration_ms`, `attempts` (tries the call took) and `prompt_chars` (the size of what the model was sent, never its text) |
 | `result` | the acting Role | `summary` (`fetch: 1840 characters`), `chars` (the size of what the tool gave the Role), `duration_ms`, `cut` (it reached the length limit). A size, never the tool's text; its `parent` is the `step` that asked for it |
 | `return` | the specialist | `summary` (`done: …` / `failed: …`, first 200 characters), `ok` |
-| `shot` | `browser` | `summary`, `shot: "<run_id>/<n>.jpg"` (fetch from `/shots/`), `url` and `title` of the page shown |
+| `shot` | `web_browsing` | `summary`, `shot: "<run_id>/<n>.jpg"` (fetch from `/shots/`), `url` and `title` of the page shown |
 | `stop` | the Role that stopped | `summary` (`Stopped by you.` or the budget message) |
 | `error` | the Role that was acting | `summary` (the plain line the User is also given as the reply), `cause` (`auth` `no_key` `credit` `rate_limit` `overloaded` `server_error` `timeout` `connection` `rejected` `malformed` `pricing` `no_search` `chrome` `interrupted` `internal`), `type` (the exception class, for the Ledger), `status` (HTTP, if any); emitted just before a Run ends `failed`. `interrupted`: written at the next start for a Run the app's stopping cut off |
 | `retry` | the Role that was acting | `summary` ("The provider is busy; trying again in 2 s (2 of 3)"), `attempt` (the one that failed), `of` (attempts allowed), `cause` (an `error` cause), `status` (HTTP, if any), `wait_s`, and `repair: true` when the reply was unreadable and is being asked for again (no wait); a tool's retry has `cause` set to the error's class; `cost_usd` is what the failed attempt may have cost ([ADR 0015](adr/0015-one-retry-policy-at-the-model-port.md)). A page that does not know the kind ignores it |
@@ -63,7 +63,7 @@ The wire between the React page (`web/`) and the backend (`src/stepout/channels/
 | `GET /shots/{run}/{n}.jpg` | a page screenshot (`run` is 32 hex characters; only files the assistant wrote; JPEG quality 50, viewport 1000×700) |
 | `GET /live/{run_id}` | the live browser view, below |
 
-Ids are 32 lowercase hex characters, plus the literal `default` (the terminal's chat); anything else answers `404` before any lookup. Not in the contract: renaming or deleting chats, search, attachments.
+Ids are 32 lowercase hex characters, plus the literal `default` (the terminal's chat); anything else answers `404` before any lookup. Not in the contract: attachments.
 
 ## Behaviour worth knowing
 
@@ -83,7 +83,7 @@ Behind it, `Browser(shots=..., on_frame=cb)` calls `cb(run_id, jpeg)` (synchrono
 ## Security (each is a test)
 
 - Every `/api`, `/live` and `/ws` request must carry a `Host` of `127.0.0.1:<port>` or `localhost:<port>` (blocks DNS rebinding).
-- `POST` requires `Content-Type: application/json` and an allowed `Origin`; no CORS headers are ever sent.
+- `POST`, `PATCH` and `DELETE` require an allowed `Origin`, and `POST` and `PATCH` also `Content-Type: application/json`; no CORS headers are ever sent.
 - Ids are server-generated and validated before any lookup; screenshot paths are never built from user input.
 - Model output is untrusted: the page renders markdown **without raw HTML or images**, allows only `http(s)` and `mailto` links, and sets `rel="noopener noreferrer"`.
 
