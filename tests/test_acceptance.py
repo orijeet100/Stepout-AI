@@ -228,3 +228,59 @@ async def test_the_run_stops_when_the_total_passes_the_limit_and_says_so(tmp_pat
     ids = [r["id"] for r in acceptance.load_rows()]
     assert [q["id"] for q in report["queries"]] == ids[:1] and report["summary"]["skipped"] == ids[1:]
     assert "limit" in report["summary"]["stopped"] and "limit" in report["summary"]["verdict"]
+
+
+# --- the Memory conditions ---------------------------------------------------------------------------------------------------------
+
+
+async def test_the_memory_tasks_run_under_each_condition_and_the_report_says_which(tmp_path, monkeypatch):
+    monkeypatch.setattr(acceptance, "default_model", never)
+    monkeypatch.setattr(acceptance, "Browser", never)
+    reports = {}
+    for mode in ("off", "files"):
+        out = tmp_path / f"{mode}.json"
+        assert await acceptance.amain(["--memory", mode, "--memory-tasks", "--out", str(out)]) == 0
+        reports[mode] = json.loads(out.read_text(encoding="utf-8"))
+
+    for mode, report in reports.items():
+        assert (report["summary"]["memory"], report["summary"]["queries"], report["summary"]["passed"]) == (mode, 11, 11)
+    off, files = ({q["id"]: q for q in r["queries"]} for r in (reports["off"], reports["files"]))
+    assert off["p1"]["recollection_items"] == 0 and files["p1"]["recollection_items"] >= 1  # the Persona line reached the Orchestrator only under `files`
+    assert files["p1"]["needs_memory"] is True and files["p3"]["needs_memory"] is False
+    assert files["decline"]["recollection_items"] == 0  # no Run, nothing recalled
+
+
+async def test_a_task_that_needs_memory_is_expected_to_fail_without_it_and_nothing_else_is(tmp_path, monkeypatch):
+    row = lambda i, ok, needs: {  # noqa: E731
+        "id": i, "title": i, "kind": "task", "steps": 1, "model_cost_usd": 0.01, "outcome": "done", "seconds": 0.1, "answer_excerpt": "", "checks": {},
+        "web_after_read": False, "web_steps": 0, "refused_steps": 0, "read_text_calls": 0, "tainted": False, "repeat_steps": 0, "step_list": [],
+        "passed": ok, "failed": [] if ok else ["missing"], "needs_memory": needs, "recollection_items": 0, "memory_cost_usd": 0.0,
+    }
+
+    async def fake(rows, args, work, out_path=None):
+        queries = [row("m1", True, False), row("p1", False, True)]
+        return acceptance.summarize(rows, queries, "", 0.0, False, args.memory)
+
+    monkeypatch.setattr(acceptance, "execute", fake)
+    assert await acceptance.amain(["--memory", "off", "--memory-tasks", "--only", "m1,p1", "--out", str(tmp_path / "a.json")]) == 0
+    assert await acceptance.amain(["--memory", "files", "--memory-tasks", "--only", "m1,p1", "--out", str(tmp_path / "b.json")]) == 1  # with Memory it must pass
+
+
+async def test_mem0_needs_a_live_run(tmp_path, capsys):
+    assert await acceptance.amain(["--memory", "mem0", "--out", str(tmp_path / "x.json")]) == 2
+    assert "needs --live" in capsys.readouterr().err
+
+
+async def test_reports_of_the_same_queries_print_side_by_side(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(acceptance, "default_model", never)
+    monkeypatch.setattr(acceptance, "Browser", never)
+    paths = []
+    for mode in ("off", "files"):
+        paths.append(tmp_path / f"{mode}.json")
+        assert await acceptance.amain(["--memory", mode, "--only", "m1,m2", "--out", str(paths[-1])]) == 0
+    capsys.readouterr()
+    assert await acceptance.amain(["--compare", *map(str, paths)]) == 0
+    table = capsys.readouterr().out.splitlines()
+    assert "off" in table[0] and "files" in table[0]
+    assert [line.split()[0] for line in table[1:]] == ["m1", "m2", "total"]
+    assert all("PASS" in line for line in table[1:3])

@@ -85,6 +85,10 @@ def scripts(folder: str, url: str) -> dict[str, list]:
             plan("open the company's website", role="web_browsing"), browse("open", COMPANY_URL), hand_result,
             last_finding,
         ],
+        # what Memory is for (tests/data/memory_tasks.jsonl): the same decisions whatever the Memory condition, because offline the script decides; a live run is the measurement
+        "p1": [proceed(), plan(f"find the resume in {folder}", role="local_file_finder"), looks("find", folder, "resume"), hand_result, last_finding],
+        "p2": [proceed(), plan(f"count the pdf files in {folder}", role="local_file_finder"), looks("count", folder), hand_result, last_finding],
+        "p3": [proceed(), say("12 times 7 is 84.")],
         "decline": [screened(decision="decline", reply="That would delete your files.", alternative="I can list and count them.", related=[])],
         "chat": [screened(decision="chat", chat_kind="thanks", reply="You're welcome!", related=[])],
     }

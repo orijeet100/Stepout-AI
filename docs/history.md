@@ -46,6 +46,13 @@ The choices that shaped the product, in the order they happened, with where to r
 - **One language for agents.** An agent is anything that calls the Model port: the five Roles, plus Screening and the Search Summarizer (single calls outside the loop). The Roles are named by what they do: `web_research`, `web_browsing`, `local_file_finder`, `local_file_reader`. "Front door" is Screening and "hand" is retired (what a Tool runs on is its implementation). The page shows an agent as "Web Research" or "Local File Finder" and counts a Run's loop cycles as actions; chats saved with the first role ids read the same ([0010](adr/0010-one-loop-many-roles.md), [0012](adr/0012-the-front-door.md)).
 - **The glossary marks what is built.** Entries for Approvals, Memory and the rest carry *(planned)*; the others are in the code.
 
+## 2026-10-12: Memory, a Record you can manage, one retry policy
+
+- **Memory** arrived behind the seam ADR 0003 left for it: a Persona file the User owns, History written by code from a Run (the request, the outcome, what the hands did as kinds and hosts), facts the User states extracted from their own messages by one cheap call through our Model port, and Mem0 as the primary learned store (local, telemetry off, never its own model). Commands `/remember`, `/memory`, `/forget` work in both channels; a planted injection in a page and in a file changes nothing ([0016](adr/0016-memory-on-mem0-behind-the-seam.md)).
+- **One retry policy** at the Model port replaced two implicit ones: classified, bounded per call and per Run, every attempt an event, an unreadable reply repaired once, the Fetcher retried, a cut stream dropped on the page and tried again ([0015](adr/0015-one-retry-policy-at-the-model-port.md)).
+- **The Record became complete and manageable:** tokens, durations and attempts on every step, a `result` event per tool (a size, never its text), a log file with ids, Runs a crash left open closed at the next start, a copy of the database before a migration, rename / search / export / delete (a purge) for chats, screenshots swept by age, a monthly spending limit, and opt-in Capture. The page gained search, rename, delete, a Memory panel and the retry and Memory lines in a run.
+- **Decided:** deleting a chat purges its Ledger rows (only the User asks; the Assistant still never edits the Ledger); Mem0's extraction stays ours so every model call is metered and stoppable; OpenAI's `text-embedding-3-small` is the embedder.
+
 ## Tried and dropped
 
 | What | Why |
@@ -57,3 +64,6 @@ The choices that shaped the product, in the order they happened, with where to r
 | A model-based secret screen | it would send the secret to a model to find it, and could be talked out of it |
 | The loop on Pydantic AI Agents | about 20 lines of plumbing against our own logic ([log of the decision](adr/0011-pydantic-ai-as-the-plumbing.md)) |
 | Temporal for pause and resume | a server and a worker for a one-process app; revisit in V1 |
+| Letting Mem0 extract facts itself (`infer=True`) | its model calls would sit outside the Ledger, the cap, Stop and the retry policy |
+| Folding fact extraction into Screening's call | it would put Screening's paid eval at risk to save a tenth of a cent |
+| Langfuse, OpenTelemetry or Postgres for chats and steps | prompts would leave the laptop, or a multi-service stack for one user; the Ledger already maps onto spans |

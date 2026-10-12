@@ -29,9 +29,11 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]  # `tests.support...` (invented PD
 from dotenv import load_dotenv  # noqa: E402
 
 from stepout import capabilities, history  # noqa: E402
+from stepout import memory as memory_mod  # noqa: E402
 from stepout.app import SavedChannel, run  # noqa: E402
 from stepout.browser import Browser  # noqa: E402
 from stepout.domain import Message  # noqa: E402
+from stepout.extract import Extractor, Learner  # noqa: E402
 from stepout.fetch import Fetcher  # noqa: E402
 from stepout.files import Files  # noqa: E402
 from stepout.intake import Intake  # noqa: E402
@@ -44,6 +46,7 @@ from stepout.store import Store  # noqa: E402
 from tests.support.pdfs import make_pdf  # noqa: E402
 
 QUERIES = ROOT / "tests" / "data" / "acceptance.jsonl"
+MEMORY_TASKS = ROOT / "tests" / "data" / "memory_tasks.jsonl"  # what Memory is for: asked in a new chat, with a Persona line naming the folder (--memory-tasks)
 # The facts the queries assert (the rows in the jsonl name them): who is newer, and what each PDF says.
 OLD_REPORT = ["Fernhollow Surveys - Q1 field report\nThe Harbor Lights survey was cancelled in March.\nBudget code HL-4417 was never used."]
 NEW_REPORT = [
@@ -203,20 +206,23 @@ def evaluate(res: Result, store: Store, ledger: Ledger, offline: bool) -> dict:
         "read_text_calls": sum(1 for k, _ in _allowed(steps) if k == "read_text"),
         "tainted": tainted,
         "repeat_steps": sum(1 for s in steps if s.data.get("repeat")),
+        "needs_memory": bool(row.get("needs_memory")),
+        "recollection_items": sum(len(e.data.get("ids", [])) for e in res.events if e.kind == "memory" and e.data.get("op") == "recall"),
+        "memory_cost_usd": round(sum(e.cost_usd for e in res.events if e.kind == "memory"), 6),  # embeddings and the extraction call: Memory's own price
         "step_list": [[s.role, s.data["summary"][:120], round(s.cost_usd, 5), s.data["verdict"]] for s in steps],  # where the steps and the money went
         "passed": not failed,
         "failed": failed,
     }
 
 
-def summarize(rows: list[dict], out: list[dict], stopped: str, started: float, live: bool) -> dict:
+def summarize(rows: list[dict], out: list[dict], stopped: str, started: float, live: bool, memory: str = "off") -> dict:
     total = sum(q["model_cost_usd"] for q in out)
     passed = sum(q["passed"] for q in out)
     failing = [q["id"] for q in out if not q["passed"]]
     mode = "live" if live else "offline"
-    verdict = f"{passed}/{len(rows)} passed, ${total:.4f}, {mode}" + (f"; failed: {', '.join(failing)}" if failing else "") + (f"; {stopped}" if stopped else "")
+    verdict = f"{passed}/{len(rows)} passed, ${total:.4f}, {mode}, memory {memory}" + (f"; failed: {', '.join(failing)}" if failing else "") + (f"; {stopped}" if stopped else "")
     summary = {
-        "mode": mode, "queries": len(rows), "passed": passed, "total_cost_usd": round(total, 6), "total_steps": sum(q["steps"] for q in out),
+        "mode": mode, "memory": memory, "queries": len(rows), "passed": passed, "total_cost_usd": round(total, 6), "total_steps": sum(q["steps"] for q in out),
         "seconds": round(time.monotonic() - started, 2), "stopped": stopped, "skipped": [r["id"] for r in rows[len(out):]], "verdict": verdict,
     }
     return {"summary": summary, "queries": out}
@@ -234,6 +240,11 @@ async def execute(rows: list[dict], args, work: Path, out_path: Path | None = No
     (work / "grants.toml").write_text(f"[[grant]]\npath = '{folder}'\nmode = \"read\"\n", encoding="utf-8")  # read on this folder only
     store = Store(work / "acceptance.db")
     ledger = Ledger(store)
+    mode = getattr(args, "memory", "off")
+    if mode != "off" and any(r.get("needs_memory") for r in rows):  # the User's own file, written before the first message: where their things are
+        (work / "memory").mkdir(parents=True, exist_ok=True)
+        (work / "memory" / "persona.md").write_text(f"- My resumes, reports and other documents are in {folder}\n", encoding="utf-8")
+    memory, _ = memory_mod.build({"STEPOUT_MEMORY": mode, "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", "")}, work / "memory")
     if args.live:
         model, fetcher, browser = RetryingModel(default_model()), Fetcher(), Browser(shots=work / "shots")  # STEPOUT_STRONG_MODEL / _CHEAP_MODEL re-point the tiers
     else:
@@ -247,19 +258,24 @@ async def execute(rows: list[dict], args, work: Path, out_path: Path | None = No
     def after(res: Result) -> None:
         results.append(evaluate(res, store, ledger, offline=not args.live))
         if out_path:
-            write_report(summarize(rows, results, channel.stopped, started, args.live), out_path)
+            write_report(summarize(rows, results, channel.stopped, started, args.live, mode), out_path)
 
     channel = ScriptChannel(queries, args.max_total_usd, after)
     saved = SavedChannel(channel, ledger)
     intake = Intake(HaikuScreener(model), ledger, lambda conversation_id: history.exchanges(store, conversation_id))
-    runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=Files.from_config(work / "grants.toml"), browser=browser)
+    runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=Files.from_config(work / "grants.toml"), browser=browser, memory=memory)
+    # Facts are extracted from the User's messages by a cheap model call: live only (offline, the scripted model has nothing scripted for it).
+    learner = Learner(Extractor(model), memory, ledger, trace=channel.trace) if args.live and memory.enabled else None
     try:
-        await run(saved, intake, runner)
+        await run(saved, intake, runner, memory=memory, learner=learner)
     finally:
         if args.live:
             await browser.aclose()
+        close = getattr(getattr(memory, "_store", None), "close", None)
+        if close:
+            close()  # Mem0's local store holds a file lock the temp folder cannot be removed under
     store.close()
-    return summarize(rows, results, channel.stopped, started, args.live)
+    return summarize(rows, results, channel.stopped, started, args.live, mode)
 
 
 def show(report: dict) -> None:
@@ -272,11 +288,32 @@ def show(report: dict) -> None:
     line(report["summary"]["verdict"])
 
 
+def compare(paths: list[Path]) -> str:
+    """Reports of the same queries under different `--memory` conditions, side by side: steps, cost and the verdict of each. Plain text."""
+    reports = [json.loads(p.read_text(encoding="utf-8")) for p in paths]
+    modes = [r["summary"].get("memory", "off") for r in reports]
+    ids = [q["id"] for q in reports[0]["queries"]]
+    cell = lambda q: f"{q['steps']:>3} st ${q['model_cost_usd']:.4f} {'PASS' if q['passed'] else 'FAIL'}"  # noqa: E731
+    out = [f"{'id':10} " + "  ".join(f"{m:^26}" for m in modes)]
+    for i in ids:
+        row = []
+        for r in reports:
+            q = next((x for x in r["queries"] if x["id"] == i), None)
+            row.append(f"{cell(q):^26}" if q else f"{'-':^26}")
+        out.append(f"{i:10} " + "  ".join(row))
+    totals = [f"{sum(q['steps'] for q in r['queries']):>3} st ${r['summary']['total_cost_usd']:.4f} {r['summary']['passed']}/{r['summary']['queries']}" for r in reports]
+    out.append(f"{'total':10} " + "  ".join(f"{t:^26}" for t in totals))
+    return "\n".join(out)
+
+
 # --- the command line ---------------------------------------------------------------------------------------------------------------
 
 
-def load_rows() -> list[dict]:
-    return [json.loads(line) for line in QUERIES.read_text(encoding="utf-8").splitlines() if line.strip()]
+def load_rows(with_memory_tasks: bool = False) -> list[dict]:
+    rows = [json.loads(line) for line in QUERIES.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if with_memory_tasks:
+        rows += [json.loads(line) for line in MEMORY_TASKS.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return rows
 
 
 def pick(rows: list[dict], only: list[str]) -> list[dict]:
@@ -293,15 +330,27 @@ async def amain(argv: list[str] | None = None) -> int:
     p.add_argument("--max-total-usd", type=float, default=1.00, help="stop the whole run once the total passes this")
     p.add_argument("--out", type=Path, help="the JSON report (default data/acceptance/<UTC timestamp>.json)")
     p.add_argument("--only", default="", help="ids to run, comma-separated (a follow-up also runs the earlier queries of its chat)")
+    p.add_argument("--memory", choices=("off", "files", "mem0"), default="off", help="the Memory condition (mem0 embeds with OpenAI, so it needs --live and OPENAI_API_KEY)")
+    p.add_argument("--memory-tasks", action="store_true", help="add the three tasks Memory is for (tests/data/memory_tasks.jsonl); with --memory off the two that need it are expected to fail")
+    p.add_argument("--compare", nargs="+", type=Path, metavar="REPORT", help="print these reports side by side and run nothing")
     args = p.parse_args(argv)
+    if args.compare:
+        print(compare(args.compare).encode("ascii", "replace").decode())
+        return 0
 
-    rows = load_rows()
+    rows = load_rows(True) if args.memory_tasks else load_rows()  # (the plain call: tests replace load_rows with a function of no arguments)
     only = [i for i in args.only.split(",") if i]
     if unknown := set(only) - {r["id"] for r in rows}:
         print(f"unknown id(s): {', '.join(sorted(unknown))}; known: {', '.join(r['id'] for r in rows)}", file=sys.stderr)
         return 2
+    if args.memory == "mem0" and not args.live:
+        print("--memory mem0 embeds with OpenAI, so it needs --live. Nothing was run and nothing was spent.", file=sys.stderr)
+        return 2
     if args.live:
         load_dotenv()
+        if args.memory == "mem0" and not os.environ.get("OPENAI_API_KEY"):
+            print("--memory mem0 needs OPENAI_API_KEY (in the environment or in .env). Nothing was run and nothing was spent.", file=sys.stderr)
+            return 2
         if not os.environ.get("ANTHROPIC_API_KEY"):
             print("--live needs ANTHROPIC_API_KEY (in the environment or in .env). Nothing was run and nothing was spent.", file=sys.stderr)
             return 2
@@ -313,8 +362,10 @@ async def amain(argv: list[str] | None = None) -> int:
     write_report(report, out)
     show(report)
     print(f"report: {out}")
-    summary = report["summary"]
-    return 0 if summary["passed"] == summary["queries"] else 1
+    # A task that exists to show what Memory does is expected to fail without it: that is the comparison, not a broken harness.
+    expected_without = args.memory == "off"
+    blocked = [q for q in report["queries"] if not q["passed"] and not (expected_without and q.get("needs_memory"))]
+    return 0 if not blocked and not report["summary"]["skipped"] and not report["summary"]["stopped"] else 1
 
 
 def main(argv: list[str] | None = None) -> int:
