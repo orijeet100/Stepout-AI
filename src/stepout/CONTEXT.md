@@ -38,7 +38,7 @@ What the User asks for in a Message, before the Assistant has accepted it.
 _Avoid_: query, prompt, intent, workflow
 
 **Screening**:
-The check a Request passes before it becomes a Task: Proceed, Decline, or a short reply for plain chat. It runs before any Orchestrator money is spent, and also picks out which earlier Exchanges the Request relates to. The Screening agent does it with one cheap Model call.
+The check a Request passes before it becomes a Task: Proceed, Decline, or a short reply for plain chat. It runs before any Orchestrator money is spent, is shown the Conversation's last five Exchanges whole, and picks out which of them the Request relates to. The Screening agent does it with one cheap Model call.
 _Avoid_: front door, moderation, guardrail, validation
 
 **Declined**:
@@ -196,7 +196,7 @@ _Avoid_: backup, rollback log
 ### Memory
 
 **Memory**:
-What the Assistant keeps between Tasks about the User and the web: Persona, Notes and History.
+What the Assistant keeps between Tasks about the User and the web: Persona, learned facts and History (Notes are planned).
 _Avoid_: context, knowledge base, state
 
 **Persona**:
@@ -204,7 +204,7 @@ Facts and preferences about the User, including where their usual Documents live
 _Avoid_: profile, user model
 
 **Pinned**:
-A Persona entry the User wrote or edited. Nothing but the User's own `/remember` and `/forget` touches the file; an entry's id is a hash of its text.
+A Persona entry the User wrote or edited. Nothing but the User's own `/remember`, `/forget` and an edit in the Memory panel touches the file; an entry's id is a hash of its text.
 
 **Document** *(planned)*:
 A file the Assistant uses for the User, such as a resume — found inside a Grant, or given directly.
@@ -227,7 +227,7 @@ What Memory hands a Run when it starts: the Persona plus the few learned facts a
 _Avoid_: retrieval, context window
 
 **Forget**:
-The User removing something from Memory with `/forget <id>`, or deleting the chat it came from. It never edits the Ledger.
+The User removing something from Memory with `/forget <id>` or the Memory panel, or deleting the chat it came from. It never edits the Ledger.
 
 ### Record
 
