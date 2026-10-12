@@ -6,13 +6,13 @@ import asyncio
 import logging
 import os
 import sys
-from pathlib import Path
+import webbrowser
 from typing import Sequence
 
 from dotenv import load_dotenv
 
 from stepout import capture as capture_mod
-from stepout import commands, history, housekeeping, logs
+from stepout import commands, history, housekeeping, init, logs, remote
 from stepout import memory as memory_mod
 from stepout.chats import ChatKeeper
 from stepout.channels.cli import CliChannel
@@ -25,6 +25,7 @@ from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.intake import ChatReading, CommandReading, DeclinedReading, FailedReading, Intake, NewTask
 from stepout.ledger import Ledger
+from stepout.paths import CHECKOUT, home
 from stepout.pydantic_model import PydanticModel, default_model
 from stepout.retry import RetryingModel
 from stepout.roles import HAIKU, SONNET
@@ -32,12 +33,14 @@ from stepout.runner import Runner
 from stepout.screening import HaikuScreener
 from stepout.store import Store
 
-DB_PATH = Path("data/stepout.db")
-GRANTS_PATH = Path("data/config/grants.toml")  # only the User edits this
-SHOTS_PATH = Path("data/runs")  # page screenshots, one folder per Run
-LOGS_PATH = Path("data/logs")  # the app log (logs.py)
-MEMORY_PATH = Path("data/memory")  # Persona and what was learned (memory.py)
-CAPTURE_PATH = Path("data/capture")  # prompts and replies, only when STEPOUT_CAPTURE=1 (capture.py)
+HOME = home()  # the one data folder (paths.py)
+ENV_PATH = HOME / ".env"  # the key, written by `stepout init`
+DB_PATH = HOME / "stepout.db"
+GRANTS_PATH = HOME / "config" / "grants.toml"  # only the User edits this (`stepout grant`)
+SHOTS_PATH = HOME / "runs"  # page screenshots, one folder per Run
+LOGS_PATH = HOME / "logs"  # the app log (logs.py)
+MEMORY_PATH = HOME / "memory"  # Persona and what was learned (memory.py)
+CAPTURE_PATH = HOME / "capture"  # prompts and replies, only when STEPOUT_CAPTURE=1 (capture.py)
 
 
 def make_browser(channel) -> Browser:
@@ -50,9 +53,10 @@ def startup_notes(keys: Sequence[str] = ("ANTHROPIC_API_KEY",)) -> list[str]:
     notes = []
     for var in keys:
         if not os.environ.get(var):
-            notes.append(f"No {var}: put it in the .env file next to the app (copy .env.example to .env and fill it in), then restart. Until then every message gets this answer.")
+            fix = "run `stepout init` to add it" if var == "ANTHROPIC_API_KEY" else f"put {var}=... in {ENV_PATH}"
+            notes.append(f"No {var}: {fix}, then restart. Until then every message gets this answer.")
     if not GRANTS_PATH.exists():
-        notes.append(f"No {GRANTS_PATH}: the Local File Finder and Local File Reader agents can't see your disk. Copy grants.example.toml there to allow it.")
+        notes.append("No folders are allowed yet: the Local File Finder and Local File Reader agents can't see your disk. Run `stepout grant` to choose which folders they may look at.")
     return notes
 
 
@@ -119,8 +123,7 @@ async def run(channel, intake: Intake, runner: Runner, month_left=None, memory=N
             await channel.send(Reply(text=UNEXPECTED, conversation_id=cid))
 
 
-async def main() -> None:
-    load_dotenv()
+async def main(web: bool = True, open_browser: bool = False) -> None:
     log_file = logs.configure(LOGS_PATH)
     base = default_model()
     other = isinstance(base, PydanticModel)  # a tier is re-pointed in the environment (STEPOUT_STRONG_MODEL / STEPOUT_CHEAP_MODEL)
@@ -141,7 +144,7 @@ async def main() -> None:
     if (cut_off := ledger.close_interrupted()):
         logging.getLogger(__name__).warning("closed %d run(s) the last session left open", cut_off)
     fetcher = Fetcher()
-    if "web" in sys.argv[1:]:
+    if web:
         async def forget_chat(chat: str, run_ids: list[str]) -> None:
             await memory.forget_chat(chat)  # what Memory kept from a deleted chat goes with it
 
@@ -149,8 +152,20 @@ async def main() -> None:
             capture_mod.Capture(CAPTURE_PATH).remove(run_ids)  # a deleted chat's prompts go with it, whether or not capture is on now
 
         keeper = ChatKeeper(ledger, SHOTS_PATH, [forget_chat, remove_capture])
-        channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store), keeper=keeper, memory=memory)  # the channel reads history from the app's own Store
-        print(f"Stepout web chat: http://127.0.0.1:{await channel.start()}  (Ctrl+C to stop)")
+        hosts = [h for h in os.environ.get("STEPOUT_REMOTE_HOSTS", "").split(",") if h.strip()]  # set by `stepout remote`
+        channel = WebChannel(port=web_port(), shots=SHOTS_PATH, history=StoreHistory(store), keeper=keeper, memory=memory,
+                             remote_hosts=hosts, remote_login=os.environ.get("STEPOUT_REMOTE_LOGIN", ""))  # the channel reads history from the app's own Store
+        try:
+            url = f"http://127.0.0.1:{await channel.start()}"
+        except OSError:
+            print(f"Port {web_port()} is in use: is Stepout already running? Stop it (Ctrl+C in its window), or set STEPOUT_PORT to another port.")
+            return
+        print(f"Stepout web chat: {url}  (Ctrl+C to stop)")
+        if hosts:
+            remote.keep_awake()
+            print(f"From your phone: https://{hosts[0]}/  (this laptop stays awake while Stepout runs; closing the lid still sleeps it)")
+        if open_browser:
+            webbrowser.open(url)
     else:
         channel = CliChannel()
     intake = Intake(HaikuScreener(model), ledger, lambda conversation_id: history.exchanges(store, conversation_id))
@@ -169,5 +184,49 @@ async def main() -> None:
         await browser.aclose()
 
 
+USAGE = """stepout           start the chat and open it in your browser
+stepout web       start the chat without opening the browser
+stepout cli       chat in this terminal instead
+stepout init      set up: your API key, then the folders Stepout may look at
+stepout grant     choose which folders Stepout may look at
+stepout remote    reach this chat from your phone (stepout remote off: stop that)"""
+
+
+def first_run(ask=input) -> None:
+    """Not set up yet (no key, or the folders question never answered) and someone is at the keyboard: offer `init` once."""
+    other = os.environ.get("STEPOUT_STRONG_MODEL") or os.environ.get("STEPOUT_CHEAP_MODEL")  # another provider's key is set by hand
+    if (GRANTS_PATH.exists() and (other or os.environ.get("ANTHROPIC_API_KEY"))) or not (sys.stdin.isatty() and sys.stdout.isatty()):
+        return  # (both: on Windows the null device counts as a terminal)
+    if ask("Stepout is not set up yet. Set it up now? [Y/n] ").strip().lower() in ("", "y", "yes"):
+        init.init(ENV_PATH, GRANTS_PATH)
+
+
+def cli(args: Sequence[str] | None = None) -> None:
+    """The `stepout` command."""
+    args = list(sys.argv[1:] if args is None else args)
+    command = args[0] if args else "open"
+    load_dotenv(ENV_PATH)  # the key `stepout init` wrote
+    if CHECKOUT is not None:
+        load_dotenv(CHECKOUT / ".env")  # a source checkout's own .env (development); never the working directory's
+    try:
+        if command == "init":
+            init.init(ENV_PATH, GRANTS_PATH)
+        elif command == "grant":
+            init.grant(GRANTS_PATH)
+        elif command == "remote" and args[1:] == ["off"]:
+            remote.off(ENV_PATH)
+        elif command == "remote":
+            if remote.setup(web_port(), ENV_PATH):
+                first_run()
+                asyncio.run(main(web=True))
+        elif command in ("open", "web", "cli"):
+            first_run()
+            asyncio.run(main(web=command != "cli", open_browser=command == "open"))
+        else:
+            print(USAGE)
+    except (KeyboardInterrupt, EOFError):
+        print()  # Ctrl+C: stop quietly
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    cli(sys.argv[1:] or ["cli"])  # `python -m stepout.app` stays the terminal chat; `python -m stepout.app web` the web one

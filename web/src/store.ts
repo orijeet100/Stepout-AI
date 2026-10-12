@@ -22,6 +22,7 @@ export type State = {
   runs: Record<string, Run>
   streams: Record<string, { conversationId: string; text: string }> // a Run's reply as it is being written, by run id: live only, gone when the finished reply arrives
   status: Status
+  machine: string // the laptop's name, from `hello` ('' when the backend did not say)
   error: string | null
 }
 
@@ -37,6 +38,7 @@ export const initial: State = {
   runs: {},
   streams: {},
   status: { state: 'idle', active: null, queued: [] },
+  machine: '',
   error: null,
 }
 
@@ -122,6 +124,7 @@ export function reducer(s: State, a: Action): State {
         return { ...s, chats: touch(s.chats, e.conversation_id, e.at), runs: addEvents(s.runs, [e]) }
       }
       if (f.type === 'status') return { ...s, status: { state: f.state, active: f.active, queued: f.queued }, streams: f.state === 'idle' ? {} : s.streams }
+      if (f.type === 'hello') return { ...s, machine: f.machine }
       return s
     }
     case 'chats': {

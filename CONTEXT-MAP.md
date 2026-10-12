@@ -12,3 +12,7 @@ Stepout has two bounded contexts. Telegram, the web page, the model provider and
 - **Evaluation → Assistant**: Evaluation is downstream and talks to the Assistant only the way a User would — as a Channel (the Simulated user sends Messages and gives Answers and Approvals) — and reads the Assistant's Ledger. It never reaches inside the Assistant.
 - **Assistant → Evaluation**: none. The Assistant does not know it is being evaluated and never grades itself.
 - **Outside world → Assistant**: Telegram updates, model completions and web pages are translated at the edge into Messages, Actions and Untrusted content.
+
+## Shared terms
+
+- **Home**: the one folder that holds the User's chats, Memory, settings, key and log. It is `STEPOUT_HOME` if set, else `data/` in a source checkout, else `%LOCALAPPDATA%\Stepout`. Never the working directory or the package; the Assistant may not read it.

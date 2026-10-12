@@ -39,6 +39,7 @@ ClientFrame = Annotated[SendFrame | StopFrame, Field(discriminator="type")]
 class HelloFrame(_Wire):
     type: Literal["hello"] = "hello"
     v: int = 1
+    machine: str = ""  # the laptop's name, shown in the page's header
 
 
 class MessageFrame(_Wire):

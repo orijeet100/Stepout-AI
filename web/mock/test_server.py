@@ -158,7 +158,7 @@ def test_send_replays_a_run_under_fresh_ids():
         cid = await new_chat(c)
         ws = await c.ws_connect("/ws", headers=origin(c))
         first = await frames_until(ws, lambda s: len(s) == 2)
-        assert first[0] == {"type": "hello", "v": 1} and first[1]["state"] == "idle" and first[1]["queued"] == []
+        assert first[0] == {"type": "hello", "v": 1, "machine": "mock-laptop"} and first[1]["state"] == "idle" and first[1]["queued"] == []
 
         await ws.send_json({"type": "send", "conversation_id": cid, "text": "What is 2 + 3?"})
         got = await frames_until(ws, lambda s: bool(s) and s[-1]["type"] == "status" and s[-1]["state"] == "idle" and any(f["type"] == "message" and f["role"] == "assistant" for f in s))

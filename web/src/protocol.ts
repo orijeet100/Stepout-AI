@@ -50,7 +50,7 @@ export type Status = {
 }
 
 export type Frame =
-  | { type: 'hello'; v: number }
+  | { type: 'hello'; v: number; machine: string }
   | ({ type: 'message' } & Message)
   | ({ type: 'trace' } & Trace)
   | ({ type: 'status' } & Status)
@@ -159,7 +159,7 @@ export function parseFrame(v: unknown): Frame | null {
   if (!isRec(v)) return null
   switch (v.type) {
     case 'hello':
-      return isNum(v.v) ? { type: 'hello', v: v.v } : null
+      return isNum(v.v) ? { type: 'hello', v: v.v, machine: isStr(v.machine) ? v.machine : '' } : null
     case 'message': {
       const m = parseMessage(v)
       return m && { type: 'message', ...m }

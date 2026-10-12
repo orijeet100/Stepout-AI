@@ -1,12 +1,14 @@
 ---
 title: "feat: One-command install and phone access"
 type: feat
-status: draft
+status: done
 date: 2026-10-12
 origin: conversation 2026-10-12 (install friction; phone to laptop over Tailscale)
 ---
 
 # feat: One-command install and phone access
+
+Status: done. U10 (the optional Folders panel) and `stepout init --provider` were left out. The first `stepout remote` run on a real tailnet with a phone is still to do.
 
 ## Overview
 

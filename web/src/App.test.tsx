@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -84,6 +84,13 @@ describe('App', () => {
     const row = screen.getByRole('button', { name: /Which events are free\?/ }) // the sidebar row is a named button
     expect(row.getAttribute('aria-current')).toBe('true')
     expect(screen.queryByRole('status')).toBeNull() // connected: no banner
+  })
+
+  it('shows the laptop it talks to in the header, once the hello frame names it', async () => {
+    const ws = await connected()
+    expect(screen.queryByText(/^on /)).toBeNull() // no name yet
+    ws.push({ type: 'hello', v: 1, machine: 'LAPTOP-7' })
+    expect(within(document.querySelector('.head') as HTMLElement).getByText('on LAPTOP-7')).toBeTruthy()
   })
 
   it('New chat is instant: what you type next goes to a brand new chat, never the one you were in', async () => {

@@ -5,7 +5,8 @@ const base = { id: 'a'.repeat(32), conversation_id: 'c'.repeat(32), at: '2026-10
 
 describe('parseFrame', () => {
   it('reads each v1 frame', () => {
-    expect(parseFrame({ type: 'hello', v: 1 })).toEqual({ type: 'hello', v: 1 })
+    expect(parseFrame({ type: 'hello', v: 1, machine: 'LAPTOP-7' })).toEqual({ type: 'hello', v: 1, machine: 'LAPTOP-7' })
+    expect(parseFrame({ type: 'hello', v: 1 })).toEqual({ type: 'hello', v: 1, machine: '' }) // an older backend: no name
     expect(parseFrame({ type: 'message', ...base, role: 'user', text: 'hi', run_id: null, cost_usd: null })?.type).toBe('message')
     const trace = parseFrame({ type: 'trace', ...base, run_id: 'r'.repeat(32), parent: null, kind: 'plan', role: 'orchestrator', cost_usd: 0, data: { steps: [{ role: 'web_browsing', goal: 'g', status: 'running' }] } })
     expect(trace).toMatchObject({ type: 'trace', kind: 'plan', data: { steps: [{ status: 'running' }] } })

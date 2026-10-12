@@ -16,6 +16,9 @@ __pycache__/
 # generated diagrams (archify); regenerate from candidate.json
 .archify/
 
+# built React page: built by `cd web && npm run build`, shipped in the wheel
+src/stepout/_web/
+
 # wayfinder planning map and tickets (working files; decisions land in docs/adr/)
 .scratch/
 
@@ -26,3 +29,7 @@ __pycache__/
 graphify-out/
 .claude/skills/graphify/
 .claude/settings.local.json
+
+# python build output (uv build)
+/build/
+/dist/

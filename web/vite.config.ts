@@ -13,5 +13,6 @@ export default defineConfig({
   plugins: [react()],
   server: { proxy },
   preview: { proxy },
+  build: { outDir: '../src/stepout/_web', emptyOutDir: true },
   test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'] },
 })

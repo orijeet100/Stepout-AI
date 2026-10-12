@@ -132,7 +132,7 @@ def _explain(exc: Exception) -> Failure:
     """The provider said no, or could not be reached: one line for the User and the cause for the Ledger."""
     match exc:
         case UserError():
-            return Failure("no_key", f"A model provider is not set up ({str(exc).strip()}). Put its API key in the .env file (copy .env.example), then restart the app.")
+            return Failure("no_key", f"A model provider is not set up ({str(exc).strip()}). Put its API key in the .env file in Stepout's folder, then restart the app.")
         case ModelHTTPError(status_code=401 | 403 as status):
             return Failure("auth", f"The model provider rejected the API key ({status}). Check the key in the .env file, then restart the app.", status)
         case ModelHTTPError(status_code=402 as status):

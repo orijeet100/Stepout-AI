@@ -183,6 +183,8 @@ def build(environ: Mapping[str, str] = os.environ, root: Path = Path("data/memor
                 from stepout.memory_mem0 import Mem0Store
 
                 return MemoryService(persona, Mem0Store(root, api_key=key)), f"Memory: Persona in {root}, learned facts and earlier tasks in Mem0 (embedded with OpenAI)."
+            except ImportError:
+                return MemoryService(persona, FileStore(root / "learned.jsonl")), f"Memory: Mem0 is not installed (it is the optional `stepout[mem0]` extra), so plain files in {root} are used."
             except Exception as exc:
                 return MemoryService(persona, FileStore(root / "learned.jsonl")), f"Memory: Mem0 could not start ({type(exc).__name__}), so plain files in {root} are used."
     return MemoryService(persona, FileStore(root / "learned.jsonl")), f"Memory: plain files in {root}."

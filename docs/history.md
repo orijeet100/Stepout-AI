@@ -55,6 +55,15 @@ The choices that shaped the product, in the order they happened, with where to r
 - **The page now looks like ChatGPT**: a plain sheet, a quiet chat list, a borderless bubble, no assistant avatar, a pill composer centred on an empty chat, a Copy button under replies, ElevenLabs' shimmering text while it works; still plain CSS and no new dependency ([0017](adr/0017-the-page-follows-the-chatgpt-look.md), superseding 0014).
 - **Agent work is drawn as assistant-ui draws it**: the plan as a checklist with a thin bar, each delegation as a task card (agent, model, time, result), each hand action inside it as a tool call that opens onto its request and result ([0018](adr/0018-agent-work-as-assistant-ui-draws-it.md)). A sun or moon in the header switches light and dark, and the choice is kept in the browser. A run counts only the tool calls you can see, and Memory's panel can edit any entry in place (a Persona line, a learned fact, an earlier task), in either store. A reply Screening gave without a Run (small talk, a decline) is now an Exchange too, so the next message is screened and answered with it in view; it was invisible before, and a follow-up to small talk lost the thread.
 
+## 2026-10-12: one command to install, and the phone
+
+- **One command installs it.** `uv tool install` of the Release's wheel, on Windows with only `uv` and Chrome or Edge; `stepout` starts the chat and opens the browser. The page is built in CI and ships inside the wheel, so a user needs no Node; a source checkout still builds it once. CI checks that the wheel installs on a clean Windows runner before it is attached to a tag ([0019](adr/0019-one-command-install.md), `.github/workflows/release.yml`).
+- **Home** is the one folder for the User's data (chats, Memory, logs, screenshots, the key, grants.toml), found by `paths.home()`: `STEPOUT_HOME`, else `data/` in a checkout, else `%LOCALAPPDATA%\Stepout`. An upgrade keeps it, and the agents cannot read it.
+- **Setup is in the terminal, by the User.** `stepout init` asks for the key (hidden, checked before it is kept) and then for the folders (`stepout grant`); only these write the key and grants.toml. `stepout` offers `init` once when either is missing, at a terminal. The browser is Chrome, else Edge.
+- **Mem0 is an optional extra**, `stepout[mem0]`; `[dev]` includes it. Without it, Memory uses plain files and says so.
+- **Phone access through Tailscale Serve** (`stepout remote`, `stepout remote off`): an HTTPS name that only the owner's own devices reach, a QR code to scan, and a second check that the request carries the owner's Tailscale login. The server still listens on `127.0.0.1` only. The phone path is tested with a fake `tailscale`; its first run on a real tailnet is still to do ([0020](adr/0020-phone-access-through-tailscale-serve.md)).
+- The plan is `docs/plans/2026-10-12-002-feat-one-command-install-and-phone-access-plan.md`. Left out: the optional Folders panel (U10) and `stepout init --provider`.
+
 ## Tried and dropped
 
 | What | Why |

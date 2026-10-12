@@ -167,7 +167,7 @@ def _action(content, one_off: frozenset[str] = frozenset()) -> Action:
 
 
 _WAIT = "Wait a minute, then send it again."
-_KEY_FIX = "Check ANTHROPIC_API_KEY in the .env file, then restart the app."
+_KEY_FIX = "Run `stepout init` to check or replace your Anthropic API key, then restart the app."
 
 
 def malformed_detail(exc: Exception) -> str:
@@ -219,7 +219,7 @@ class AnthropicModel:
 
     async def call(self, request: ModelRequest, on_text=None) -> ModelResponse:
         if not self._client.api_key:  # the SDK would only fail later, inside the request, with a TypeError
-            raise Failure("no_key", "There is no Anthropic API key. Put ANTHROPIC_API_KEY=... in the .env file (copy .env.example), then restart the app.")
+            raise Failure("no_key", "There is no Anthropic API key. Run `stepout init` to add it, then restart the app.")
         # Omit `tools` entirely when unused: tools=None is sent as null and the API rejects it.
         defs = _tool_defs(request)
         if on_text is not None:  # by default a tool call's arguments are buffered and arrive whole; this asks for the reply's words as they are written

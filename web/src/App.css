@@ -47,6 +47,7 @@
 .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
 .head { display: flex; align-items: center; gap: var(--sp-2); height: var(--header-h); padding: 0 var(--sp-3) 0 var(--sp-4); }
 .head h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.head__machine { flex: 0 1 auto; max-width: 40%; min-width: 0; overflow: hidden; color: var(--muted); font-size: var(--fs-xs); text-overflow: ellipsis; white-space: nowrap; }
 .menu, .scrim { display: none; } /* the drawer's controls exist only under 900 px */
 .skip { position: absolute; z-index: 40; top: var(--sp-2); left: var(--sp-2); padding: var(--sp-2) var(--sp-3); color: var(--on-accent); background: var(--accent); border-radius: var(--r-md); transform: translateY(-300%); }
 .skip:focus { transform: none; }

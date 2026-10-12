@@ -1,0 +1,13 @@
+# 0020 — The phone reaches the laptop through Tailscale Serve, and only its owner gets in
+
+Status: accepted · 2026-10-12 · built and tested against a fake `tailscale`; the first run on a real tailnet is still to do.
+
+**Decision.** `stepout remote` gives the laptop's chat an HTTPS name reachable only by the owner's own devices, with **Tailscale Serve**: free, no domain, no server of ours, no account of ours. Not Funnel (the public internet), not a hosted hub. The server still listens on `127.0.0.1` only; Serve connects to it locally (`tailscale serve --bg --https=443 http://127.0.0.1:<port>`; `stepout remote off` undoes it).
+
+**The guard.** `stepout remote` writes two lines to Home's `.env`: the exact host name (`STEPOUT_REMOTE_HOSTS`, no wildcards) and the owner's Tailscale login (`STEPOUT_REMOTE_LOGIN`, from `tailscale status --json`). The web channel then also accepts `Host: <name>` and `Origin: https://<name>`, and any request that arrived from another device (its Host is the remote name, or it carries `Tailscale-User-Login`, `X-Forwarded-For` or `X-Forwarded-Host`) must carry the owner's login in `Tailscale-User-Login`, or it gets 403. Serve sets that header and removes any copy a client sent; it sends none for tagged devices or Funnel, so those are refused. This is a second layer because a tailnet can hold more than one person. Requests straight to `127.0.0.1` behave as before.
+
+**Why the forwarding headers count.** Whether Serve keeps the original `Host` is not documented. If it rewrote it to `127.0.0.1:<port>`, a request from a tagged device would look local; treating any forwarded request as remote closes that.
+
+**The rest.** Each step of `stepout remote` prints only the next action and waits (install with `winget install tailscale.tailscale`, sign in, choose a neutral name, since HTTPS names land in a public certificate log), then prints the URL and a QR code (`segno`, no dependencies) and starts the chat. While phone access is set up, the app keeps Windows from idle sleep (`SetThreadExecutionState`; a closed lid still sleeps). Grants never change from a phone or a page (0019). The page shows the laptop's name (`hello.machine`) and can be added to a home screen (a web manifest).
+
+**Limits.** Windows only. The real Serve flow (the first-time HTTPS consent, the headers as sent) is verified from Tailscale's docs and a fake CLI, not yet on a real tailnet. The phone needs the Tailscale app signed in to the same account. A sleeping laptop is unreachable; there is no queue.
