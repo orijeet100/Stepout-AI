@@ -25,7 +25,7 @@ One unit of text and files sent in a Conversation, in either direction.
 _Avoid_: update, event, chat
 
 **Exchange**:
-A Request and the reply the User saw for it, inside one Conversation. It is Tainted if its Run was.
+A Request and the reply the User saw for it, inside one Conversation, whether a Run answered it or Screening did (a chat reply, a decline). It is Tainted if its Run was.
 _Avoid_: turn, round
 
 **Stale** *(planned)*:

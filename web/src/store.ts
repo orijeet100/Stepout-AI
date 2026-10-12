@@ -209,7 +209,7 @@ export function runCap(s: State, r: Run): number | null {
 }
 
 export type Item =
-  | { kind: 'message'; message: Message; queued?: boolean; note?: boolean }
+  | { kind: 'message'; message: Message; queued?: boolean }
   | { kind: 'run'; run: Run }
   | { kind: 'stream'; runId: string; text: string } // the reply being written, until the finished one arrives
 
@@ -228,7 +228,7 @@ export function timeline(s: State, chatId: string): Item[] {
   for (const message of messages) {
     const run = message.run_id ? s.runs[message.run_id] : undefined
     const key = message.role === 'assistant' && run?.events.length ? ms(run.startedAt) + 0.5 : ms(message.at)
-    const item: Item = { kind: 'message', message, ...(queued.has(message.id) ? { queued: true } : {}), ...(message.role === 'assistant' && !message.run_id ? { note: true } : {}) }
+    const item: Item = { kind: 'message', message, ...(queued.has(message.id) ? { queued: true } : {}) }
     rows.push({ key, rank: rank[message.role], item })
   }
   for (const run of Object.values(s.runs)) {

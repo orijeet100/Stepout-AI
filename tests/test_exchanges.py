@@ -3,11 +3,24 @@
 import pytest
 
 from stepout import history
-from stepout.domain import Exchange, Task
+from stepout.domain import ChatReply, Exchange, Proceed, Task
 from stepout.runner import _previous_block
 from stepout.store import Store
+from tests.support.screeners import FixedScreener
 from tests.test_history import ask, serve
 from tests.test_runner import FakeBrowser, Harness, browse, plan, say
+
+
+async def test_a_reply_with_no_run_is_context_for_what_follows(tmp_path):
+    # As the User reported it: Screening answered "I like vadapav" itself (no Run), and the next message could not see that it had been said.
+    screener = FixedScreener((ChatReply(text="That's great! Vadapav is delicious."), 0.0), (Proceed(related=[1]), 0.0))
+    said = [ask("c1", "Hey man I like vadapav a lot"), ask("c1", "no actually i dont like vadapav")]
+    store = await serve(tmp_path, said, [say("Fair enough, noted.")], screener)
+
+    _, shown = screener.calls[1]  # what the follow-up was screened against
+    assert [(x.id, x.request, x.reply, x.run_id) for x in shown] == [(1, "Hey man I like vadapav a lot", "That's great! Vadapav is delicious.", "")]
+    xs = history.exchanges(store, "c1")
+    assert [(x.request, bool(x.run_id)) for x in xs] == [("Hey man I like vadapav a lot", False), ("no actually i dont like vadapav", True)]
 
 
 async def test_exchanges_are_the_chats_answered_requests_numbered_from_one(tmp_path):

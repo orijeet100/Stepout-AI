@@ -223,8 +223,6 @@ a.page__url { color: var(--accent); }
 
 /* a message waiting its turn, and a reply that is not the end of a Run (a decline, an unknown command, an error) */
 .tag { margin-left: var(--sp-2); padding: 1px var(--sp-2); color: var(--muted); border: 1px solid var(--border-side); border-radius: 999px; font-size: 0.75rem; white-space: nowrap; }
-.reply--note { padding-left: var(--sp-3); border-left: 2px solid var(--border-side); }
-.note__cap { display: block; margin-bottom: 2px; color: var(--muted); font-size: var(--fs-xs); }
 
 /* the empty chat: a greeting; on a wide screen it and the composer sit together in the middle, as ChatGPT's do */
 .greeting { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 var(--sp-4); pointer-events: none; text-align: center; }

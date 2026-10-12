@@ -92,18 +92,29 @@ def _did(store: Store, run_id: str) -> str:
 
 
 def exchanges(store: Store, conversation_id: str, last: int = 10) -> list[Exchange]:
-    """The chat's answered Requests, oldest first, numbered from 1; only the newest `last` are built (the numbers stay the chat's own)."""
+    """The chat's answered messages, in the order they were answered, numbered from 1; only the newest `last` are built (the numbers stay the
+    chat's own). A Run's reply answers its Run's Request; a reply with no Run (Screening's chat answer, a decline, an error) answers the message
+    just before it, so small talk is context for what follows too. A Run that never replied (a crash) is not an Exchange."""
     chat = get_conversation(store, conversation_id)
     if chat is None:
         return []
-    replies = {m.run_id: m.text for m in chat.messages if m.role == "assistant" and m.run_id}
-    answered = [r for r in chat.runs if r.run_id in replies]  # a Run that never replied (a crash) is not an Exchange
+    runs = {r.run_id: r for r in chat.runs}
     tainted = {
         r["id"] for r in store.query("SELECT runs.id FROM runs JOIN tasks ON tasks.id = runs.task_id WHERE tasks.conversation_id = ? AND runs.tainted IS NOT NULL", (conversation_id,))
     }
+    answered: list[tuple[str, str, str]] = []  # (request, reply, run id or "")
+    asked: str | None = None  # the newest message a reply with no Run has not answered yet
+    for m in chat.messages:
+        if m.role == "user":
+            asked = m.text
+        elif m.run_id in runs:
+            answered.append((runs[m.run_id].request, m.text, m.run_id))
+        elif asked is not None:
+            answered.append((asked, m.text, ""))
+            asked = None
     return [
-        Exchange(id=n, request=r.request, reply=_COST_FOOTER.sub("", replies[r.run_id]), did=_did(store, r.run_id), tainted=r.run_id in tainted, run_id=r.run_id)
-        for n, r in enumerate(answered, start=1)
+        Exchange(id=n, request=q, reply=_COST_FOOTER.sub("", a), did=_did(store, rid) if rid else "", tainted=rid in tainted, run_id=rid)
+        for n, (q, a, rid) in enumerate(answered, start=1)
         if n > len(answered) - last
     ]
 

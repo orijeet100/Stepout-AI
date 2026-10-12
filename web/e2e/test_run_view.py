@@ -79,10 +79,9 @@ def test_a_request_the_gate_declines_has_no_run(page):
     page.wait_for_load_state("networkidle")  # the open chat's history has arrived: runs of earlier tests are in `before`, not mistaken for a new one
     before = page.locator(".run").count()
     send(page, "Pay my electricity invoice")
-    expect(page.get_by_text("No run was started").last).to_be_visible()
+    expect(page.locator(".reply").last).to_contain_text("payments and transfers")
     page.wait_for_load_state("networkidle")
     assert page.locator(".run").count() == before  # a decline starts no Run
-    expect(page.locator(".reply--note").last).to_contain_text("payments and transfers")
 
 
 def test_a_message_sent_while_a_run_is_busy_is_tagged_queued(page):

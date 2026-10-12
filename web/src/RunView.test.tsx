@@ -182,11 +182,11 @@ describe('stopped, over budget, failed', () => {
 })
 
 describe('declined and queued', () => {
-  it('a decline is a reply with no Run: a note saying no run was started, no run block, no cost', () => {
+  it('a decline is a reply with no Run: a plain reply, no run block, no cost', () => {
     const { container } = show(stateOf('declined'), 'declined')
     expect(container.querySelector('.run')).toBeNull()
-    expect(screen.getByText('No run was started')).toBeTruthy()
-    expect(screen.getByText(/payments and transfers, which I won't do/).closest('.reply')!.className).toContain('reply--note')
+    expect(screen.getByText(/payments and transfers, which I won't do/).closest('.reply')).toBeTruthy()
+    expect(screen.queryByText('No run was started')).toBeNull() // how it was answered is not the reader's business
     expect(container.querySelector('.reply small.muted')).toBeNull() // no cost: nothing was spent on a Run
   })
 

@@ -142,8 +142,7 @@ export default function ChatView({ items, empty = 'new', starting = false, runSt
                     }
                     const { message } = item
                     return (
-                      <div key={message.id} className={`reply${item.note ? ' reply--note' : ''}`}>
-                        {item.note && <small className="note__cap">No run was started</small>}
+                      <div key={message.id} className="reply">
                         <Reply text={message.text} />
                         <div className="actions">
                           <Copy text={message.text} />
