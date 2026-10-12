@@ -133,7 +133,7 @@ class Runner:
         self._memory = memory  # None, or off: nothing is recalled and nothing is kept
         self._month_left = month_left  # dollars the month has left (app.py); a Run's cap is the lesser of this and the per-Run cap
 
-    async def submit(self, task: Task, previous: Sequence[Exchange] = (), screening_cost: float = 0.0) -> None:
+    async def submit(self, task: Task, previous: Sequence[Exchange] = (), screening_cost: float = 0.0) -> str:
         """`previous`: the earlier Exchanges this Task builds on (none for a new Task). `screening_cost`: what Screening spent, counted against this Run's cap."""
         self._cancel.clear()
         cap = self._cap if self._month_left is None else min(self._cap, max(self._month_left(), 0.0))
@@ -151,6 +151,7 @@ class Runner:
             await self._submit(run, task, previous)
         finally:
             scope.leave(token)
+        return run.id
 
     async def _recall(self, run: _Run, request: str) -> str:
         """What Memory hands this Run, or "" (Memory off, nothing relevant, or Memory too slow or broken: the Run goes ahead without and the Trace says so)."""

@@ -18,6 +18,7 @@ from stepout.channels.cli import CliChannel
 from stepout.channels.web import StoreHistory, WebChannel
 from stepout.browser import Browser
 from stepout.domain import Reply, Task
+from stepout.extract import Extractor, Learner
 from stepout.failure import UNEXPECTED
 from stepout.fetch import Fetcher
 from stepout.files import Files
@@ -85,7 +86,7 @@ def month_cap(environ=os.environ) -> float:
         return 10.00
 
 
-async def run(channel, intake: Intake, runner: Runner, month_left=None, memory=None) -> None:
+async def run(channel, intake: Intake, runner: Runner, month_left=None, memory=None, learner: Learner | None = None) -> None:
     """`month_left()`: dollars the month has left; at zero a message is answered with a line and costs nothing (a slash command is free and still works)."""
     async for message in channel.messages():
         cid = message.conversation_id
@@ -99,6 +100,8 @@ async def run(channel, intake: Intake, runner: Runner, month_left=None, memory=N
                     await channel.send(Reply(text=f"{reason} {alternative}", conversation_id=cid, cost_usd=cost))
                 case ChatReading(text=text, cost_usd=cost):
                     await channel.send(Reply(text=text, conversation_id=cid, cost_usd=cost))
+                    if learner is not None:
+                        await learner.learn(message)
                 case FailedReading(text=text):
                     await channel.send(Reply(text=text, conversation_id=cid))
                 case CommandReading(name=name, args=args):
@@ -106,7 +109,9 @@ async def run(channel, intake: Intake, runner: Runner, month_left=None, memory=N
                     await channel.send(Reply(text=said if said is not None else f"Unknown command: /{name}", conversation_id=cid))
                 case NewTask(request=request, previous=previous, cost_usd=cost):
                     task = Task(user_id=message.user_id, request=request, conversation_id=cid)
-                    await runner.submit(task, previous, screening_cost=cost)
+                    run_id = await runner.submit(task, previous, screening_cost=cost)
+                    if learner is not None:
+                        await learner.learn(message, run_id)  # after the reply: what the User said about themselves, kept and shown
         except Exception:  # one failed request (API error, bad key) must not end the session
             logging.exception("request failed")
             await channel.send(Reply(text=UNEXPECTED, conversation_id=cid))
@@ -152,7 +157,8 @@ async def main() -> None:
 
     runner = Runner(model, fetcher, ledger, saved.send, trace=channel.trace, cancel=channel.cancel, files=files, browser=browser, month_left=month_left, memory=memory)
     try:
-        await run(saved, intake, runner, month_left, memory)
+        learner = Learner(Extractor(model), memory, ledger, trace=channel.trace)
+        await run(saved, intake, runner, month_left, memory, learner)
     finally:
         await browser.aclose()
 

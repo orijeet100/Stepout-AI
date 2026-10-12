@@ -1,6 +1,6 @@
 # 0016 — Memory: a Persona file, a learned store behind one seam, Mem0 as the primary store
 
-Status: accepted · 2026-10-12 · built: Persona, History, the file store, the commands, Recollection. Pending: the extractor and the Mem0 adapter (see the plan, Units 8 and 9).
+Status: accepted · 2026-10-12 · built: Persona, History, the file store, the commands, Recollection, the extractor. Pending: the Mem0 adapter (see the plan, Unit 9).
 
 **Decision.** Memory is two things behind one small interface (`memory.py`): **Persona**, a Markdown file the User owns and edits (`data/memory/persona.md`, one bullet per entry), and a **learned store** that holds facts the User stated and History (earlier tasks). The learned store is the seam [ADR 0003](0003-memory-files-first.md) asked for, with two adapters: plain files (`memory_files.py`, the baseline) and Mem0 (`memory_mem0.py`, primary once built). A Run is handed a **Recollection** (Persona plus the few relevant learned entries, about 2,000 characters at most) at its start; the Orchestrator alone sees it.
 

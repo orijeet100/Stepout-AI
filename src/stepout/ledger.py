@@ -122,8 +122,8 @@ class Ledger:
         lo, hi = start.isoformat(), end.isoformat()
         row = self._store.query(
             "SELECT (SELECT COALESCE(SUM(cost_usd), 0) FROM runs WHERE started_at >= ? AND started_at < ?) "
-            "+ (SELECT COALESCE(SUM(cost_usd), 0) FROM events WHERE run_id IS NULL AND at >= ? AND at < ? "
-            "AND NOT (kind IN ('screening_fallback', 'screening_failed') OR (kind = 'screening' AND json_extract(data, '$.decision') = 'proceed'))) AS spent",
+            "+ (SELECT COALESCE(SUM(cost_usd), 0) FROM events WHERE at >= ? AND at < ? AND (kind = 'memory' OR (run_id IS NULL "
+            "AND NOT (kind IN ('screening_fallback', 'screening_failed') OR (kind = 'screening' AND json_extract(data, '$.decision') = 'proceed'))))) AS spent",
             (lo, hi, lo, hi),
         )[0]
         return float(row["spent"])
