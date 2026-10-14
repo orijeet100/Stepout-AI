@@ -279,6 +279,9 @@ class WebChannel:
 
     # ---- HTTP ------------------------------------------------------------------------------------------------
 
+    async def _health(self, request: web.Request) -> web.Response:
+        return web.json_response({"app": "stepout", "v": 1})  # how `stepout` tells its own copy from something else on the port
+
     async def _conversations(self, request: web.Request) -> web.Response:
         query = request.query.get("q", "").strip()[:200]
         rows = {c.id: c for c in (self._history.search_conversations(query) if query else self._history.list_conversations())}
@@ -453,6 +456,7 @@ class WebChannel:
             [
                 web.get("/", self._index),
                 web.get("/ws", self._ws),
+                web.get("/api/health", self._health),
                 web.get("/api/conversations", self._conversations),
                 web.post("/api/conversations", self._new_conversation),
                 web.get("/api/conversations/{id}", self._conversation),

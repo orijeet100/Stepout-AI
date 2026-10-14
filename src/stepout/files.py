@@ -91,7 +91,7 @@ def load_grants(path: Path) -> list[Grant]:
     if not path.exists():
         return []
     grants = []
-    for g in tomllib.loads(path.read_text(encoding="utf-8")).get("grant", []):
+    for g in tomllib.loads(path.read_text(encoding="utf-8-sig")).get("grant", []):  # -sig: Notepad and PowerShell put a BOM in front
         mode = g.get("mode", "metadata")
         if mode not in ("metadata", "read"):
             raise ValueError(f"{path}: unknown grant mode {mode!r}")

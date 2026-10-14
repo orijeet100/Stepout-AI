@@ -1,5 +1,6 @@
 """One command from clone to chat: Home (paths.py), `stepout init` and `stepout grant` (init.py), the `stepout` command."""
 
+import json
 import os
 
 import pytest
@@ -180,3 +181,147 @@ def test_first_run_offers_setup_when_the_folders_question_was_never_answered(mon
     assert "not set up yet" in ask.asked[0]
     (tmp_path / "grants.toml").write_text("")
     app.first_run(ask=answers())  # set up: no question
+
+
+def a_terminal(monkeypatch):
+    tty = type("Tty", (), {"isatty": lambda self: True, "write": lambda self, text: len(text), "flush": lambda self: None})()
+    monkeypatch.setattr("sys.stdin", tty)
+    monkeypatch.setattr("sys.stdout", tty)
+
+
+@windows
+def test_first_run_offers_the_phone_in_the_same_flow_and_returns_whether_it_was_set_up(monkeypatch, tmp_path):
+    monkeypatch.setattr(app, "GRANTS_PATH", tmp_path / "grants.toml")
+    monkeypatch.setattr(app, "ENV_PATH", tmp_path / ".env")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    a_terminal(monkeypatch)
+    calls = []
+    monkeypatch.setattr(app.init, "init", lambda env, grants, **kw: calls.append("init"))
+    monkeypatch.setattr(app.remote, "setup", lambda port, env, **kw: calls.append("remote") or "https://x/")
+    assert app.first_run(ask=answers("", "y")) is True and calls == ["init", "remote"]  # Enter = yes, then yes to the phone
+    calls.clear()
+    assert app.first_run(ask=answers("y", "n")) is False and calls == ["init"]  # no to the phone: `stepout remote` later
+    calls.clear()
+    assert app.first_run(ask=answers("n")) is False and calls == []  # no to setup: nothing else is asked
+
+
+async def test_the_health_route_says_what_is_answering(tmp_path):
+    import aiohttp
+
+    from stepout.channels.web import WebChannel
+    from tests.test_web_channel import FixtureHistory
+
+    channel = WebChannel(port=0, shots=tmp_path, history=FixtureHistory())
+    port = await channel.start()
+    try:
+        import asyncio
+
+        assert await asyncio.to_thread(app.running_at, port) == f"http://127.0.0.1:{port}"
+        async with aiohttp.ClientSession() as session:
+            assert await (await session.get(f"http://127.0.0.1:{port}/api/health")).json() == {"app": "stepout", "v": 1}
+            assert (await session.get(f"http://127.0.0.1:{port}/api/health", headers={"Host": "evil.example"})).status == 403  # the guard covers it too
+    finally:
+        await channel.stop()
+    assert app.running_at(port) is None  # nothing there any more
+
+
+def test_something_else_on_the_port_is_not_taken_for_stepout():
+    import http.server
+    import threading
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), http.server.SimpleHTTPRequestHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        assert app.running_at(server.server_address[1]) is None
+    finally:
+        server.shutdown()
+
+
+def test_stop_with_nothing_running_says_so_and_clears_a_stale_pid_file(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(app, "HOME", tmp_path)
+    monkeypatch.setenv("STEPOUT_PORT", "1")  # nothing listens here
+    (tmp_path / "stepout-1.pid").write_text("999999")
+    app.stop()
+    assert "not running" in capsys.readouterr().out and not (tmp_path / "stepout-1.pid").exists()
+
+
+def test_stop_ends_the_process_named_in_the_pid_file_and_only_when_stepout_answers(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(app, "HOME", tmp_path)
+    monkeypatch.setenv("STEPOUT_PORT", "8123")
+    (tmp_path / "stepout-8123.pid").write_text("4242")
+    alive, killed = [True], []
+    monkeypatch.setattr(app, "running_at", lambda port: "http://127.0.0.1:8123" if alive[0] else None)
+    monkeypatch.setattr(app.subprocess, "run", lambda argv, **kw: killed.append(argv) or alive.__setitem__(0, False))
+    app.stop()
+    assert killed == [["taskkill", "/PID", "4242", "/T", "/F"]] and "stopped" in capsys.readouterr().out
+    assert not (tmp_path / "stepout-8123.pid").exists()
+
+
+def test_stop_without_a_pid_file_does_not_guess(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(app, "HOME", tmp_path)
+    monkeypatch.setenv("STEPOUT_PORT", "8124")
+    monkeypatch.setattr(app, "running_at", lambda port: "http://127.0.0.1:8124")
+    killed = []
+    monkeypatch.setattr(app.subprocess, "run", lambda *a, **kw: killed.append(a))
+    app.stop()
+    assert killed == [] and "close its window" in capsys.readouterr().out
+
+
+def test_status_lists_each_part_and_fails_when_one_needs_fixing(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(app, "GRANTS_PATH", tmp_path / "grants.toml")
+    monkeypatch.setenv("STEPOUT_PORT", "1")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("STEPOUT_REMOTE_HOSTS", "")
+    assert app.status() is False
+    out = capsys.readouterr().out
+    assert "FIX  The chat is not running" in out and "FIX  No API key" in out and "FIX  The folders question" in out
+    assert "--   Phone access is not set up" in out  # information, not a fault
+    monkeypatch.setattr(app, "running_at", lambda port: "http://127.0.0.1:1")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    (tmp_path / "grants.toml").write_text("")
+    assert app.status() is True
+
+
+def test_a_second_start_opens_the_running_one_instead_of_starting_again(monkeypatch, capsys):
+    monkeypatch.setattr(app, "running_at", lambda port: f"http://127.0.0.1:{port}")
+    opened, started = [], []
+    monkeypatch.setattr(app.webbrowser, "open", opened.append)
+    monkeypatch.setattr(app, "serve_web", lambda **kw: started.append(kw))
+    app.cli(["open"])
+    assert opened and started == [] and "already running" in capsys.readouterr().out
+    opened.clear()
+    app.cli(["web"])
+    assert opened == [] and started == []  # `web` is the no-browser form
+
+
+# ---- a grants.toml that a text editor touched (found in the clean-room run: PowerShell's Set-Content wrote a BOM and the app died) -----------
+
+
+def test_a_grants_file_with_a_byte_order_mark_still_loads(tmp_path):
+    folder = tmp_path / "Work"
+    folder.mkdir()
+    path = tmp_path / "grants.toml"
+    path.write_bytes(b"\xef\xbb\xbf" + f'[[grant]]\npath = {json.dumps(str(folder))}\nmode = "read"\n'.encode())
+    assert [g.mode for g in load_grants(path)] == ["read"] and init.read_grants(path) == [(str(folder), "read")]
+
+
+def test_an_unreadable_grants_file_does_not_end_the_start_it_allows_nothing_and_says_how_to_fix_it(monkeypatch, tmp_path, capsys):
+    path = tmp_path / "grants.toml"
+    path.write_text("this is = = not toml\n")
+    with pytest.raises(ValueError):
+        load_grants(path)  # the loader is strict; the start-up catches it
+    monkeypatch.setattr(app, "GRANTS_PATH", path)
+    monkeypatch.setenv("STEPOUT_PORT", "1")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assert app.status() is False
+    assert "could not be read" in capsys.readouterr().out  # `stepout status` says so rather than crashing
+
+
+@windows
+def test_grant_repairs_an_unreadable_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(init, "_usual_folders", lambda: [])
+    path = tmp_path / "grants.toml"
+    path.write_text("[[grant\n")
+    said = []
+    init.grant(path, ask=answers(""), out=said.append)
+    assert any("could not be read" in s for s in said) and init.read_grants(path) == []

@@ -5,33 +5,24 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import subprocess
 import sys
+import time
 import webbrowser
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from dotenv import load_dotenv
 
-from stepout import capture as capture_mod
-from stepout import commands, history, housekeeping, init, logs, remote
-from stepout import memory as memory_mod
-from stepout.chats import ChatKeeper
-from stepout.channels.cli import CliChannel
-from stepout.channels.web import StoreHistory, WebChannel
-from stepout.browser import Browser
-from stepout.domain import Reply, Task
-from stepout.extract import Extractor, Learner
-from stepout.failure import UNEXPECTED
-from stepout.fetch import Fetcher
-from stepout.files import Files
-from stepout.intake import ChatReading, CommandReading, DeclinedReading, FailedReading, Intake, NewTask
-from stepout.ledger import Ledger
+from stepout import init, remote
 from stepout.paths import CHECKOUT, home
-from stepout.pydantic_model import PydanticModel, default_model
-from stepout.retry import RetryingModel
-from stepout.roles import HAIKU, SONNET
-from stepout.runner import Runner
-from stepout.screening import HaikuScreener
-from stepout.store import Store
+
+if TYPE_CHECKING:  # the rest is imported where it is used: `stepout status`, `stop` and `--help` must not wait for the model SDKs (seconds)
+    from stepout.browser import Browser
+    from stepout.domain import Reply
+    from stepout.extract import Learner
+    from stepout.intake import Intake
+    from stepout.ledger import Ledger
+    from stepout.runner import Runner
 
 HOME = home()  # the one data folder (paths.py)
 ENV_PATH = HOME / ".env"  # the key, written by `stepout init`
@@ -45,6 +36,8 @@ CAPTURE_PATH = HOME / "capture"  # prompts and replies, only when STEPOUT_CAPTUR
 
 def make_browser(channel) -> Browser:
     """The Runs' browser. It sends live frames to the channel if the channel shows them (the web channel does; the terminal has none, so nothing is captured)."""
+    from stepout.browser import Browser
+
     return Browser(shots=SHOTS_PATH, on_frame=getattr(channel, "live_frame", None))
 
 
@@ -94,6 +87,11 @@ def month_cap(environ=os.environ) -> float:
 
 async def run(channel, intake: Intake, runner: Runner, month_left=None, memory=None, learner: Learner | None = None) -> None:
     """`month_left()`: dollars the month has left; at zero a message is answered with a line and costs nothing (a slash command is free and still works)."""
+    from stepout import commands
+    from stepout.domain import Reply, Task
+    from stepout.failure import UNEXPECTED
+    from stepout.intake import ChatReading, CommandReading, DeclinedReading, FailedReading, NewTask
+
     async for message in channel.messages():
         cid = message.conversation_id
         try:
@@ -123,7 +121,25 @@ async def run(channel, intake: Intake, runner: Runner, month_left=None, memory=N
             await channel.send(Reply(text=UNEXPECTED, conversation_id=cid))
 
 
-async def main(web: bool = True, open_browser: bool = False) -> None:
+async def main(web: bool = True, open_browser: bool = False, show_qr: bool = False) -> None:
+    from stepout import capture as capture_mod
+    from stepout import history, housekeeping, logs
+    from stepout import memory as memory_mod
+    from stepout.channels.cli import CliChannel
+    from stepout.channels.web import StoreHistory, WebChannel
+    from stepout.chats import ChatKeeper
+    from stepout.extract import Extractor, Learner
+    from stepout.fetch import Fetcher
+    from stepout.files import Files
+    from stepout.intake import Intake
+    from stepout.ledger import Ledger
+    from stepout.pydantic_model import PydanticModel, default_model
+    from stepout.retry import RetryingModel
+    from stepout.roles import HAIKU, SONNET
+    from stepout.runner import Runner
+    from stepout.screening import HaikuScreener
+    from stepout.store import Store
+
     log_file = logs.configure(LOGS_PATH)
     base = default_model()
     other = isinstance(base, PydanticModel)  # a tier is re-pointed in the environment (STEPOUT_STRONG_MODEL / STEPOUT_CHEAP_MODEL)
@@ -158,18 +174,22 @@ async def main(web: bool = True, open_browser: bool = False) -> None:
         try:
             url = f"http://127.0.0.1:{await channel.start()}"
         except OSError:
-            print(f"Port {web_port()} is in use: is Stepout already running? Stop it (Ctrl+C in its window), or set STEPOUT_PORT to another port.")
+            print(f"Port {web_port()} is used by something that is not Stepout. Stop that, or set STEPOUT_PORT to another port.")
             return
         print(f"Stepout web chat: {url}  (Ctrl+C to stop)")
         if hosts:
             remote.keep_awake()
-            print(f"From your phone: https://{hosts[0]}/  (this laptop stays awake while Stepout runs; closing the lid still sleeps it)")
+            phone = asyncio.create_task(announce_phone(web_port(), hosts[0], show_qr))  # noqa: F841 (kept: a task nobody refers to can be collected) after the chat is up: its address can only be checked then
         if open_browser:
             webbrowser.open(url)
     else:
         channel = CliChannel()
     intake = Intake(HaikuScreener(model), ledger, lambda conversation_id: history.exchanges(store, conversation_id))
-    files = Files.from_config(GRANTS_PATH)
+    try:
+        files = Files.from_config(GRANTS_PATH)
+    except (ValueError, KeyError, OSError) as exc:  # a bad grants.toml must not end the start with a traceback: no folders, and say how to fix it
+        print(f"{GRANTS_PATH} could not be read ({exc}), so no folders are allowed until it is fixed. Run `stepout grant` to write it again.")
+        files = Files()
     browser = make_browser(channel)
     saved = SavedChannel(channel, ledger)
     def month_left() -> float:
@@ -184,21 +204,106 @@ async def main(web: bool = True, open_browser: bool = False) -> None:
         await browser.aclose()
 
 
+async def announce_phone(port: int, host: str, show_qr: bool) -> None:
+    """Repair Serve if it drifted, check the phone address really answers from this laptop, and only then say so (and show the QR)."""
+    problem = await asyncio.to_thread(remote.prepare, port, host)
+    if problem:
+        print(f"Phone access is not working: {problem}\nRun `stepout status` to see which part is off.")
+        return
+    print(f"From your phone: https://{host}/  (this laptop stays awake while Stepout runs; closing the lid still sleeps it)")
+    if show_qr:
+        remote.show_qr(f"https://{host}/")
+
+
+def running_at(port: int) -> str | None:
+    """The address of a Stepout already answering on this port, else None (the port is free, or something else holds it)."""
+    try:
+        code, body = remote.get(f"http://127.0.0.1:{port}/api/health", timeout=2)
+    except OSError:
+        return None
+    return f"http://127.0.0.1:{port}" if code == 200 and '"stepout"' in body else None
+
+
+def stop() -> None:
+    port = web_port()
+    pid_file = HOME / f"stepout-{port}.pid"
+    if not running_at(port):
+        pid_file.unlink(missing_ok=True)  # a crash leaves its file behind
+        print("Stepout is not running.")
+        return
+    try:
+        pid = int(pid_file.read_text())
+    except (OSError, ValueError):
+        print(f"Stepout is running on port {port}, but not started by this version: close its window.")
+        return
+    # ponytail: a recycled pid is only guarded by the health check above; record the process start time if that ever matters
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
+    else:
+        os.kill(pid, 15)
+    for _ in range(20):
+        if not running_at(port):
+            break
+        time.sleep(0.25)
+    pid_file.unlink(missing_ok=True)
+    print("Stepout is still running: close its window." if running_at(port) else "Stepout stopped.")
+
+
+def status() -> bool:
+    """`stepout status`: what is set up and what is not, each with its fix. -> True when nothing needs fixing."""
+    port = web_port()
+    here = running_at(port)
+    try:
+        grants = init.read_grants(GRANTS_PATH) if GRANTS_PATH.exists() else None
+    except (ValueError, KeyError, OSError) as exc:
+        grants, unreadable = None, f"The folders file could not be read ({exc}): run `stepout grant` to write it again."
+    else:
+        unreadable = "The folders question is not answered: run `stepout grant`."
+    host = os.environ.get("STEPOUT_REMOTE_HOSTS", "").split(",")[0].strip()
+    rows: list[tuple[bool | None, str]] = [
+        (bool(here), f"The chat is running at {here}" if here else "The chat is not running: start it with `stepout`."),
+        (bool(os.environ.get("ANTHROPIC_API_KEY")), "The API key is set" if os.environ.get("ANTHROPIC_API_KEY") else "No API key: run `stepout init`."),
+        (grants is not None, f"{len(grants)} folder(s) allowed (`stepout grant` changes this)" if grants is not None else unreadable),
+        *remote.report(port, host),
+    ]
+    for ok, line in rows:
+        print(("ok   " if ok else "--   " if ok is None else "FIX  ") + line)
+    return all(ok is not False for ok, _ in rows)
+
+
 USAGE = """stepout           start the chat and open it in your browser
 stepout web       start the chat without opening the browser
 stepout cli       chat in this terminal instead
 stepout init      set up: your API key, then the folders Stepout may look at
 stepout grant     choose which folders Stepout may look at
+stepout status    what is set up and what needs fixing, including the phone link
+stepout stop      stop the chat that is running
 stepout remote    reach this chat from your phone (stepout remote off: stop that)"""
 
 
-def first_run(ask=input) -> None:
-    """Not set up yet (no key, or the folders question never answered) and someone is at the keyboard: offer `init` once."""
+def first_run(ask=input) -> bool:
+    """Not set up yet (no key, or the folders question never answered) and someone is at the keyboard: offer `init` once, and the phone
+    with it (`stepout remote` later if not now). -> True if the phone was set up just now."""
     other = os.environ.get("STEPOUT_STRONG_MODEL") or os.environ.get("STEPOUT_CHEAP_MODEL")  # another provider's key is set by hand
     if (GRANTS_PATH.exists() and (other or os.environ.get("ANTHROPIC_API_KEY"))) or not (sys.stdin.isatty() and sys.stdout.isatty()):
-        return  # (both: on Windows the null device counts as a terminal)
-    if ask("Stepout is not set up yet. Set it up now? [Y/n] ").strip().lower() in ("", "y", "yes"):
-        init.init(ENV_PATH, GRANTS_PATH)
+        return False  # (both: on Windows the null device counts as a terminal)
+    if ask("Stepout is not set up yet. Set it up now? [Y/n] ").strip().lower() not in ("", "y", "yes"):
+        return False
+    init.init(ENV_PATH, GRANTS_PATH)
+    if os.name == "nt" and ask("Use Stepout from your phone too? [Y/n] ").strip().lower() in ("", "y", "yes"):
+        return remote.setup(web_port(), ENV_PATH) is not None
+    return False
+
+
+def serve_web(**options) -> None:
+    """The web chat, with a pid file so `stepout stop` finds it (one per port)."""
+    pid_file = HOME / f"stepout-{web_port()}.pid"
+    pid_file.parent.mkdir(parents=True, exist_ok=True)
+    pid_file.write_text(str(os.getpid()))
+    try:
+        asyncio.run(main(web=True, **options))
+    finally:
+        pid_file.unlink(missing_ok=True)
 
 
 def cli(args: Sequence[str] | None = None) -> None:
@@ -215,13 +320,23 @@ def cli(args: Sequence[str] | None = None) -> None:
             init.grant(GRANTS_PATH)
         elif command == "remote" and args[1:] == ["off"]:
             remote.off(ENV_PATH)
+        elif command == "status":
+            sys.exit(0 if status() else 1)
+        elif command == "stop":
+            stop()
+        elif command in ("remote", "open", "web") and (here := running_at(web_port())):
+            print(f"Stepout is already running at {here}  (`stepout stop` stops it).")
+            if command != "web":
+                webbrowser.open(here)
         elif command == "remote":
             if remote.setup(web_port(), ENV_PATH):
                 first_run()
-                asyncio.run(main(web=True))
-        elif command in ("open", "web", "cli"):
+                serve_web(open_browser=True, show_qr=True)
+        elif command in ("open", "web"):
+            serve_web(open_browser=command == "open", show_qr=first_run())
+        elif command == "cli":
             first_run()
-            asyncio.run(main(web=command != "cli", open_browser=command == "open"))
+            asyncio.run(main(web=False))
         else:
             print(USAGE)
     except (KeyboardInterrupt, EOFError):

@@ -63,7 +63,7 @@ def check_key(key: str) -> str | None:
 def read_grants(path: Path) -> list[tuple[str, str]]:
     if not path.exists():
         return []
-    return [(g["path"], g.get("mode", "metadata")) for g in tomllib.loads(path.read_text(encoding="utf-8")).get("grant", [])]
+    return [(g["path"], g.get("mode", "metadata")) for g in tomllib.loads(path.read_text(encoding="utf-8-sig")).get("grant", [])]
 
 
 def write_grants(path: Path, grants: list[tuple[str, str]]) -> None:
@@ -145,7 +145,11 @@ def grant(path: Path, ask: Ask = input, out: Out = print) -> list[tuple[str, str
     if os.name != "nt":
         out("File access is Windows-only for now, so there is nothing to allow on this computer.")
         return []
-    grants = read_grants(path)
+    try:
+        grants = read_grants(path)
+    except (ValueError, KeyError, OSError) as exc:  # a half-edited file must not stand in the way of the command that repairs it
+        out(f"{path} could not be read ({exc}). It will be written again from your answers below.")
+        grants = []
     if grants:
         out("Stepout may look at:")
         for i, (p, m) in enumerate(grants, 1):

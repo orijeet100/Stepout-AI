@@ -35,7 +35,7 @@ uv tool install https://github.com/orijeet100/Stepout-AI/releases/download/v0.1.
 stepout
 ```
 
-The first `stepout` asks for your key (hidden as you paste, checked before it is kept) and which folders it may look at, then opens the chat at http://127.0.0.1:8765. Nothing to edit by hand. If `stepout` is not found, run `uv tool update-shell` and open a new terminal.
+The first `stepout` asks for your key (hidden as you paste, checked before it is kept), which folders it may look at and, on Windows, whether to reach it from your phone too; then it opens the chat at http://127.0.0.1:8765. Nothing to edit by hand. If `stepout` is not found, run `uv tool update-shell` and open a new terminal.
 
 | Command | What it does |
 |---|---|
@@ -43,10 +43,14 @@ The first `stepout` asks for your key (hidden as you paste, checked before it is
 | `stepout init` | Set up again: the key, then the folders |
 | `stepout grant` | See, add or remove the folders it may look at |
 | `stepout remote` | Reach this chat from your phone (below); `stepout remote off` stops that |
+| `stepout status` | What is set up and what needs fixing, the phone link included (exit code 1 if something does) |
+| `stepout stop` | Stop the chat that is running |
+
+`stepout` is safe to run again: if the chat is already running it opens that one, and each start repairs the phone link if something has drifted.
 
 Your chats, Memory, settings and key live in `%LOCALAPPDATA%\Stepout` (set `STEPOUT_HOME` to move it), so upgrading keeps them: install the newer wheel's line with `--force`. Memory uses plain files; for Mem0, install `"stepout[mem0] @ <the wheel URL>"` and set `OPENAI_API_KEY` in that folder's `.env`.
 
-**From your phone.** `stepout remote` walks you through [Tailscale](https://tailscale.com) (free): install it, sign in, pick a neutral name for the laptop, then it prints a QR code. Install Tailscale on the phone, sign in with the same account, scan. Only your own devices, signed in as you, can open it; it is never on the public internet ([ADR 0020](docs/adr/0020-phone-access-through-tailscale-serve.md)). The laptop stays awake while Stepout runs (a closed lid still sleeps it).
+**From your phone.** `stepout remote` walks you through [Tailscale](https://tailscale.com) (free): it installs Tailscale if it is missing (with winget, after your yes), waits while you sign in, then prints a QR code. Install Tailscale on the phone, sign in with the same account, scan. Only your own devices, signed in as you, can open it; it is never on the public internet ([ADR 0020](docs/adr/0020-phone-access-through-tailscale-serve.md)). The laptop stays awake while Stepout runs (a closed lid still sleeps it).
 
 Try: *"What's the news in New York today?"*, *"How many files are in `<a folder you granted>`, by type?"*, *"Summarize the newest PDF in `<folder>`"*, *"Open `<a job posting URL>` and tell me the skills it asks for"*. If the key, a browser or the folders are missing, it says so in plain words, with the command that fixes it.
 
@@ -59,9 +63,14 @@ From the live acceptance run (real Claude, real Chrome): a plain question about 
 ## From source (development)
 
 ```bash
-git clone https://github.com/orijeet100/Stepout-AI && cd Stepout-AI
-uv venv --python 3.12 && uv pip install -e ".[dev]"
-cd web && npm install && npm run build && cd ..        # Node 20.19+ or 22.12+; the page lands in src/stepout/_web
+git clone https://github.com/orijeet100/Stepout-AI
+cd Stepout-AI
+uv venv --python 3.12
+uv pip install -e ".[dev]"
+cd web
+npm install
+npm run build                                                # Node 20.19+ or 22.12+; the page lands in src/stepout/_web
+cd ..
 ./.venv/Scripts/python.exe -m stepout.app web                 # data stays in ./data in a checkout
 ```
 
@@ -71,7 +80,11 @@ cd web && npm install && npm run build && cd ..        # Node 20.19+ or 22.12+; 
 ./.venv/Scripts/python.exe -m pytest -q                                  # offline and free; includes real Chrome
 ./.venv/Scripts/python.exe scripts/acceptance.py                         # the 8 acceptance queries, offline and free
 ./.venv/Scripts/python.exe scripts/acceptance.py --live --posting-url <a real job posting>   # real Claude, about $0.30
-cd web && npm test && npm run lint && npm run build                     # the page
+cd web
+npm test
+npm run lint
+npm run build                                                           # the page
+cd ..
 ./.venv/Scripts/python.exe -m pytest web/mock web/e2e -q                 # the page's mock server and real-Chrome flows
 ```
 

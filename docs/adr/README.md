@@ -24,3 +24,4 @@ An ADR records a decision that is hard to reverse, surprising, or a real trade-o
 | [0018](0018-agent-work-as-assistant-ui-draws-it.md) | A Run is drawn as assistant-ui draws agent work: a plan, task cards, tool calls | accepted |
 | [0019](0019-one-command-install.md) | One command to install: a Home folder, the page inside the wheel, setup in the terminal | accepted; built |
 | [0020](0020-phone-access-through-tailscale-serve.md) | The phone reaches the laptop through Tailscale Serve, and only its owner gets in | accepted; built, real tailnet run to do |
+| [0021](0021-start-repairs-itself.md) | Start repairs itself: one copy per port, a status check, and the phone link only once it answers | accepted; built; amends 0019 and 0020 |

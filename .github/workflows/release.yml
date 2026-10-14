@@ -3,6 +3,7 @@ name: release
 on:
   push:
     tags: ['v*']
+    branches: ['feat/**']  # build and smoke-test on a clean Windows runner; only a tag is released
   workflow_dispatch:
 
 jobs:

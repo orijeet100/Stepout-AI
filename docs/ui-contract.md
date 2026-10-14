@@ -48,6 +48,7 @@ The wire between the React page (`web/`) and the backend (`src/stepout/channels/
 
 | Route | Returns |
 |---|---|
+| `GET /api/health` | `{"app": "stepout", "v": 1}`: this app's own answer. `stepout` uses it to tell a running copy of itself from something else on the port, and to check that the phone address reaches it. The same Host and Origin guard as the rest of `/api` |
 | `GET /api/conversations` | `[{id, title, updated_at, preview, state}]`, newest first. `title` is the first request cut to 60 characters. `state` is `idle`, `queued` or `running` |
 | `POST /api/conversations` | `201` with `{id}`: a new empty chat (not stored until its first message is saved) |
 | `GET /api/conversations/{id}` | `{id, title, messages: [message…], runs: [{run_id, request, state, cost_usd, cap_usd, steps, started_at, ended_at}]}`; run `state` is `running\|done\|stopped\|failed` (an over-budget Run is `stopped`, with the reason in its `stop` event). A Run left open by a crash reads `failed` unless it is the live Run |

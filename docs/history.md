@@ -64,6 +64,13 @@ The choices that shaped the product, in the order they happened, with where to r
 - **Phone access through Tailscale Serve** (`stepout remote`, `stepout remote off`): an HTTPS name that only the owner's own devices reach, a QR code to scan, and a second check that the request carries the owner's Tailscale login. The server still listens on `127.0.0.1` only. The phone path is tested with a fake `tailscale`; its first run on a real tailnet is still to do ([0020](adr/0020-phone-access-through-tailscale-serve.md)).
 - The plan is `docs/plans/2026-10-12-002-feat-one-command-install-and-phone-access-plan.md`. Left out: the optional Folders panel (U10) and `stepout init --provider`.
 
+## 2026-10-14: a start repairs itself, and the phone link is checked before it is announced
+
+- **Running `stepout` again is safe.** A start finds a Stepout already on the port (`GET /api/health`) and opens that one instead of starting a second. `stepout stop` ends it, and `stepout status` lists each part as ok, FIX or information, with the fix ([0021](adr/0021-start-repairs-itself.md)).
+- **The phone link repairs and checks itself.** At each start with phone access set up, Tailscale and Serve are checked and repaired quietly, and "From your phone" is printed only once the address answers as Stepout. `stepout remote` no longer asks for a name: it renames a laptop that still has its computer's name to `stepout-xxxx` (a name already chosen is kept), waits for the rename before it keys Serve to it, and installs Tailscale with winget after a yes. The first run asks once whether to use the phone too.
+- **Why:** the first real phone run (2026-10-12) failed on a stale copy that answered 403, on Serve keyed to the old name after a rename, on a link announced before it answered, on a laptop name the User had to choose, and on a busy port with no way to tell whose it was.
+- **CI** also runs on pushes to `feat/**` branches: a build and the smoke test on a clean Windows runner, with the release step still only for tags. `scripts/smoke_install.py` now also runs `status`, a refused second start and `stop`.
+
 ## Tried and dropped
 
 | What | Why |
@@ -78,3 +85,4 @@ The choices that shaped the product, in the order they happened, with where to r
 | Letting Mem0 extract facts itself (`infer=True`) | its model calls would sit outside the Ledger, the cap, Stop and the retry policy |
 | Folding fact extraction into Screening's call | it would put Screening's paid eval at risk to save a tenth of a cent |
 | Langfuse, OpenTelemetry or Postgres for chats and steps | prompts would leave the laptop, or a multi-service stack for one user; the Ledger already maps onto spans |
+| Asking for the laptop's name in `stepout remote` | the name came out unneutral (HTTPS names are public), and changing it later moved the phone link ([0021](adr/0021-start-repairs-itself.md)) |

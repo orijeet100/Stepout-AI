@@ -1,8 +1,9 @@
 """Smoke test for a built Stepout wheel, installed the way the README does.
 
 Proves: `uv tool install` puts a working `stepout` script in a clean tool folder,
-`stepout web` serves the page and the API, and the app keeps its data in
-STEPOUT_HOME instead of the working folder.
+`stepout web` serves the page and the API, the app keeps its data in STEPOUT_HOME
+instead of the working folder, and a running copy is found, refused a twin and
+stopped by `stepout status`, `stepout web` and `stepout stop`.
 
 Usage: python scripts/smoke_install.py <path-to-wheel>
 """
@@ -34,6 +35,18 @@ def check_app(port):
         raise Smoke("/api/conversations is not []")
 
 
+def say(exe, env, *args):
+    """Run `stepout <args>` and return its output; it must finish by itself."""
+    done = subprocess.run([str(exe), *args], env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+    return done.stdout + done.stderr
+
+
+def port_closed(port):
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        return s.connect_ex(("127.0.0.1", port)) != 0
+
+
 def run(wheel, tmp, log_path):
     data_before = os.path.exists("data")
     install = subprocess.run(
@@ -62,6 +75,18 @@ def run(wheel, tmp, log_path):
                     raise Smoke(f"stepout exited early with code {proc.returncode}")
                 try:
                     check_app(port)
+                    out = say(exe, env, "status")
+                    if f"The chat is running at http://127.0.0.1:{port}" not in out:
+                        raise Smoke(f"`stepout status` does not see the running chat: {out}")
+                    if "already running" not in say(exe, env, "web"):
+                        raise Smoke("a second `stepout web` was not refused as already running")
+                    if "Stepout stopped." not in say(exe, env, "stop"):
+                        raise Smoke("`stepout stop` did not stop it")
+                    deadline = time.monotonic() + 10
+                    while not port_closed(port):
+                        if time.monotonic() > deadline:
+                            raise Smoke("the port is still open after `stepout stop`")
+                        time.sleep(0.2)
                     break
                 except OSError as e:  # not listening yet
                     if time.monotonic() > deadline:
