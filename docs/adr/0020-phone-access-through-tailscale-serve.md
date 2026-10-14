@@ -1,6 +1,6 @@
 # 0020 — The phone reaches the laptop through Tailscale Serve, and only its owner gets in
 
-Status: accepted · 2026-10-12 · built and tested against a fake `tailscale`; the first run on a real tailnet is still to do.
+Status: accepted · 2026-10-12 · built and tested against a fake `tailscale`; first run on a real tailnet 2026-10-12; amended by [0021](0021-start-repairs-itself.md) (neutral generated name, Serve checked before the link is announced, no Serve reset).
 
 **Decision.** `stepout remote` gives the laptop's chat an HTTPS name reachable only by the owner's own devices, with **Tailscale Serve**: free, no domain, no server of ours, no account of ours. Not Funnel (the public internet), not a hosted hub. The server still listens on `127.0.0.1` only; Serve connects to it locally (`tailscale serve --bg --https=443 http://127.0.0.1:<port>`; `stepout remote off` undoes it).
 

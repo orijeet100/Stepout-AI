@@ -1,6 +1,6 @@
 # 0019 — One command to install: a Home folder, the page inside the wheel, setup in the terminal
 
-Status: accepted · 2026-10-12 · built (plan `docs/plans/2026-10-12-002`, M1).
+Status: accepted · 2026-10-12 · built (plan `docs/plans/2026-10-12-002`, M1); amended by [0021](0021-start-repairs-itself.md) (one copy per port, `status`, `stop`; a BOM or a broken grants.toml no longer ends the start).
 
 **Decision.** A stranger on Windows needs only `uv` (and Chrome or Edge). `uv tool install <the Release's wheel>` fetches Python 3.12 and makes its own environment; `stepout` starts the chat and opens the browser. Three choices make that true:
 
