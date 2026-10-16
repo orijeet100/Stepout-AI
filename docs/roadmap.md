@@ -34,6 +34,19 @@ Smarter file search (ask with options, rank folders, skip `node_modules`, `.git`
 | Recollection relevance and its size budget are untuned | Memory may hand over too little or too much | the live comparison, then tune |
 | Browser navigation has no retry, and the Fetcher's is the only tool retry | a transient page failure costs a step | when the Evaluation shows it |
 
+## Known design debt (from the 2026-10-16 audit; the rules are in [`design.md`](design.md))
+
+| Debt | Why it matters | Fix |
+|---|---|---|
+| `index.html` is served with no `Cache-Control`, and a build deletes the old hashed assets | a browser holding the old `index.html` asks for files that are gone until it is hard-reloaded (seen when rebuilding under a running page) | `Cache-Control: no-cache` on the index response (`_index` in `channels/web.py`) |
+| The 375px header and the missing-screenshot placeholder are CSS fixes with no automated test | a stylesheet edit can bring either back without a red test | a Playwright flow at 375px beside `web/e2e/test_drawer.py`, and a computed-style check of the placeholder in dark |
+| Chats saved before 2026-10-15 keep titles cut mid-word | the list shows "…a table and so" | a one-off repair: where a title equals its first message cut to 60, set `chat_title` of that message |
+| No accent colour; the logo's colours appear nowhere in the page | it looks like any chat app | a decision, see `design.md` Open |
+| Suggestions are a ragged stack of pills | they read as leftover | a 2 by 2 grid of equal pills |
+| Row tools stay 28px on touch | a small target in the drawer | 44px under `pointer: coarse` if the row still fits a title |
+| The phone drawer has no close button | only the scrim, Esc or choosing a chat closes it | a close button in the drawer's head under 900px |
+| The header title and the conversation column do not share a left edge | looks unaligned on a wide screen | a taste call: align the title to the column, or leave it as ChatGPT does |
+
 ## Open questions
 
 Is a click Consequential (once pointer actions exist)? Evaluation matrix size against the monthly budget.

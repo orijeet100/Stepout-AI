@@ -5,8 +5,9 @@ The page looks like ChatGPT, rebuilt in plain CSS ([ADR 0017](adr/0017-the-page-
 ## Change a colour, size or component
 
 1. Edit the token in `tokens.css` (every colour is `light-dark(light, dark)`), or the rule in `App.css`. No raw colours, sizes or radii in components.
-2. After a colour: `cd web && npm run check:contrast` (text 4.5:1, control edges and the focus ring 3:1, light and dark).
-3. Look at it in the real page, in light, dark and at 375px, not only in tests: `stepout web`, or the offline demo `python web/mock/real_backend.py`.
+2. After a colour or a tint percentage: `cd web && npm run check:contrast` (text 4.5:1, control edges and the focus ring 3:1, light and dark). It also checks the blended colours `App.css` paints with `color-mix` (the Stop button's tint, a task's result, an argument chip), reading the percentages from the stylesheet. A new blended colour with text on it goes in that script's `blended` list.
+3. Look at it in the real page, in light, dark and at 375px, not only in tests: `stepout web`, or the offline demo `python web/mock/real_backend.py` (scripted model, no key, no cost; `stepout-demo` in `.claude/launch.json`). A rebuilt page may need a hard reload ([`roadmap.md`](roadmap.md), design debt).
+4. If the Design System artifact is kept as a copy, re-sync it after a design change.
 
 ## Content
 
@@ -51,12 +52,43 @@ The page looks like ChatGPT, rebuilt in plain CSS ([ADR 0017](adr/0017-the-page-
 - One stroke set in `web/src/Icon.tsx`: 24 by 24, 2px, round caps and joins, `currentColor`, shapes from Lucide (ISC). 14px beside 13.5px text, 16px default, 12px chevrons. Add an icon there; never an emoji or an icon font.
 - The mark is `web/public/icon.png` at 20px beside the name; on dark it sits on a `text`-coloured tile because its navy door vanishes on `sidebar`. Replies never show images.
 
+## Components
+
+One line each; the class is in `web/src/App.css`, the markup in the `.tsx` of the same name. The artifact has a card with a preview for each.
+
+| Component | Class | The rule |
+|---|---|---|
+| Button | `.btn` + `--primary` `--ghost` `--danger` `--stop` `--icon` | A round pill, 36px (44 on touch). One primary per view. Danger only in a confirm dialog and never the default focus; stop only while a run works. An icon button needs `aria-label` and `title`. |
+| Composer | `.dock` `.composer` `.send` | One `r-composer` pill on `surface`. Enter sends, Shift+Enter is a newline. It carries focus on its own edge (`border-strong`, `shadow-composer-focus`). Send is disabled offline or with no text. |
+| Search field | `.search` | A borderless row in the chat list; fills `active` on hover and focus; its placeholder is `text` until focus. |
+| Your message | `.user` | A right-aligned `surface-2` bubble, `r-bubble`, at most 70 percent or 56 characters wide; text only; a `Queued` tag while it waits. |
+| Reply | `.reply` `.actions` | Markdown on `bg`, no bubble. No raw HTML, no images, links only `http`, `https` and `mailto` with `noopener noreferrer`. Copy and the cost sit under it. |
+| Greeting | `.greeting` | `What can I help with?` and nothing else; centred; no subtitle, name or picture. |
+| Suggestions | `.suggestions` `.suggestion` | Hairline pills in `muted`; each sends its own text; one for each hand (web, browser, files, reader); disabled offline. |
+| Chat list | `.side` `.chatrow` `.chat` | Rounded fills, not bordered buttons; `active` for the open chat and on hover. Rename and delete only on an idle chat; delete asks first. A rail from 900px, a drawer under it. |
+| Header | `.head` | Title on one line, the machine, a Running or Queued pill, the theme switch. No user menu, share or model picker. |
+| Status | `.dot` `.pill` `.tag` | Colour plus an icon or a word. The running dot pulses. A dot on its own needs `role="img"` and a label. |
+| Banner | `.banner` | On `warn-soft`, `role="status"`, with `Retry now`; one at a time. |
+| Confirm dialog | `.confirm` | A native `<dialog>`. Focus starts on Cancel. Delete is `btn--danger`. Only for what cannot be brought back. |
+| Progress bar | `.bar` | 3px on `track`, with `role="progressbar"` and a value text. The budget turns `warn` at 80 percent and `err` at the cap. No bar without a real limit. |
+| Agent plan | `.aplan` | A title and `n of m`, a bar, a checklist. Only when the plan has more than one step. |
+| Tool call | `.tool` | A quiet line that opens onto its request and result in `well`. The label's tense follows the state; a refusal reads `Not allowed to …`; the state is also text for screen readers. |
+| Task card | `.task` | `card` on `card-edge`. The bar sweeps while it works and is full in `ok`, `err` or `warn` once it ends. Open while it works. |
+| Run summary | `.run` | One `<details>` line: open and shimmering while running, closed facts when done. Body at most 36rem. Saved pages sit under the line. |
+| Browser panel | `.browser` `.thumb` | View only. `Live` only while the run runs. A white 10 by 7 frame; a missing screenshot keeps the themed ground. |
+| Screenshot viewer | `.viewer` | A native modal `<dialog>`; focus starts on Close; arrow keys step; Previous and Next are disabled with one page. |
+| Memory | `.memory` | Three groups; edit and forget per entry; one input adds a Persona line. Nothing a page or file said may write here. Errors are one `err` line. |
+
 ## Not taken (ADR 0017)
 
 A model picker, attachments, voice, share, a user menu, thumbs up or down, a code-block header.
 
 ## Open
 
-- **An accent colour.** The logo's indigo and violet appear nowhere in the interface. Indigo (`#6c75df`) is about 4:1 on white, so a text colour would need a darker shade. Decide before adding one; it changes the "no accent" rule above.
+Decisions about the look. The code-side debt (the cache header, tests, old titles) is in [`roadmap.md`](roadmap.md).
+
+- **An accent colour.** The logo's indigo and violet appear nowhere in the interface. Indigo (`#6c75df`) is about 4:1 on white, so a text colour would need a darker shade. Decide before adding one; it changes the "no accent" rule above. (The artifact carries the logo's colours as `mark-navy`, `mark-indigo` and `mark-violet`, for its cover; `tokens.css` does not.)
 - **Row tools on a touch screen** (rename, delete in the chat list) stay 28px while every other button grows to 44px.
 - **Suggestions on an empty chat** are four pills of different widths, one per row; a 2 by 2 grid of equal pills may read as more designed.
+- **The phone drawer has no close button.** It closes on the scrim, Esc or choosing a chat; the rail toggle that folds the list is hidden under 900px.
+- **The header title and the conversation column** do not share a left edge on a wide screen: the title is at the header's edge, the column is centred at `measure`. ChatGPT does the same.

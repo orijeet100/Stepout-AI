@@ -77,6 +77,11 @@ The choices that shaped the product, in the order they happened, with where to r
 - **Found by opening the real page beside it:** on a phone the machine's name left the header title a few letters; a chat's title was cut mid-word with no ellipsis (`text[:60]`); and a missing screenshot's placeholder was `muted` on white, 2.2:1 in dark. Now the name sits under the title under 480px, titles are cut between words and end in `…` (backend and page share the rule), and the placeholder keeps `surface-2`.
 - **Not migrated:** chats saved before this keep their old titles until renamed.
 
+## 2026-10-16: the contrast gate reads blended colours, and the design debt is written down
+
+- **An audit of what the design work left documented** found one more defect: the Stop button's hover tint was 4.23:1 in light. `check:contrast` only compared token pairs, so it could not see colours the page blends with `color-mix`. It now checks those too, reading the percentages from `App.css` (172 pairs, 20 of them blended); the hover tint is 15 percent (4.57:1 light, 5.38 dark).
+- **`design.md` gained a Components table** (a line of rules per component) and its Open list; [`roadmap.md`](roadmap.md) lists the design debt with a fix each. The Design System artifact was re-synced to the repo.
+
 ## Tried and dropped
 
 | What | Why |
