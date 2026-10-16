@@ -324,14 +324,17 @@ def cli(args: Sequence[str] | None = None) -> None:
             sys.exit(0 if status() else 1)
         elif command == "stop":
             stop()
-        elif command in ("remote", "open", "web") and (here := running_at(web_port())):
+        elif command in ("open", "web") and (here := running_at(web_port())):
             print(f"Stepout is already running at {here}  (`stepout stop` stops it).")
             if command != "web":
                 webbrowser.open(here)
         elif command == "remote":
             if remote.setup(web_port(), ENV_PATH):
-                first_run()
-                serve_web(open_browser=True, show_qr=True)
+                if here := running_at(web_port()):  # it started before the phone was set up and does not know the new settings
+                    print(f"Phone access is set up, but the chat running at {here} started without it. Run `stepout stop`, then `stepout`, so it picks it up.")
+                else:
+                    first_run()
+                    serve_web(open_browser=True, show_qr=True)
         elif command in ("open", "web"):
             serve_web(open_browser=command == "open", show_qr=first_run())
         elif command == "cli":

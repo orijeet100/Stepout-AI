@@ -101,7 +101,7 @@ Deliberately not seams: Chrome, Fetcher, Files (one adapter each, tested against
 
 ## 7. On disk and in the repo
 
-Home is `data/` in a checkout, `%LOCALAPPDATA%\Stepout` when installed, or `STEPOUT_HOME` (`paths.home()`). Below, `<Home>` stands for it.
+Home is `data/` in a checkout, `%LOCALAPPDATA%\Stepout` when installed, or `STEPOUT_HOME` (`paths.home()`; read from the real environment, never from `.env`; off Windows the fallback is `$XDG_DATA_HOME/Stepout`, an unsupported platform). Below, `<Home>` stands for it.
 
 ```
 <Home>/.env                      ANTHROPIC_API_KEY (OPENAI_API_KEY for Mem0's embeddings, OPENROUTER_API_KEY if used); never committed. A checkout also reads the repo's .env
@@ -113,17 +113,19 @@ Home is `data/` in a checkout, `%LOCALAPPDATA%\Stepout` when installed, or `STEP
 <Home>/capture/<run>.jsonl       prompts and replies, only with STEPOUT_CAPTURE=1
 <Home>/runs/<run>/<n>.jpg        page screenshots of a Run (removed with their chat, or after STEPOUT_RETENTION_DAYS)
 src/stepout/                     the backend (this document); src/stepout/_web/ is the built page (git-ignored, shipped in the wheel)
-web/                             React + Vite + TypeScript page; src/, mock/ (replays fixtures), e2e/ (real Chrome); `npm run build` writes src/stepout/_web/
+web/                             React + Vite + TypeScript page; src/, mock/ (replays fixtures), e2e/ (real Chrome), public/ (icons and the home-screen manifest); `npm run build` writes src/stepout/_web/
 tests/                           offline suite with a scripted model; support/ holds fakes and the acceptance world
 scripts/acceptance.py            eight queries through the real wiring; offline by default, --live spends money
-scripts/smoke_install.py         installs the built wheel into a clean environment and runs it (CI, Windows)
-.github/workflows/release.yml    on a v* tag: builds the page and the wheel, runs the smoke test, attaches the wheel to the Release
-docs/                            this map, decisions (adr/), history, roadmap, the wire contract
+scripts/smoke_install.py         installs the built wheel into a clean environment and runs it: start, status, a refused second start, stop (CI, Windows)
+scripts/cleanroom.ps1            a new user's first minutes in a throwaway folder: install, --help, status, then the first run (-Phone adds the real Tailscale)
+scripts/first_run_console.py     types through the first run in a real (pseudo) console with pywinpty, which is not a project dependency; run by cleanroom.ps1
+.github/workflows/release.yml    on a v* tag: builds the page and the wheel, runs the smoke test, attaches the wheel to the Release; on a push to feat/** it stops after the smoke test
+docs/                            this map, decisions (adr/), history, roadmap, the wire contract, releasing.md (how a release is cut), design.md
 ```
 
 ## 8. Testing
 
-The interface is the test surface: the offline suite drives the real app loop, Runner, Gate, Reader and Store with a scripted model, and real Chrome against local pages. `scripts/acceptance.py` runs eight queries on an invented folder (a planted injection included); `--live` runs them on real Claude for about $0.30. `pytest -m eval` holds the paid live checks. The page has component tests (Vitest), a mock backend, and real-Chrome flows. The install, the start checks and the phone pieces are tested with temp folders and a fake `tailscale`.
+The interface is the test surface: the offline suite drives the real app loop, Runner, Gate, Reader and Store with a scripted model, and real Chrome against local pages. `scripts/acceptance.py` runs eight queries on an invented folder (a planted injection included); `--live` runs them on real Claude for about $0.30. `pytest -m eval` holds the paid live checks. The page has component tests (Vitest), a mock backend, and real-Chrome flows. The install, the start checks and the phone pieces are tested with temp folders and a fake `tailscale` (`tests/test_install.py`, `tests/test_remote.py`). `scripts/smoke_install.py` (CI) and `scripts/cleanroom.ps1` (by hand) install the built wheel into an empty folder, the second with the first run typed through a real console.
 
 ## 9. Ceilings, not bugs
 

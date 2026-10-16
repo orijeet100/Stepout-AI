@@ -1,6 +1,6 @@
 """The Mem0 learned store (ADR 0016): the same seam as the plain files, with an embedding search in front of what was kept.
 
-Mem0 runs here as a local library and nothing more: its telemetry is off, its vector store and history database sit under `data/memory/`, and every write is
+Mem0 runs here as a local library and nothing more: its telemetry is off, its vector store and history database sit under `<Home>/memory/` (`data/memory/` in a checkout), and every write is
 `infer=False`, so Mem0's own model never runs (a guard raises if it ever tries). The extraction of facts is ours (extract.py), through the Model port.
 What leaves the laptop is the text of an entry or a query, sent to the embedding provider (OpenAI `text-embedding-3-small`) to be turned into numbers.
 That call is Mem0's own HTTP client and keeps its own retries, outside the policy of ADR 0015; its cost is estimated from the text's size.

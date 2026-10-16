@@ -8,7 +8,7 @@ origin: conversation 2026-10-12 (install friction; phone to laptop over Tailscal
 
 # feat: One-command install and phone access
 
-Status: done. U10 (the optional Folders panel) and `stepout init --provider` were left out. The first `stepout remote` run on a real tailnet with a phone is still to do.
+Status: done. U10 (the optional Folders panel) and `stepout init --provider` were left out. The phone link ran for real on 2026-10-12 and the release workflow ran for `v0.1.0` on 2026-10-15. U7's name prompt was replaced by a generated neutral name ([ADR 0021](../adr/0021-start-repairs-itself.md)). The outcomes of *Verify First* are recorded under it.
 
 ## Overview
 
@@ -183,6 +183,17 @@ Not confirmed from docs yet; each is checked at the unit named:
 - `models.list` needs no credit and works with a fresh key (U4).
 - Edge supports `page.screencast`, which the live view uses (U5).
 - The winget id for Tailscale, and Chrome on the GitHub Windows runner (U3, U7).
+
+**Outcomes (2026-10-16).**
+
+- `tailscale serve --bg --https=443 http://127.0.0.1:<port>` works on a real tailnet. The first time it prints "Serve is not enabled on your tailnet. To enable, visit: <link>" and waits until the link is followed. Checked.
+- The identity header is `Tailscale-User-Login` (also `-Name`, `-Profile-Pic`, `-Headers-Info`), and Serve adds `X-Forwarded-For`, `-Host` and `-Proto`. Checked on the real tailnet.
+- The `Host` our server sees through Serve is the original one (with the port on an HTTPS port other than 443). Checked ([ADR 0020](../adr/0020-phone-access-through-tailscale-serve.md), update).
+- `uv` runs a console script from a Release wheel URL: checked, for the `v0.1.0` URL into an empty folder. The URL form is `.../releases/download/v<version>/stepout-<version>-py3-none-any.whl`; it names a version, so the README line changes with every release ([releasing.md](../releasing.md)).
+- `models.list` needs no credit: checked with a real key (accepted) and a made-up one (refused).
+- Edge supports `page.screencast`: checked (headless Edge launched and streamed frames).
+- The winget id is `Tailscale.Tailscale`; the lower-case form ADR 0020 first gave (this plan named no id) finds nothing with `-e`. Fixed in code on 2026-10-16. The install itself has not been run on a machine without Tailscale.
+- Chrome on the GitHub Windows runner: not needed (the smoke test does not start a browser) and not checked.
 
 ## Risks
 

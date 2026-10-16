@@ -11,7 +11,8 @@ CHECKOUT = _ROOT if (_ROOT / "pyproject.toml").is_file() and (_ROOT / "src" / "s
 
 def home() -> Path:
     """STEPOUT_HOME if set; else `data/` in a source checkout (development is unchanged); else the per-user app folder,
-    so an installed copy never writes into the working directory or the package, and an upgrade keeps everything."""
+    so an installed copy never writes into the working directory or the package, and an upgrade keeps everything.
+    (Elsewhere than Windows the fallback is `$XDG_DATA_HOME/Stepout`, else `~/.local/share/Stepout`: the app is not supported there yet.)"""
     if env := os.environ.get("STEPOUT_HOME"):
         return Path(env).expanduser().resolve()
     if CHECKOUT is not None:

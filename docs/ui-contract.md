@@ -10,7 +10,7 @@ The wire between the React page (`web/`) and the backend (`src/stepout/channels/
 
 ## Transport
 
-`GET /` serves the built page (`src/stepout/_web/index.html`, shipped in the wheel). `GET /ws` is a WebSocket on `127.0.0.1:8765` (`STEPOUT_PORT` changes the port); its `Origin` must be our own or absent. The server's first frame is `{"type": "hello", "v": 1, "machine": "…"}`; `machine` is the laptop's name (a string, possibly empty), shown in the page's header.
+`GET /` serves the built page (`src/stepout/_web/index.html`, shipped in the wheel). `GET /ws` is a WebSocket on `127.0.0.1:8765` (`STEPOUT_PORT` changes the port; else `PORT`, else 8765); its `Origin` must be our own or absent. The server's first frame is `{"type": "hello", "v": 1, "machine": "…"}`; `machine` is the laptop's name (a string, possibly empty), shown in the page's header.
 
 **Page to server** (JSON text frames, at most 64 KB):
 
@@ -84,7 +84,7 @@ Behind it, `Browser(shots=..., on_frame=cb)` calls `cb(run_id, jpeg)` (synchrono
 ## Security (each is a test)
 
 - Every `/api`, `/live` and `/ws` request must carry a `Host` of `127.0.0.1:<port>` or `localhost:<port>` (blocks DNS rebinding), or, once `stepout remote` set it up, exactly one of the names in `STEPOUT_REMOTE_HOSTS` (no wildcards); `Origin` then may also be `https://<that name>`.
-- A request from another device (its `Host` is a remote name, or it carries `Tailscale-User-Login`, `X-Forwarded-For` or `X-Forwarded-Host`) must carry `Tailscale-User-Login` equal to `STEPOUT_REMOTE_LOGIN`, the owner's login, or it gets 403 ([ADR 0020](adr/0020-phone-access-through-tailscale-serve.md)).
+- A request from another device (its `Host` is a remote name, or it carries `Tailscale-User-Login`, `X-Forwarded-For` or `X-Forwarded-Host`) must carry `Tailscale-User-Login` equal to `STEPOUT_REMOTE_LOGIN`, the owner's login, or it gets 403 ([ADR 0020](adr/0020-phone-access-through-tailscale-serve.md)). Observed through Serve on 2026-10-16: the request keeps its `Host`, and gains `Tailscale-User-Login`, `Tailscale-User-Name`, `Tailscale-User-Profile-Pic`, `Tailscale-Headers-Info`, `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto`.
 - `POST`, `PATCH` and `DELETE` require an allowed `Origin`, and `POST` and `PATCH` also `Content-Type: application/json`; no CORS headers are ever sent.
 - Ids are server-generated and validated before any lookup; screenshot paths are never built from user input.
 - Model output is untrusted: the page renders markdown **without raw HTML or images**, allows only `http(s)` and `mailto` links, and sets `rel="noopener noreferrer"`.

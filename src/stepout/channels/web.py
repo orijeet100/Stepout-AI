@@ -32,6 +32,7 @@ from stepout.contract import (
     SendFrame, StatusFrame, StopFrame, TraceFrame,
 )
 from stepout.memory_types import Memory
+from stepout.paths import home
 from stepout.domain import DEFAULT_CONVERSATION, Event, Message, Reply
 from stepout.ledger import chat_title
 from stepout.store import Store
@@ -163,9 +164,9 @@ class LiveView:
 
 
 class WebChannel:
-    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path = Path("data/runs"), *, history: HistoryReader, keeper: ChatKeeper | None = None, memory: Memory | None = None,
+    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path | None = None, *, history: HistoryReader, keeper: ChatKeeper | None = None, memory: Memory | None = None,
                  remote_hosts: Sequence[str] = (), remote_login: str = "") -> None:
-        self._host, self._port, self._shots, self._history = host, port, shots, history
+        self._host, self._port, self._shots, self._history = host, port, shots if shots is not None else home() / "runs", history
         self._keeper = keeper  # rename and delete (chats.py); without one the page can only read
         self._memory = memory  # what the Memory panel lists and edits; None: the panel is not offered (404)
         self._sockets: set[web.WebSocketResponse] = set()
