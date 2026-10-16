@@ -1,6 +1,6 @@
 # Stepout AI
 
-A task assistant you drive from a chat page. Ask in plain English; an **Orchestrator** plans the task and hands each step to a specialist that holds one tool. You watch every step as it happens, including the assistant's headless browser, live, and the answer streams in as it is written. Read-only by design, local to your machine, with a hard cost cap per task. Built from scratch to learn how production agents work: permissions, state, tracing, evals.
+A task assistant which works with the files in your local desktop and browsers to complete tasks when you Step out but still want to complete your work.
 
 ![A finished run, opened: the plan, a card for each task an agent did, one tool call open on its request and result, and the budget](docs/assets/run-light.jpg)
 
