@@ -98,15 +98,20 @@ class Browser:
             self._pw = self._chrome = None
 
     async def _start_chrome(self) -> None:
-        """The installed Chrome, headless: nothing to download. Not installed, or not startable: say so in a line."""
+        """Chrome, or Edge if Chrome is not installed: the installed browser, headless, nothing to download. Neither installed, or not startable: say so in a line."""
         try:
             self._pw = self._pw or await async_playwright().start()
-            self._chrome = await self._pw.chromium.launch(channel="chrome", headless=True)
+            for channel in ("chrome", "msedge"):  # Edge ships with every Windows machine
+                try:
+                    self._chrome = await self._pw.chromium.launch(channel=channel, headless=True)
+                    return
+                except PlaywrightError as exc:
+                    if "is not found" not in str(exc) and "doesn't exist" not in str(exc):
+                        raise  # installed but would not start: say so, do not try the next one
+            raise Failure("chrome", "Neither Google Chrome nor Microsoft Edge is installed. Install one of them, then try again.")
         except PlaywrightError as exc:
-            text = str(exc).strip()
-            missing = "is not found" in text or "doesn't exist" in text
-            detail = (text.splitlines() or ["no detail"])[0][:150]
-            raise Failure("chrome", "Chrome is not installed. Install Google Chrome, then try again." if missing else f"Chrome could not be started ({detail}). Try again.") from exc
+            detail = (str(exc).strip().splitlines() or ["no detail"])[0][:150]
+            raise Failure("chrome", f"The browser could not be started ({detail}). Try again.") from exc
 
     async def _open_session(self, run_id: str) -> _Session:
         if self._chrome is None or not self._chrome.is_connected():  # the first Run, or Chrome has died since

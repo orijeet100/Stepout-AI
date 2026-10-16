@@ -7,6 +7,7 @@ model is fake.
 
 import asyncio
 import json
+import platform
 from pathlib import Path
 
 import aiohttp
@@ -78,7 +79,7 @@ async def client():
 
 async def connect(client, base):
     ws = await client.ws_connect(f"{base}/ws", origin=base)
-    assert (await ws.receive_json()) == {"type": "hello", "v": 1}
+    assert (await ws.receive_json()) == {"type": "hello", "v": 1, "machine": platform.node()}
     status = await ws.receive_json()
     assert status["type"] == "status"
     return ws
@@ -99,7 +100,7 @@ async def test_hello_then_an_idle_status_on_connect(served, client):
     _, base = served
     async with client.ws_connect(f"{base}/ws", origin=base) as ws:
         hello, status = await frames(ws, 2)
-        assert hello == {"type": "hello", "v": 1}
+        assert hello == {"type": "hello", "v": 1, "machine": platform.node()}
         assert status["state"] == "idle" and status["active"] is None and status["queued"] == []
         SERVER_FRAMES.validate_python([hello, status])
 
@@ -304,6 +305,63 @@ async def test_host_must_be_127_0_0_1_or_localhost_on_our_port(served, client):
     with pytest.raises(aiohttp.WSServerHandshakeError) as err:
         await client.ws_connect(f"{base}/ws", origin=base, headers={"Host": "evil.example"})
     assert err.value.status == 403
+
+
+REMOTE = "laptop.tail1234.ts.net"
+OWNER = "owner@example.com"
+
+
+@pytest.fixture
+async def remote_served(tmp_path):
+    channel = WebChannel(port=0, shots=tmp_path, history=FixtureHistory(), remote_hosts=[REMOTE], remote_login=OWNER)
+    port = await channel.start()
+    yield channel, f"http://127.0.0.1:{port}"
+    await channel.stop()
+
+
+async def test_through_tailscale_only_our_exact_name_and_the_owners_login_get_in(remote_served, client):
+    """ADR 0020: Serve's name, and the owner's login (Serve sets the header and drops any copy the client sent)."""
+    _, base = remote_served
+    url = f"{base}/api/conversations"
+    owner = {"Host": REMOTE, "Tailscale-User-Login": OWNER}
+    assert (await client.get(url, headers={"Host": "other.tail1234.ts.net", "Tailscale-User-Login": OWNER})).status == 403  # unknown host
+    assert (await client.get(url, headers={"Host": "x." + REMOTE, "Tailscale-User-Login": OWNER})).status == 403  # no wildcards
+    assert (await client.get(url, headers={"Host": REMOTE})).status == 403  # no login: a tagged device, or Funnel
+    assert (await client.get(url, headers={"Host": REMOTE, "Tailscale-User-Login": "someone@else.com"})).status == 403  # another person on the tailnet
+    assert (await client.get(url, headers=owner)).status == 200
+    assert (await client.get(url, headers={"Host": REMOTE.upper(), "Tailscale-User-Login": OWNER.upper()})).status == 200  # names are case-insensitive
+    assert (await client.get(url, headers={**owner, "Origin": f"https://{REMOTE}"})).status == 200
+    assert (await client.get(url, headers={**owner, "Origin": f"http://{REMOTE}"})).status == 403  # https only
+    assert (await client.post(url, json={}, headers={**owner, "Origin": f"https://{REMOTE}"})).status == 201
+    async with client.ws_connect(f"{base}/ws", origin=f"https://{REMOTE}", headers=owner) as ws:
+        assert (await ws.receive_json())["type"] == "hello"
+
+
+async def test_a_proxied_request_needs_the_owners_login_whatever_its_host(remote_served, client):
+    """Should a proxy keep 127.0.0.1 as the Host, its forwarding headers still mark the request as from another device."""
+    _, base = remote_served
+    url = f"{base}/api/conversations"
+    assert (await client.get(url, headers={"X-Forwarded-For": "100.64.0.9"})).status == 403
+    assert (await client.get(url, headers={"Tailscale-User-Login": "someone@else.com"})).status == 403
+    assert (await client.get(url, headers={"X-Forwarded-For": "100.64.0.9", "Tailscale-User-Login": OWNER})).status == 200
+    assert (await client.get(url)).status == 200  # straight from this laptop: as before
+
+
+async def test_with_no_remote_set_up_no_request_from_another_device_gets_in(served, client):
+    _, base = served
+    url = f"{base}/api/conversations"
+    assert (await client.get(url, headers={"Host": REMOTE, "Tailscale-User-Login": OWNER})).status == 403
+    assert (await client.get(url, headers={"Tailscale-User-Login": OWNER})).status == 403  # proxied, but nobody is the owner
+
+
+async def test_a_remote_name_without_an_owner_login_lets_no_one_in(tmp_path, client):
+    channel = WebChannel(port=0, shots=tmp_path, history=FixtureHistory(), remote_hosts=[REMOTE], remote_login="")
+    base = f"http://127.0.0.1:{await channel.start()}"
+    try:
+        assert (await client.get(f"{base}/api/conversations", headers={"Host": REMOTE, "Tailscale-User-Login": ""})).status == 403
+        assert (await client.get(f"{base}/api/conversations")).status == 200
+    finally:
+        await channel.stop()
 
 
 async def test_a_foreign_origin_is_rejected_on_the_socket_and_the_api(served, client):

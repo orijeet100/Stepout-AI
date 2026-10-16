@@ -1,10 +1,11 @@
-"""Web Channel (UI contract v1): the page's WebSocket and read-only JSON API, served with web/dist. Localhost only, one User.
+"""Web Channel (UI contract v1): the page's WebSocket and read-only JSON API, served with the built page. Listens on 127.0.0.1 only, one User.
 
 Live frames (hello, message, trace, status) go over /ws; history is read over /api/* from `history`. Everything sent is
 built from the models of contract.py, so the channel cannot drift from the contract. The channel is also the inbox: a
 message sent while a Run is busy waits in `_waiting` (shown as `queued`) and is handed to the app loop one at a time.
 The Web Browsing agent's page, live and view-only, is `GET /live/{run_id}` (LiveView). Security rules (docs/ui-contract.md): Host must be ours (DNS rebinding), a present Origin must be ours, a POST needs
-Origin and JSON, ids are checked before any lookup, and no CORS header is ever sent.
+Origin and JSON, ids are checked before any lookup, and no CORS header is ever sent. Through Tailscale Serve (`stepout remote`,
+ADR 0020) the page may also be reached under exact remote host names, and only by the owner's Tailscale login.
 """
 
 from __future__ import annotations
@@ -12,12 +13,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import mimetypes
+import platform
 import re
 import uuid
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncIterator, Callable, Protocol
+from typing import AsyncIterator, Callable, Protocol, Sequence
 
 from aiohttp import WSMsgType, web
 from pydantic import BaseModel, TypeAdapter, ValidationError
@@ -33,7 +36,9 @@ from stepout.domain import DEFAULT_CONVERSATION, Event, Message, Reply
 from stepout.store import Store
 
 LOCAL_USER = "local"
-DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
+DIST = Path(__file__).resolve().parents[1] / "_web"  # the built page: `cd web && npm run build` writes it here, and the wheel ships it
+mimetypes.add_type("application/manifest+json", ".webmanifest")  # "Add to Home Screen"
+_PROXIED = ("Tailscale-User-Login", "X-Forwarded-For", "X-Forwarded-Host")  # any of these: the request came through a proxy, not straight from this laptop
 HEX32 = re.compile(r"[0-9a-f]{32}")
 MEMORY_ID = re.compile(r"[pfhm]-[0-9a-f]{6,12}")  # what Memory makes: p-3f9a1c, f-1a2b3c4d, h-..., m-...
 MAX_TEXT = 20_000  # characters in one message (a frame is capped at 64 KB)
@@ -157,7 +162,8 @@ class LiveView:
 
 
 class WebChannel:
-    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path = Path("data/runs"), *, history: HistoryReader, keeper: ChatKeeper | None = None, memory: Memory | None = None) -> None:
+    def __init__(self, host: str = "127.0.0.1", port: int = 8765, shots: Path = Path("data/runs"), *, history: HistoryReader, keeper: ChatKeeper | None = None, memory: Memory | None = None,
+                 remote_hosts: Sequence[str] = (), remote_login: str = "") -> None:
         self._host, self._port, self._shots, self._history = host, port, shots, history
         self._keeper = keeper  # rename and delete (chats.py); without one the page can only read
         self._memory = memory  # what the Memory panel lists and edits; None: the panel is not offered (404)
@@ -171,6 +177,8 @@ class WebChannel:
         self._issued: set[str] = set()  # chat ids made by POST /api/conversations and not saved yet
         self._hosts: set[str] = set()
         self._origins: set[str] = set()
+        self._remote_hosts = {h.strip().lower() for h in remote_hosts if h.strip()}  # exact names, written by `stepout remote`
+        self._remote_login = remote_login.strip().lower()  # the owner's Tailscale login; without one no remote request gets in
         self._runner: web.AppRunner | None = None
         self.cancel = asyncio.Event()  # set when the User presses Stop; the Runner awaits it with every model call and hand
 
@@ -252,8 +260,13 @@ class WebChannel:
 
     @web.middleware
     async def _guard(self, request: web.Request, handler):
-        if request.headers.get("Host") not in self._hosts:
+        host = (request.headers.get("Host") or "").lower()
+        if host not in self._hosts:
             raise web.HTTPForbidden(text="host not allowed")  # DNS rebinding
+        if host in self._remote_hosts or any(h in request.headers for h in _PROXIED):  # from another device, through Tailscale Serve
+            login = request.headers.get("Tailscale-User-Login", "").strip().lower()  # set by Serve, which drops any copy the client sent
+            if not self._remote_login or login != self._remote_login:
+                raise web.HTTPForbidden(text="only this laptop's owner, signed in to Tailscale, may use it from another device")
         origin = request.headers.get("Origin")
         if origin is not None and origin not in self._origins:
             raise web.HTTPForbidden(text="origin not allowed")  # any page in your browser can open ws://localhost; only ours may talk to the Assistant
@@ -265,6 +278,9 @@ class WebChannel:
         return await handler(request)
 
     # ---- HTTP ------------------------------------------------------------------------------------------------
+
+    async def _health(self, request: web.Request) -> web.Response:
+        return web.json_response({"app": "stepout", "v": 1})  # how `stepout` tells its own copy from something else on the port
 
     async def _conversations(self, request: web.Request) -> web.Response:
         query = request.query.get("q", "").strip()[:200]
@@ -387,7 +403,7 @@ class WebChannel:
     async def _index(self, request: web.Request) -> web.StreamResponse:
         index = DIST / "index.html"
         if not index.exists():
-            return web.Response(status=503, text="Web page not built. Run: cd web && npm install && npm run build")
+            return web.Response(status=503, text="Web page not built. Run: cd web && npm install && npm run build")  # a source checkout only: the wheel ships it
         return web.FileResponse(index)
 
     # ---- WebSocket -------------------------------------------------------------------------------------------
@@ -397,7 +413,7 @@ class WebChannel:
         await ws.prepare(request)
         self._sockets.add(ws)
         try:
-            await ws.send_json(HelloFrame().model_dump(mode="json"))
+            await ws.send_json(HelloFrame(machine=platform.node()).model_dump(mode="json"))
             await ws.send_json(self._status().model_dump(mode="json"))
             async for msg in ws:
                 if msg.type == WSMsgType.TEXT:
@@ -440,6 +456,7 @@ class WebChannel:
             [
                 web.get("/", self._index),
                 web.get("/ws", self._ws),
+                web.get("/api/health", self._health),
                 web.get("/api/conversations", self._conversations),
                 web.post("/api/conversations", self._new_conversation),
                 web.get("/api/conversations/{id}", self._conversation),
@@ -461,8 +478,9 @@ class WebChannel:
         await self._runner.setup()
         await web.TCPSite(self._runner, self._host, self._port).start()
         self._port = self._runner.addresses[0][1]
-        self._hosts = {f"127.0.0.1:{self._port}", f"localhost:{self._port}"}
-        self._origins = {f"http://{h}" for h in self._hosts}
+        local = {f"127.0.0.1:{self._port}", f"localhost:{self._port}"}
+        self._hosts = local | self._remote_hosts
+        self._origins = {f"http://{h}" for h in local} | {f"https://{h}" for h in self._remote_hosts}
         return self._port
 
     async def stop(self) -> None:

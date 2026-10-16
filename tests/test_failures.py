@@ -56,7 +56,7 @@ FAILURES = [
     pytest.param(api_error(429, "rate_limit_error"), ["rate-limiting", "Wait"], "rate_limit", id="429-rate-limit"),
     pytest.param(api_error(529, "overloaded_error"), ["overloaded", "Wait"], "overloaded", id="529-overloaded"),
     pytest.param(api_error(500, "api_error"), ["server error", "Try again"], "server_error", id="500-server-error"),
-    pytest.param(api_error(401, "authentication_error"), ["API key", ".env"], "auth", id="401-bad-key"),
+    pytest.param(api_error(401, "authentication_error"), ["API key", "stepout init"], "auth", id="401-bad-key"),
     pytest.param(raises(httpx.ReadTimeout("timed out")), ["timed out", "Try again"], "timeout", id="timeout"),
     pytest.param(raises(httpx.ConnectError("no route")), ["Could not reach Anthropic", "internet"], "connection", id="no-network"),
     pytest.param(lambda: httpx.Response(200, text="<html>not json</html>"), ["could not be understood"], "malformed", id="malformed-body-not-json"),
@@ -143,7 +143,7 @@ async def test_a_bad_key_at_the_front_door_is_said_once_and_does_not_start_a_run
     store = await serve(tmp_path, network, "what is the capital of France?", "and of Spain?")
 
     first, second = replies(store)
-    assert "API key" in first and ".env" in first and second.startswith("Paris.")
+    assert "API key" in first and "stepout init" in first and second.startswith("Paris.")
     assert [r["outcome"] for r in runs(store)] == ["done"]  # the first message never became a Run that would fail the same way
     assert len(network.requests) == 3  # Screening; Screening; the Orchestrator's one call for the second message... and nothing for the first
 
@@ -166,7 +166,7 @@ async def test_no_key_at_all_is_said_plainly_at_first_use(tmp_path, monkeypatch)
     saved = SavedChannel(FakeChannel(ask("c1", "hello?")), ledger)
     await run(saved, Intake(HaikuScreener(model), ledger), Runner(model, NoFetcher(), ledger, saved.send))
     (reply,) = replies(Store(tmp_path / "t.db"))
-    assert "no Anthropic API key" in reply and ".env" in reply and ".env.example" in reply
+    assert "no Anthropic API key" in reply and "stepout init" in reply
     plain(reply)
 
 

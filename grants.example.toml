@@ -1,6 +1,6 @@
-# Copy to data/config/grants.toml (git-ignored). Only you edit it; the Assistant and the model cannot.
+# Normally written by `stepout grant`; this file is an example of its format. The real one is <Home>/config/grants.toml (data/config/grants.toml in a checkout). Only you edit it; the Assistant and the model cannot.
 #   mode = "metadata": names, sizes, dates and counts.   mode = "read": also file contents (used by the Reader).
-# The built-in block list always applies: .ssh, .env, key files, browser profiles, Windows, Program Files, the Assistant's folder.
+# The built-in block list always applies: .ssh, .env, key files, browser profiles, Windows, Program Files, Stepout's own folders (Home).
 
 [[grant]]
 path = 'D:\Documents'

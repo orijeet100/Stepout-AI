@@ -20,14 +20,17 @@ from datetime import datetime
 from pathlib import Path, PureWindowsPath
 from typing import Callable
 
+from stepout.paths import home
+
 WALK_SECONDS = 60
 LIST_LIMIT = 100
 FIND_LIMIT = 30
 FIND_MAX_HITS = 5000
 
 _REPO = os.path.normcase(str(Path(__file__).resolve().parents[2]))  # the Assistant's own folder (.env, data/)
+_HOME = os.path.normcase(str(home()))  # its data folder: chats, Memory, the key (paths.py)
 
-_PREFIXES = (_REPO, r"c:\windows", r"c:\program files", r"c:\program files (x86)", r"c:\programdata")
+_PREFIXES = (_REPO, _HOME, r"c:\windows", r"c:\program files", r"c:\program files (x86)", r"c:\programdata")
 _FRAGMENTS = (  # whole path segments; matched anywhere in a path
     r"\.ssh", r"\.aws", r"\.azure", r"\.gnupg", r"\.kube", r"\.docker",
     r"\appdata\local\google\chrome\user data", r"\appdata\local\microsoft\edge\user data",
@@ -88,7 +91,7 @@ def load_grants(path: Path) -> list[Grant]:
     if not path.exists():
         return []
     grants = []
-    for g in tomllib.loads(path.read_text(encoding="utf-8")).get("grant", []):
+    for g in tomllib.loads(path.read_text(encoding="utf-8-sig")).get("grant", []):  # -sig: Notepad and PowerShell put a BOM in front
         mode = g.get("mode", "metadata")
         if mode not in ("metadata", "read"):
             raise ValueError(f"{path}: unknown grant mode {mode!r}")
@@ -160,7 +163,7 @@ class Files:
 
     @classmethod
     def from_config(cls, path: Path) -> Files:
-        return cls(load_grants(path))
+        return cls(load_grants(path) if os.name == "nt" else [])  # the block list is Windows paths: elsewhere, no access at all (fail closed)
 
     async def run(self, op: str, path: str, pattern: str | None = None, cancelled: Callable[[], bool] = lambda: False) -> str:
         # In a thread: a big walk must not freeze the event loop (the web page, Stop).
@@ -186,6 +189,8 @@ class Files:
         return f"Error: unknown operation {op!r}"
 
     def _resolve(self, raw: str) -> tuple[str | None, str]:
+        if os.name != "nt":
+            return None, "no file access on this system yet (Windows only for now); tell the User"
         p = raw.strip().strip('"')
         win = PureWindowsPath(p)
         # a plain local absolute path only: no relative, UNC/device (`\\server`, `\\?\`), alternate stream (`:`) or `..`
@@ -199,7 +204,7 @@ class Files:
             return None, f"off-limits ({reason}); this is a fixed safety rule, not a permissions problem, so do not suggest workarounds"
         if not any(_under(low, g.root) for g in self._grants):
             if not self._grants:  # nothing is allowed because nothing was set up: a first-run problem, not a refusal
-                return None, "outside every grant (no folders are allowed yet: copy grants.example.toml to data/config/grants.toml and list the folders to allow; only the User can do that, so tell them)"
+                return None, "outside every grant (no folders are allowed yet: the User chooses them by running `stepout grant` in a terminal; only the User can do that, so tell them)"
             return None, "outside every grant; the User has not allowed this location, so do not suggest workarounds"
         return real, ""
 

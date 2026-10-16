@@ -284,7 +284,7 @@ class Mock:
         ws = web.WebSocketResponse(heartbeat=30, max_msg_size=64 * 1024)
         await ws.prepare(request)
         self.sockets.add(ws)
-        await ws.send_json({"type": "hello", "v": 1})
+        await ws.send_json({"type": "hello", "v": 1, "machine": "mock-laptop"})
         await ws.send_json(self.status())
         try:
             async for msg in ws:

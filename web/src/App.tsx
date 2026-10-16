@@ -128,6 +128,7 @@ export default function App() {
             <Icon name="panel" />
           </button>
           <h1>{current?.title || 'New chat'}</h1>
+          {state.machine && <span className="head__machine" title={`Talking to ${state.machine}`}>on {state.machine}</span>}
           {current?.state === 'running' && <span className="pill"><span className="dot dot--running" aria-hidden="true" /> Running</span>}
           {current?.state === 'queued' && <span className="pill">Queued</span>}
           <button className="btn btn--icon btn--ghost" type="button" aria-label={theme === 'dark' ? 'Light mode' : 'Dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'} onClick={flipTheme}>
