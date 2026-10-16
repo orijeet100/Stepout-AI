@@ -71,6 +71,12 @@ The choices that shaped the product, in the order they happened, with where to r
 - **Why:** the first real phone run (2026-10-12) failed on a stale copy that answered 403, on Serve keyed to the old name after a rename, on a link announced before it answered, on a laptop name the User had to choose, and on a busy port with no way to tell whose it was.
 - **CI** also runs on pushes to `feat/**` branches: a build and the smoke test on a clean Windows runner, with the release step still only for tags. `scripts/smoke_install.py` now also runs `status`, a refused second start and `stop`.
 
+## 2026-10-15: the look written down, and three fixes found by checking the page against it
+
+- **[`design.md`](design.md)** holds the rules the page follows (content, colour, type, shape, states, layout, icons); values stay in `tokens.css`. A private Design System artifact was extracted from `web/` as a browsable copy.
+- **Found by opening the real page beside it:** on a phone the machine's name left the header title a few letters; a chat's title was cut mid-word with no ellipsis (`text[:60]`); and a missing screenshot's placeholder was `muted` on white, 2.2:1 in dark. Now the name sits under the title under 480px, titles are cut between words and end in `…` (backend and page share the rule), and the placeholder keeps `surface-2`.
+- **Not migrated:** chats saved before this keep their old titles until renamed.
+
 ## Tried and dropped
 
 | What | Why |

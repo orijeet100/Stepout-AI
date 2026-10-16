@@ -64,6 +64,19 @@ function mergeById<T extends { id: string; at: string }>(list: T[], items: T[]):
 
 const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
 
+/** A chat's title from its first message: one line of at most `limit` characters, cut between words and ended with …
+ *  The same rule as `chat_title` in src/stepout/ledger.py, so a chat reads the same before and after the backend lists it. */
+export function chatTitle(text: string, limit = 60): string {
+  const line = text.split(/\s+/).filter(Boolean).join(' ')
+  if (line.length <= limit) return line
+  let head = line.slice(0, limit - 1)
+  if (line[limit - 1] !== ' ') {
+    const space = head.lastIndexOf(' ') // the cut falls inside a word: back up to the space before it, unless that would leave too little
+    if (space >= Math.floor(limit / 2)) head = head.slice(0, space)
+  }
+  return head.replace(/[ ,;:-]+$/, '') + '…'
+}
+
 /** A one-line plain-text version of a reply for the chat list: no **bold**, `code`, [links](…) or list markers. */
 export const plain = (md: string) =>
   md
@@ -81,7 +94,7 @@ function touch(chats: State['chats'], id: string, at: string, message?: Message)
     ...chats,
     [id]: {
       ...old,
-      title: old.title || (message?.role === 'user' ? cut(message.text, 60) : ''),
+      title: old.title || (message?.role === 'user' ? chatTitle(message.text) : ''),
       updated_at: newer ? at : old.updated_at,
       preview: message && newer ? cut(message.text, 80) : old.preview,
     },

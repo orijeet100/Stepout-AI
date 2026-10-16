@@ -33,6 +33,7 @@ from stepout.contract import (
 )
 from stepout.memory_types import Memory
 from stepout.domain import DEFAULT_CONVERSATION, Event, Message, Reply
+from stepout.ledger import chat_title
 from stepout.store import Store
 
 LOCAL_USER = "local"
@@ -287,7 +288,7 @@ class WebChannel:
         rows = {c.id: c for c in (self._history.search_conversations(query) if query else self._history.list_conversations())}
         for m in self._waiting:  # a chat whose first message is still queued is not saved yet
             if not query or query.lower() in m.text.lower():
-                rows.setdefault(m.conversation_id, ConversationSummary(id=m.conversation_id, title=m.text[:60], updated_at=m.at, preview=m.text[:80], state="queued"))
+                rows.setdefault(m.conversation_id, ConversationSummary(id=m.conversation_id, title=chat_title(m.text), updated_at=m.at, preview=m.text[:80], state="queued"))
         out = [c.model_copy(update={"state": self._chat_state(c.id)}) for c in rows.values()]
         return _json(sorted(out, key=lambda c: c.updated_at, reverse=True))
 
@@ -304,7 +305,7 @@ class WebChannel:
         waiting = [m for m in self._waiting if m.conversation_id == cid]  # queued messages are not saved until their turn
         if detail is None and not waiting and cid not in self._issued:
             raise web.HTTPNotFound()
-        detail = detail or ConversationDetail(id=cid, title=waiting[0].text[:60] if waiting else "", messages=[], runs=[])
+        detail = detail or ConversationDetail(id=cid, title=chat_title(waiting[0].text) if waiting else "", messages=[], runs=[])
         queued = [MessageFrame(id=m.id, conversation_id=cid, role="user", text=m.text, at=m.at) for m in waiting]
         # A Run the database still calls running is only live if it is this channel's current one: the Run after
         # the newest of this chat's while its message is busy (before its first event), or the one the events named.

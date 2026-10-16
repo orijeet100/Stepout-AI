@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Frame, Message, Trace } from './protocol'
-import { chatGroups, chatList, initial, plain, reducer, runCap, runState, timeline, type Action, type State } from './store'
+import { chatGroups, chatList, chatTitle, initial, plain, reducer, runCap, runState, timeline, type Action, type State } from './store'
 
 const C = 'c'.repeat(32)
 const t = (s: number) => `2026-10-01T09:00:${String(s).padStart(2, '0')}.000Z`
@@ -19,6 +19,13 @@ describe('frames', () => {
     expect(s.chats[C].title).toHaveLength(60)
     expect(s.chats[C].preview).toHaveLength(80)
     expect(s.messages[C]).toHaveLength(1)
+  })
+
+  it('a long title is cut between words and ends in an ellipsis, as the backend cuts it', () => {
+    expect(chatTitle('What are the top events this weekend? Give me a table and some code.')).toBe('What are the top events this weekend? Give me a table and…')
+    expect(chatTitle('  one   line\nonly ')).toBe('one line only')
+    expect(chatTitle('x'.repeat(100))).toBe('x'.repeat(59) + '…')
+    expect(chatTitle('word '.repeat(40))).toHaveLength(60)
   })
 
   it('the same frame twice changes nothing (reconnects replay)', () => {

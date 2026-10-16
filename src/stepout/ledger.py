@@ -9,6 +9,20 @@ from stepout.domain import Event, Outcome, Task
 from stepout.store import Store
 
 
+def chat_title(text: str, limit: int = 60) -> str:
+    """A chat's title from its first message: one line of at most `limit` characters, cut between words and ended with "…" when it was longer.
+    web/src/store.ts `chatTitle` is the same rule, so a chat reads the same before and after the page asks the backend for its list."""
+    line = " ".join(text.split())
+    if len(line) <= limit:
+        return line
+    head = line[: limit - 1]
+    if line[limit - 1] != " ":  # the cut falls inside a word: back up to the space before it, unless that would leave too little
+        space = head.rfind(" ")
+        if space >= limit // 2:
+            head = head[:space]
+    return head.rstrip(" ,;:-") + "…"
+
+
 class Ledger:
     def __init__(self, store: Store) -> None:
         self._store = store
@@ -83,7 +97,7 @@ class Ledger:
         stamp = {k: v for k, v in (("id", message_id), ("at", at)) if v is not None}
         event = Event(kind="message", conversation_id=conversation_id, data={"role": role, "text": text, **extra}, **stamp)
         when = event.at.isoformat()
-        self._store.execute("INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)", (conversation_id, text[:60], when, when))
+        self._store.execute("INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)", (conversation_id, chat_title(text), when, when))
         self._store.execute("UPDATE conversations SET updated_at = MAX(updated_at, ?) WHERE id = ?", (when, conversation_id))  # never backwards
         self.record(event)
 

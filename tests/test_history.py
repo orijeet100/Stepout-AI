@@ -11,7 +11,7 @@ from stepout.app import SavedChannel, run
 from stepout.contract import ConversationDetail, TraceFrame
 from stepout.domain import AnswerAction, Decline, Message, Proceed, Reply, Task
 from stepout.intake import Intake
-from stepout.ledger import Ledger
+from stepout.ledger import Ledger, chat_title
 from stepout.model import ModelResponse
 from stepout.runner import Runner
 from stepout.store import _MIGRATIONS_DIR, Store
@@ -48,9 +48,17 @@ def test_saved_messages_come_back_in_order_from_a_new_store(tmp_path):
     assert chat.title == "what is the capital of France?"
     assert [(m.role, m.text) for m in chat.messages] == [("user", "what is the capital of France?"), ("assistant", "Paris")]
     assert [c.id for c in history.list_conversations(reopened)] == ["b", "a"]  # newest first
-    assert history.list_conversations(reopened)[0].title == "x" * 60  # the first message, cut to 60
+    assert history.list_conversations(reopened)[0].title == "x" * 59 + "…"  # the first message, cut to 60 characters (no word to cut at)
     assert history.get_conversation(reopened, "nope") is None
     assert len(history.get_conversation(reopened, "b").messages) == 1  # chats stay apart
+
+
+def test_a_long_first_message_titles_its_chat_between_words_and_ends_in_an_ellipsis():
+    assert chat_title("What are the top events this weekend? Give me a table and some code.") == "What are the top events this weekend? Give me a table and…"
+    assert chat_title("short") == "short"
+    assert chat_title("  one   line\nonly ") == "one line only"  # one line: runs of whitespace collapse
+    assert chat_title("x" * 100) == "x" * 59 + "…"  # no space to cut at: cut hard
+    assert len(chat_title("word " * 40)) == 60  # the ellipsis is inside the 60
 
 
 class FakeChannel:
