@@ -182,8 +182,12 @@ How far a Grant reaches — metadata (names, counts, sizes, dates), read (conten
 _Avoid_: level, permission level
 
 **Off-limits**:
-Places no Grant can reach — password stores and browser profiles, key and credential files, system folders, and the Assistant's own folder.
+Places no Grant can reach — password stores and browser profiles, key and credential files, system folders, and the Assistant's own folders (its code and its Home).
 _Avoid_: blocklist, exclusion
+
+**Home**:
+The one folder the Assistant keeps its own data in: chats, Memory, settings, the API key and the log. It is `STEPOUT_HOME` if set, else `data/` in a source checkout, else `%LOCALAPPDATA%\Stepout`. Off-limits to every Grant, so no agent can read it.
+_Avoid_: data dir, app folder, working directory
 
 **Plan** *(planned)*:
 The list of changes an organizing Task would make, shown to the User for Approval before anything moves.

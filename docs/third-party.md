@@ -26,6 +26,16 @@ Skills are instructions that steer the agent, so each was read or scanned before
 
 **Review notes.** pypdf parses files written by anyone, so it runs in a worker thread with a time limit, after a 10 MB file budget and a page cap, and extraction of a page is skipped if its decompressed content is huge (the library's own docs warn that extraction needs memory for the whole content stream). pypdf also enforces its own per-stream limits (75 MB by default). Not verified: how to tighten those limits per reader (`pypdf.Configuration` exists, but the page that should document it was not found, so the defaults are used).
 
+## Tools the install and phone path rely on (none is shipped in the wheel)
+
+| What | Source | Version seen | Licence | Used for |
+|---|---|---|---|---|
+| uv | [astral-sh/uv](https://github.com/astral-sh/uv); `winget install astral-sh.uv` | 0.12.5 here (winget lists 0.13.1) | Apache-2.0 or MIT (winget's listing) | the one install tool, `uv tool install`, and the Python it brings ([ADR 0019](adr/0019-one-command-install.md)) |
+| winget | Microsoft's Windows Package Manager, part of Windows 10 and 11 (App Installer) | n/a | n/a | `stepout remote` offers to install Tailscale with it (id `Tailscale.Tailscale`, exact case) |
+| Tailscale (client and service) | [tailscale.com](https://tailscale.com); client [tailscale/tailscale](https://github.com/tailscale/tailscale) | 1.104.1 (winget's listing, 2026-10-16) | client: BSD-3-Clause (winget's listing). The coordination service is Tailscale's hosted service under its own terms, with a free personal plan when this was set up (2026-10-12; not re-checked) | `stepout remote`: Serve gives the laptop an HTTPS name that only the owner's devices reach ([ADR 0020](adr/0020-phone-access-through-tailscale-serve.md)); Funnel (the public internet) is never used |
+| Node.js | [nodejs.org](https://nodejs.org); `winget install OpenJS.NodeJS.LTS` | 24.20.0 (winget's LTS listing) | MIT (winget's listing) | building the page, in CI and in a source checkout only; a user of the wheel does not need it |
+| pywinpty | PyPI `pywinpty` | 3.1.0 | MIT (the package's classifier) | `scripts/first_run_console.py` only, fetched by `uv run --no-project --with pywinpty`; not a dependency of the project |
+
 ## Designs the page follows (no code copied)
 
 | What | Source | How it was used |

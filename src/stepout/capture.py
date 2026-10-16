@@ -1,6 +1,6 @@
 """Capture: what was said to the model and what it said back, step by step, for debugging. Off unless STEPOUT_CAPTURE=1.
 
-One JSON-lines file per Run under `data/capture/`. This is the one place a prompt is kept, so its rules are tight: it is never written for a Run that has
+One JSON-lines file per Run under `<Home>/capture/` (`data/capture/` in a checkout). This is the one place a prompt is kept, so its rules are tight: it is never written for a Run that has
 read a file or builds on an answer that did (the Runner checks the Run's taint before every call), secret-looking values pass through `redact` first, and
 the file goes with its chat (chats.py) or by age (housekeeping.py). The Ledger, not this, is what the page and Evaluation read.
 """

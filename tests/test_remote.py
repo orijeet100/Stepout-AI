@@ -84,7 +84,8 @@ def test_from_nothing_it_installs_with_winget_waits_for_the_sign_in_then_serves_
     monkeypatch.setattr(remote.platform, "node", lambda: "Orijeet")
     fake = FakeTailscale({"BackendState": "NeedsLogin"}, {"BackendState": "NeedsLogin"}, running("orijeet"))
     url, said = go(tmp_path, fake, found=(None, None, "ts"), answers=("y",))
-    assert fake.calls[0][:3] == ["install", "--id", "tailscale.tailscale"]  # winget ran first (the fake records every program's arguments)
+    assert fake.calls[0][:3] == ["install", "--id", "Tailscale.Tailscale"]  # winget ran first (the fake records every program's arguments)
+    assert remote.WINGET_ID == "Tailscale.Tailscale"  # exact case: winget -e finds nothing for the lower-case spelling (checked against the real winget)
     assert any("sign in" in s for s in said)
     env = (tmp_path / ".env").read_text().splitlines()
     assert url == f"https://{fake.states[0]['Self']['DNSName'].rstrip('.')}/"

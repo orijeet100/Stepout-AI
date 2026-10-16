@@ -30,6 +30,7 @@ import segno
 from stepout.init import set_env
 
 DOWNLOAD = "https://tailscale.com/download/windows"
+WINGET_ID = "Tailscale.Tailscale"  # exact case: with -e, winget finds nothing for `tailscale.tailscale` (checked 2026-10-16)
 _WINDOWS_EXE = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Tailscale" / "tailscale.exe"
 _NAME_CHARS = "abcdefghjkmnpqrstuvwxyz23456789"  # no look-alikes
 _PHONES = ("iOS", "android")
@@ -99,7 +100,7 @@ def setup(port: int, env_path: Path, *, ask: Callable[[str], str] = input, out: 
         return None
     if not (exe := find()):
         if winget() and ask("Tailscale (free) joins your phone to this laptop, and it is not installed. Install it now with winget? [Y/n] ").strip().lower() in ("", "y", "yes"):
-            if run(["winget", "install", "--id", "tailscale.tailscale", "-e", "--accept-package-agreements", "--accept-source-agreements"], check=False).returncode != 0:
+            if run(["winget", "install", "--id", WINGET_ID, "-e", "--accept-package-agreements", "--accept-source-agreements"], check=False).returncode != 0:
                 out(f"winget could not install it (its message is above). Install it from {DOWNLOAD} instead.")
         else:
             out(f"Next: install Tailscale from {DOWNLOAD}")

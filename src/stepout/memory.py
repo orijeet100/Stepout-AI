@@ -16,6 +16,7 @@ from typing import Mapping, Sequence
 
 from stepout.memory_files import FileStore
 from stepout.memory_types import Entry, LearnedStore, Memory, Recollection, RunRecord
+from stepout.paths import home
 from stepout.persona import Persona
 
 # Starting values: about 500 tokens in all, of which Persona may take most. Calibrate on the comparison (docs/plans, Unit 12).
@@ -163,12 +164,13 @@ class NullMemory:
         return 0.0
 
 
-def build(environ: Mapping[str, str] = os.environ, root: Path = Path("data/memory")) -> tuple[Memory, str]:
+def build(environ: Mapping[str, str] = os.environ, root: Path | None = None) -> tuple[Memory, str]:
     """The Memory the app runs, and a line saying which (for the start-up and the log).
 
     STEPOUT_MEMORY: `off`, `files` (plain files only) or `mem0`. Unset means Mem0 if OPENAI_API_KEY is there to embed with, else plain files.
     A Mem0 that cannot start (no key, or the library or its store will not open) falls back to plain files and says why: Memory is never why the app does not start.
     """
+    root = root if root is not None else home() / "memory"  # the User's Home, not the working folder
     mode = environ.get("STEPOUT_MEMORY", "").strip().lower()
     if mode == "off":
         return NullMemory(), "Memory is off (STEPOUT_MEMORY=off)."

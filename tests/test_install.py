@@ -282,6 +282,31 @@ def test_status_lists_each_part_and_fails_when_one_needs_fixing(monkeypatch, tmp
     assert app.status() is True
 
 
+def test_remote_while_the_chat_runs_sets_the_phone_up_and_says_to_restart_it(monkeypatch, capsys):
+    monkeypatch.setattr(app, "running_at", lambda port: f"http://127.0.0.1:{port}")
+    started, opened = [], []
+    monkeypatch.setattr(app.remote, "setup", lambda port, env, **kw: "https://x.ts.net/")
+    monkeypatch.setattr(app, "serve_web", lambda **kw: started.append(kw))
+    monkeypatch.setattr(app.webbrowser, "open", opened.append)
+    app.cli(["remote"])
+    out = capsys.readouterr().out
+    assert started == [] and opened == []  # no second copy, no second page
+    assert "started without it" in out and "stepout stop" in out
+    monkeypatch.setattr(app.remote, "setup", lambda port, env, **kw: None)  # setup failed or was declined: nothing more is said
+    app.cli(["remote"])
+    assert "started without it" not in capsys.readouterr().out
+
+
+def test_remote_with_nothing_running_sets_up_then_starts_with_the_qr(monkeypatch):
+    monkeypatch.setattr(app, "running_at", lambda port: None)
+    started = []
+    monkeypatch.setattr(app.remote, "setup", lambda port, env, **kw: "https://x.ts.net/")
+    monkeypatch.setattr(app, "first_run", lambda *a, **kw: False)
+    monkeypatch.setattr(app, "serve_web", lambda **kw: started.append(kw))
+    app.cli(["remote"])
+    assert started == [{"open_browser": True, "show_qr": True}]
+
+
 def test_a_second_start_opens_the_running_one_instead_of_starting_again(monkeypatch, capsys):
     monkeypatch.setattr(app, "running_at", lambda port: f"http://127.0.0.1:{port}")
     opened, started = [], []
@@ -325,3 +350,25 @@ def test_grant_repairs_an_unreadable_file(tmp_path, monkeypatch):
     said = []
     init.grant(path, ask=answers(""), out=said.append)
     assert any("could not be read" in s for s in said) and init.read_grants(path) == []
+
+
+# ---- where the data lives is said the same way everywhere (found by the docs audit) ---------------------------------------------------------
+
+
+def test_the_unexpected_failure_line_names_the_real_log_file():
+    from stepout import logs
+    from stepout.failure import UNEXPECTED
+
+    assert str(app.LOGS_PATH / logs.LOG_NAME) in UNEXPECTED  # not a "data/logs" that is only true in a checkout
+
+
+def test_defaults_that_were_relative_to_the_working_folder_now_follow_home(monkeypatch, tmp_path):
+    from stepout import memory as memory_mod
+    from stepout.channels.web import WebChannel
+    from tests.test_web_channel import FixtureHistory
+
+    monkeypatch.setenv("STEPOUT_HOME", str(tmp_path))
+    monkeypatch.chdir(tmp_path / "..")  # somewhere that is not Home
+    _, line = memory_mod.build({"STEPOUT_MEMORY": "files"})
+    assert str(tmp_path / "memory") in line  # "Memory: plain files in <Home>\memory."
+    assert WebChannel(port=0, history=FixtureHistory())._shots == tmp_path / "runs"
