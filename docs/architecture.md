@@ -112,7 +112,7 @@ Home is `data/` in a checkout, `%LOCALAPPDATA%\Stepout` when installed, or `STEP
 <Home>/memory/                   persona.md (yours), learned.jsonl (plain files) or Mem0's store (qdrant/, mem0/)
 <Home>/capture/<run>.jsonl       prompts and replies, only with STEPOUT_CAPTURE=1
 <Home>/runs/<run>/<n>.jpg        page screenshots of a Run (removed with their chat, or after STEPOUT_RETENTION_DAYS)
-src/stepout/                     the backend (this document); src/stepout/_web/ is the built page (git-ignored, shipped in the wheel)
+src/stepout/                     the backend (this document): flat modules plus the packages memory/, access/, capabilities/, channels/ (ADR 0022); src/stepout/_web/ is the built page (git-ignored, shipped in the wheel)
 web/                             React + Vite + TypeScript page; src/, mock/ (replays fixtures), e2e/ (real Chrome), public/ (icons and the home-screen manifest); `npm run build` writes src/stepout/_web/
 tests/                           offline suite with a scripted model; support/ holds fakes and the acceptance world
 scripts/acceptance.py            eight queries through the real wiring; offline by default, --live spends money

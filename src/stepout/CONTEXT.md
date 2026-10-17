@@ -98,7 +98,7 @@ One thing an agent proposes in one pass of its loop — plan, delegate, answer, 
 _Avoid_: command, operation
 
 **Tool**:
-What an agent can call — fetch, files, browse, web search, read text — kept in one file: its schema, its Action, how it runs, its own Gate rule, its Trace line and a one-line blurb of what it can and cannot do. A new Tool is one file plus one line in the registry; a Role's tools are Tool names. In code the class is `Capability` (its `tool` attribute is the schema the model sees). What a Tool runs on (Fetcher, Files, Browser, Reader, the Search Summarizer) is its implementation, never called a "hand".
+What an agent can call — fetch, files, browse, web search, read text — kept in one file: its schema, its Action, how it runs, its own Gate rule, its Trace line and a one-line blurb of what it can and cannot do. A new Tool is one file plus one line in the registry; a Role's tools are Tool names. In code the class is `Capability` (its `tool` attribute is the schema the model sees). What a Tool runs on (Fetcher, Files, Browser, Reader, the Search Summarizer) is its implementation, in `stepout/access/`, never called a "hand".
 _Avoid_: plugin, skill, hand
 
 **Outcome**:
