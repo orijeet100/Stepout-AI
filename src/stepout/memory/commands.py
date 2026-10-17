@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from stepout.memory_types import Entry, Memory
+from stepout.memory.types import Entry, Memory
 
 _KIND = {"persona": "Persona (a line you wrote)", "fact": "Learned from what you said", "history": "Earlier tasks"}
 _OFF = "Memory is off (STEPOUT_MEMORY=off), so there is nothing to keep or list."

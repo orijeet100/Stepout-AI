@@ -4,7 +4,7 @@ import json
 
 from stepout.capture import Capture, from_env
 from stepout.domain import Exchange
-from stepout.files import Files, Grant
+from stepout.access.files import Files, Grant
 from stepout.model import AnswerAction, ModelRequest, ModelResponse
 from tests.support.pdfs import make_pdf
 from tests.test_reader_role import norm, reads

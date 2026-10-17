@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from stepout.redact import REDACTED, redact
+from stepout.access.redact import REDACTED, redact
 
 KEY_BODY = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASC" * 3
 PRIVATE_KEY = "-----BEGIN " + "PRIVATE KEY-----\n" + KEY_BODY + "\n-----END " + "PRIVATE KEY-----"

@@ -2,7 +2,7 @@
 
 from stepout.domain import AnswerAction
 from stepout.model import HAIKU, ModelResponse
-from stepout.search import Searcher
+from stepout.access.search import Searcher
 from tests.support.scripted_model import ScriptedModel
 
 

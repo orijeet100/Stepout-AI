@@ -1,4 +1,4 @@
-"""read_text: read the text of one file the User allowed for reading: a text file or a PDF. The hand is `stepout.reader.Reader`
+"""read_text: read the text of one file the User allowed for reading: a text file or a PDF. The hand is `stepout.access.reader.Reader`
 (it resolves the path through the Files hand, keeps the per-Run limits, screens secrets and cuts long text)."""
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from stepout.capabilities.base import Capability, RunContext, tool_from
-from stepout.reader import ReadUsage
+from stepout.access.reader import ReadUsage
 
 
 class ReadTextAction(BaseModel):

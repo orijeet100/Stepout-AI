@@ -6,13 +6,13 @@ from datetime import datetime, timezone
 import pytest
 
 from stepout.domain import AnswerAction, Message, Proceed, Reply
-from stepout.extract import MIN_WORDS, Extractor, Learner
+from stepout.memory.extract import MIN_WORDS, Extractor, Learner
 from stepout.intake import Intake
 from stepout.ledger import Ledger
 from stepout.memory import MemoryService, NullMemory
-from stepout.memory_files import FileStore
+from stepout.memory.files import FileStore
 from stepout.model import HAIKU, ModelResponse, ToolCall
-from stepout.persona import Persona
+from stepout.memory.persona import Persona
 from stepout.runner import Runner
 from stepout.store import Store
 from tests.support.screeners import FixedScreener
@@ -127,7 +127,7 @@ async def test_a_failing_extraction_is_a_trace_line_and_never_an_error(tmp_path)
 
 
 async def test_a_slow_extraction_is_given_up_on(tmp_path, monkeypatch):
-    from stepout import extract
+    from stepout.memory import extract
 
     class Slow:
         async def call(self, request):

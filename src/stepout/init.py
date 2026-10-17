@@ -14,7 +14,7 @@ import tomllib
 from pathlib import Path, PureWindowsPath
 from typing import Callable
 
-from stepout.files import blocked_reason
+from stepout.access.files import blocked_reason
 
 Ask = Callable[[str], str]
 Out = Callable[[str], None]

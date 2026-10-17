@@ -9,11 +9,11 @@ import sys
 
 import pytest
 
-from stepout import reader as reader_mod
+from stepout.access import reader as reader_mod
 from stepout.capabilities.base import RunContext, RunState
 from stepout.capabilities.read_text import ReadText, ReadTextAction
-from stepout.files import Files, Grant
-from stepout.reader import MAX_BYTES, MAX_CHARS, MAX_FILES, ReadUsage, Reader
+from stepout.access.files import Files, Grant
+from stepout.access.reader import MAX_BYTES, MAX_CHARS, MAX_FILES, ReadUsage, Reader
 from tests.support.pdfs import encrypted, make_pdf
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows paths")

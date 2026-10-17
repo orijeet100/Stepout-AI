@@ -31,11 +31,11 @@ from dotenv import load_dotenv  # noqa: E402
 from stepout import capabilities, history  # noqa: E402
 from stepout import memory as memory_mod  # noqa: E402
 from stepout.app import SavedChannel, run  # noqa: E402
-from stepout.browser import Browser  # noqa: E402
+from stepout.access.browser import Browser  # noqa: E402
 from stepout.domain import Message  # noqa: E402
-from stepout.extract import Extractor, Learner  # noqa: E402
-from stepout.fetch import Fetcher  # noqa: E402
-from stepout.files import Files  # noqa: E402
+from stepout.memory.extract import Extractor, Learner  # noqa: E402
+from stepout.access.fetch import Fetcher  # noqa: E402
+from stepout.access.files import Files  # noqa: E402
 from stepout.intake import Intake  # noqa: E402
 from stepout.ledger import Ledger  # noqa: E402
 from stepout.pydantic_model import default_model  # noqa: E402

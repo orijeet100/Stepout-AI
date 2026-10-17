@@ -1,4 +1,4 @@
-"""fetch: read one public page by URL. The hand is `stepout.fetch.Fetcher` (it polices every address)."""
+"""fetch: read one public page by URL. The hand is `stepout.access.fetch.Fetcher` (it polices every address)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from stepout.backoff import RETRY_AFTER_CEILING_S, TOOL_ATTEMPTS, TOOL_BASE_S, TOOL_CAP_S, wait
 from stepout.capabilities.base import TEXT_CHARS, Capability, RunContext, tool_from
-from stepout.fetch import BlockedUrl
+from stepout.access.fetch import BlockedUrl
 
 _RETRY_STATUS = (429, 500, 502, 503, 504)
 

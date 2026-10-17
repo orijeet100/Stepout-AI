@@ -25,3 +25,4 @@ An ADR records a decision that is hard to reverse, surprising, or a real trade-o
 | [0019](0019-one-command-install.md) | One command to install: a Home folder, the page inside the wheel, setup in the terminal | accepted; built |
 | [0020](0020-phone-access-through-tailscale-serve.md) | The phone reaches the laptop through Tailscale Serve, and only its owner gets in | accepted; built, real tailnet run to do |
 | [0021](0021-start-repairs-itself.md) | Start repairs itself: one copy per port, a status check, and the phone link only once it answers | accepted; built; amends 0019 and 0020 |
+| [0022](0022-packages-follow-the-module-map.md) | Packages follow the module map, and only where the move is free | accepted; built |

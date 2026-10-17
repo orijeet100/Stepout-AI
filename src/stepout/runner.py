@@ -17,19 +17,19 @@ from uuid import uuid4
 from stepout import capabilities, gate, history, scope
 from stepout.capabilities.base import TEXT_CHARS, RunContext, RunState
 from stepout.domain import Allow, AnswerAction, DelegateAction, Event, Exchange, Outcome, PlanAction, PlanStep, Reply, Task
-from stepout.browser import Browser
+from stepout.access.browser import Browser
 from stepout.capture import Capture
 from stepout.failure import UNEXPECTED, Failure
-from stepout.fetch import Fetcher
-from stepout.files import Files
+from stepout.access.fetch import Fetcher
+from stepout.access.files import Files
 from stepout.ledger import Ledger
 from stepout.links import defang, links_in, urls
-from stepout.memory_types import Memory, RunRecord
+from stepout.memory.types import Memory, RunRecord
 from stepout.model import Model, ModelRequest
-from stepout.reader import Reader
+from stepout.access.reader import Reader
 from stepout.roles import ROLES, agent_name
 from stepout.scope import RunScope
-from stepout.search import Searcher
+from stepout.access.search import Searcher
 
 _MAX_PLANS = 3  # the first plan plus two re-plans
 _REPEATED = "You already ran exactly this and the result will not change. Try something different, or answer."

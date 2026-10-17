@@ -5,7 +5,7 @@ import pytest
 
 from stepout.capabilities.web_search import WebSearchAction
 from stepout.domain import AnswerAction, BrowseAction, DelegateAction, FetchAction, FilesAction, PlanAction, PlanStep, Reply, Task
-from stepout.fetch import BlockedUrl, FetchedPage
+from stepout.access.fetch import BlockedUrl, FetchedPage
 from stepout.ledger import Ledger
 from stepout.model import HAIKU, SONNET, ModelResponse
 from stepout.runner import Runner

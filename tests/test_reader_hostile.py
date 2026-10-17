@@ -13,11 +13,11 @@ import zlib
 
 import pytest
 
-from stepout import reader as reader_mod
+from stepout.access import reader as reader_mod
 from stepout.capabilities.base import RunState
 from stepout.capabilities.read_text import ReadText, ReadTextAction
-from stepout.files import Files, Grant
-from stepout.reader import Reader
+from stepout.access.files import Files, Grant
+from stepout.access.reader import Reader
 from tests.support.pdfs import encrypted, make_pdf
 from tests.test_reader import ctx_for, norm, read
 

@@ -89,6 +89,10 @@ The choices that shaped the product, in the order they happened, with where to r
 - **Written down, having lived only in chat:** how to cut a release (`releasing.md`), a Housekeeping section in the README (the phone step by step, ports, moving the data folder, upgrade and uninstall), what Tailscale Serve really sends (checked on the real tailnet through a throwaway handler on HTTPS port 8443: the `Host` is kept, `Tailscale-User-*` and `X-Forwarded-*` are added), that Serve has one handler so the last copy started takes the phone link, a Home entry in the glossary, Tailscale, uv, winget, Node and pywinpty in `third-party.md`, and [a plan for macOS](plans/2026-10-16-001-feat-macos-support-plan.md).
 - **Checks that had been scratch files are in the repo:** `scripts/cleanroom.ps1` (a new user's first minutes in a throwaway folder; `-Phone` adds the real Tailscale) and `scripts/first_run_console.py` (types through the first run in a real console).
 
+## 2026-10-17: the backend is grouped into packages
+
+- **`memory/` and `access/`** ([0022](adr/0022-packages-follow-the-module-map.md)): the seven Memory modules and the six modules the Tools run on moved into two packages, by `git mv`, with no change in behaviour (the same tests pass, and a wheel smoke install and the real page were checked). `stepout.memory` imports did not change. The rule for the rest: a row of the module map becomes a package only when the move is free. The Model port and the Runner are not, because `model.py` imports `roles`.
+
 ## Tried and dropped
 
 | What | Why |

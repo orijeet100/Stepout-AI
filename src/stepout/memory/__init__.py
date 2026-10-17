@@ -14,10 +14,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from stepout.memory_files import FileStore
-from stepout.memory_types import Entry, LearnedStore, Memory, Recollection, RunRecord
+from stepout.memory.files import FileStore
+from stepout.memory.types import Entry, LearnedStore, Memory, Recollection, RunRecord
 from stepout.paths import home
-from stepout.persona import Persona
+from stepout.memory.persona import Persona
 
 # Starting values: about 500 tokens in all, of which Persona may take most. Calibrate on the comparison (docs/plans, Unit 12).
 RECOLLECTION_CHARS = 2000
@@ -182,7 +182,7 @@ def build(environ: Mapping[str, str] = os.environ, root: Path | None = None) -> 
                 return MemoryService(persona, FileStore(root / "learned.jsonl")), f"Memory: STEPOUT_MEMORY=mem0 but there is no OPENAI_API_KEY to embed with, so plain files in {root} are used."
         else:
             try:
-                from stepout.memory_mem0 import Mem0Store
+                from stepout.memory.mem0 import Mem0Store
 
                 return MemoryService(persona, Mem0Store(root, api_key=key)), f"Memory: Persona in {root}, learned facts and earlier tasks in Mem0 (embedded with OpenAI)."
             except ImportError:

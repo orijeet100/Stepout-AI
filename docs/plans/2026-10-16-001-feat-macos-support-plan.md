@@ -42,7 +42,7 @@ Anything outside the list should say "not supported yet" once, at start-up, and 
 
 ## Units
 
-1. **One platform table in code.** Today the Windows checks are scattered (`os.name` in `files.py`, `init.py`, `remote.py` and `app.py`). One small module names, per platform: the Tailscale installer command, where its CLI lives, how to keep the machine awake, the data folder, and whether Files is on. Nothing else branches on the platform.
+1. **One platform table in code.** Today the Windows checks are scattered (`os.name` in `access/files.py`, `init.py`, `remote.py` and `app.py`). One small module names, per platform: the Tailscale installer command, where its CLI lives, how to keep the machine awake, the data folder, and whether Files is on. Nothing else branches on the platform.
 2. **Home on macOS.** `~/Library/Application Support/Stepout`; a test per platform with the environment faked.
 3. **Tailscale on macOS** in `remote.setup`: find the CLI, offer the install, wait for the sign-in and the approval prompt, and say what to click. The fake-`tailscale` tests run once per platform with that platform's paths and states (not installed, not signed in, HTTPS off, rename lag, Serve fails, port taken).
 4. **Keep awake** with `caffeinate`, ended with the process.

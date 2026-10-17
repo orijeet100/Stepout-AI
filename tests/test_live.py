@@ -12,10 +12,10 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
-from stepout.browser import Browser
+from stepout.access.browser import Browser
 from stepout.domain import Task
-from stepout.fetch import Fetcher
-from stepout.files import Files, Grant
+from stepout.access.fetch import Fetcher
+from stepout.access.files import Files, Grant
 from stepout.ledger import Ledger
 from stepout.model import AnthropicModel
 from stepout.runner import Runner

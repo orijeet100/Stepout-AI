@@ -118,7 +118,7 @@ async def test_a_hand_that_does_honour_stop_still_ends_the_run_stopped_not_faile
 
 async def test_the_real_reader_in_its_thread_is_abandoned_at_once_on_stop(tmp_path, monkeypatch):
     """The real Reader hand and its worker thread: the thread cannot be killed, but the Run must not wait for it."""
-    import stepout.reader as reader_mod
+    import stepout.access.reader as reader_mod
 
     cancel = asyncio.Event()
     h = Harness(tmp_path, [plan("read it", role="local_file_reader"), ModelResponse(action=ReadTextAction(path="D:\\Docs\\big.pdf"), cost_usd=0.001)], cancel=cancel)
@@ -133,7 +133,7 @@ async def test_stop_during_a_real_page_load_in_real_chrome_ends_the_run_and_clos
     """A page that answers after 30 s, a real headless Chrome: Stop must not wait for the page, and the Run's browser context must close promptly."""
     from aiohttp import web
 
-    from stepout.browser import Browser
+    from stepout.access.browser import Browser
 
     release = asyncio.Event()
 

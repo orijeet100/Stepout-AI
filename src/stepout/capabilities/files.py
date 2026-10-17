@@ -1,4 +1,4 @@
-"""files: look at the User's disk: names, sizes, dates, counts. Never contents. The hand is `stepout.files.Files` (grants, block list)."""
+"""files: look at the User's disk: names, sizes, dates, counts. Never contents. The hand is `stepout.access.files.Files` (grants, block list)."""
 
 from __future__ import annotations
 

@@ -21,7 +21,7 @@ from urllib.parse import urljoin, urlparse
 from playwright.async_api import Error as PlaywrightError, async_playwright
 
 from stepout.failure import Failure
-from stepout.fetch import MAX_HOPS, REDIRECTS, BlockedUrl, _check_policy
+from stepout.access.fetch import MAX_HOPS, REDIRECTS, BlockedUrl, _check_policy
 
 TEXT_CHARS = 5000  # of page text per view; `more` reads on
 MAX_LINKS = 30

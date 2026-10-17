@@ -7,7 +7,7 @@ import asyncio
 import logging
 import time
 
-from stepout.browser import FRAME_GAP_S, FRAME_QUALITY, VIEWPORT, Browser, _Session
+from stepout.access.browser import FRAME_GAP_S, FRAME_QUALITY, VIEWPORT, Browser, _Session
 
 
 class FakeScreencast:
@@ -84,7 +84,7 @@ async def test_a_callback_that_raises_is_logged_once_and_never_reaches_playwrigh
 
     browser, session, screencast, _ = rig(callback=boom)
     await browser._start_frames(session, "r1")
-    with caplog.at_level(logging.WARNING, logger="stepout.browser"):
+    with caplog.at_level(logging.WARNING, logger="stepout.access.browser"):
         for i in range(4):
             screencast.deliver({"data": bytes([i])})  # must not raise: Playwright would surface it in the Run's next page call
             await asyncio.sleep(FRAME_GAP_S + 0.05)
@@ -115,7 +115,7 @@ async def test_closing_the_browser_stops_the_screencast_and_cancels_the_pending_
 
 async def test_if_frames_cannot_start_browsing_goes_on_without_them(caplog):
     browser, session, screencast, sent = rig(fail_to_start=True)
-    with caplog.at_level(logging.WARNING, logger="stepout.browser"):
+    with caplog.at_level(logging.WARNING, logger="stepout.access.browser"):
         await browser._start_frames(session, "r1")  # must not raise
     assert not session.framing and "could not start" in caplog.text
     await browser.close("r1")

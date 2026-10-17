@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from stepout.memory_types import Entry
+from stepout.memory.types import Entry
 
 USER = "local"  # Mem0 wants an entity to file memories under; there is one User
 EMBED_PRICE_PER_M = 0.02  # $ per million tokens, text-embedding-3-small's list price: check when OpenAI's changes

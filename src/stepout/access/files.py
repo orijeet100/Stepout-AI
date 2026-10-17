@@ -27,7 +27,7 @@ LIST_LIMIT = 100
 FIND_LIMIT = 30
 FIND_MAX_HITS = 5000
 
-_REPO = os.path.normcase(str(Path(__file__).resolve().parents[2]))  # the Assistant's own folder (.env, data/)
+_REPO = os.path.normcase(str(Path(__file__).resolve().parents[3]))  # the Assistant's own folder (.env, data/)
 _HOME = os.path.normcase(str(home()))  # its data folder: chats, Memory, the key (paths.py)
 
 _PREFIXES = (_REPO, _HOME, r"c:\windows", r"c:\program files", r"c:\program files (x86)", r"c:\programdata")

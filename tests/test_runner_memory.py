@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 
 from stepout import runner as runner_module
 from stepout.memory import MemoryService, NullMemory
-from stepout.memory_files import FileStore
-from stepout.memory_types import Recollection
+from stepout.memory.files import FileStore
+from stepout.memory.types import Recollection
 from stepout.model import HAIKU, SONNET
-from stepout.persona import Persona
+from stepout.memory.persona import Persona
 from tests.test_runner import Harness, fetch, plan, say
 
 

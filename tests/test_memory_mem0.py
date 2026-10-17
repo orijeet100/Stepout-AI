@@ -15,10 +15,10 @@ os.environ.setdefault("MEM0_DIR", tempfile.mkdtemp(prefix="stepout-mem0-"))
 
 from stepout import memory as memory_mod  # noqa: E402
 from stepout.memory import MemoryService  # noqa: E402
-from stepout.memory_files import FileStore  # noqa: E402
-from stepout.memory_mem0 import EMBED_PRICE_PER_M, Mem0Store  # noqa: E402
-from stepout.memory_types import Entry, RunRecord  # noqa: E402
-from stepout.persona import Persona  # noqa: E402
+from stepout.memory.files import FileStore  # noqa: E402
+from stepout.memory.mem0 import EMBED_PRICE_PER_M, Mem0Store  # noqa: E402
+from stepout.memory.types import Entry, RunRecord  # noqa: E402
+from stepout.memory.persona import Persona  # noqa: E402
 
 NOW = datetime(2026, 10, 12, 9, tzinfo=timezone.utc)
 DIMS = 16

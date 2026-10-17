@@ -1,4 +1,4 @@
-"""web_search: look something up on the web. The hand is `stepout.search.Searcher` (one cheap model call that uses the provider's own search tool)."""
+"""web_search: look something up on the web. The hand is `stepout.access.search.Searcher` (one cheap model call that uses the provider's own search tool)."""
 
 from __future__ import annotations
 

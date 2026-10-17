@@ -15,8 +15,8 @@ from urllib.parse import urlparse
 import pytest
 from aiohttp import web
 
-from stepout.browser import Browser
-from stepout.fetch import BlockedUrl
+from stepout.access.browser import Browser
+from stepout.access.fetch import BlockedUrl
 
 pytestmark = pytest.mark.skipif(not os.path.exists(r"C:\Program Files\Google\Chrome\Application\chrome.exe"), reason="needs Chrome")
 
@@ -184,7 +184,7 @@ async def test_a_callback_that_raises_does_not_break_browsing_or_the_screenshots
     def boom(run_id, jpeg):
         raise RuntimeError("the viewer is gone")
 
-    with caplog.at_level(logging.WARNING, logger="stepout.browser"):
+    with caplog.at_level(logging.WARNING, logger="stepout.access.browser"):
         async with watching(world, boom) as b:
             view, shot = await b.run("r1", "open", f"{world.a}/live")  # animated: frames keep coming while we work
             assert "Title: Live" in view and (world.shots / shot).stat().st_size > 1000

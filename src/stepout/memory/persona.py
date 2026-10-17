@@ -13,7 +13,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from stepout.memory_types import Entry
+from stepout.memory.types import Entry
 
 _BULLET = "- "
 

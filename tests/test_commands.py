@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 
-from stepout import commands
+from stepout.memory import commands
 from stepout.memory import MemoryService, NullMemory
-from stepout.memory_files import FileStore
-from stepout.persona import Persona
+from stepout.memory.files import FileStore
+from stepout.memory.persona import Persona
 
 NOW = datetime(2026, 10, 12, tzinfo=timezone.utc)
 
