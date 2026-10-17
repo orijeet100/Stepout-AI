@@ -8,8 +8,8 @@ import pytest
 from stepout.channels.web import StoreHistory, WebChannel
 from stepout.ledger import Ledger
 from stepout.memory import MemoryService, NullMemory
-from stepout.memory_files import FileStore
-from stepout.persona import Persona
+from stepout.memory.files import FileStore
+from stepout.memory.persona import Persona
 from stepout.store import Store
 
 NOW = datetime(2026, 10, 12, tzinfo=timezone.utc)

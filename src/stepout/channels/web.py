@@ -31,7 +31,7 @@ from stepout.contract import (
     Active, ClientFrame, ConversationDetail, ConversationSummary, HelloFrame, MemoryEntryOut, MessageFrame, NewConversation, Queued, RememberRequest, RenameConversation,
     SendFrame, StatusFrame, StopFrame, TraceFrame,
 )
-from stepout.memory_types import Memory
+from stepout.memory.types import Memory
 from stepout.paths import home
 from stepout.domain import DEFAULT_CONVERSATION, Event, Message, Reply
 from stepout.ledger import chat_title

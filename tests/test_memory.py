@@ -6,9 +6,9 @@ import pytest
 
 from stepout import memory as memory_mod
 from stepout.memory import PERSONA_CHARS, RECOLLECTION_CHARS, MemoryService, NullMemory
-from stepout.memory_files import FileStore
-from stepout.memory_types import Entry, RunRecord
-from stepout.persona import Persona, persona_id
+from stepout.memory.files import FileStore
+from stepout.memory.types import Entry, RunRecord
+from stepout.memory.persona import Persona, persona_id
 
 NOW = datetime(2026, 10, 12, 9, 30, tzinfo=timezone.utc)
 

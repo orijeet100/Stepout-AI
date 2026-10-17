@@ -24,7 +24,7 @@ from stepout.fetch import Fetcher
 from stepout.files import Files
 from stepout.ledger import Ledger
 from stepout.links import defang, links_in, urls
-from stepout.memory_types import Memory, RunRecord
+from stepout.memory.types import Memory, RunRecord
 from stepout.model import Model, ModelRequest
 from stepout.reader import Reader
 from stepout.roles import ROLES, agent_name

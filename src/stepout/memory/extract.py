@@ -13,7 +13,7 @@ from typing import Awaitable, Callable
 
 from stepout.domain import Event, Message
 from stepout.ledger import Ledger
-from stepout.memory_types import Memory
+from stepout.memory.types import Memory
 from stepout.model import Model, ModelRequest, ToolCall
 from stepout.redact import redact
 from stepout.roles import HAIKU

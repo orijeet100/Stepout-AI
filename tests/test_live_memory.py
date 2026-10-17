@@ -16,8 +16,8 @@ load_dotenv()
 os.environ.setdefault("MEM0_DIR", tempfile.mkdtemp(prefix="stepout-mem0-live-"))
 pytestmark = [pytest.mark.eval, pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="needs OPENAI_API_KEY")]
 
-from stepout.memory_mem0 import Mem0Store  # noqa: E402
-from stepout.memory_types import Entry  # noqa: E402
+from stepout.memory.mem0 import Mem0Store  # noqa: E402
+from stepout.memory.types import Entry  # noqa: E402
 
 
 async def test_a_real_embedding_finds_the_fact_that_means_the_same_without_sharing_its_words(tmp_path):

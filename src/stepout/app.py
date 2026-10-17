@@ -19,7 +19,7 @@ from stepout.paths import CHECKOUT, home
 if TYPE_CHECKING:  # the rest is imported where it is used: `stepout status`, `stop` and `--help` must not wait for the model SDKs (seconds)
     from stepout.browser import Browser
     from stepout.domain import Reply
-    from stepout.extract import Learner
+    from stepout.memory.extract import Learner
     from stepout.intake import Intake
     from stepout.ledger import Ledger
     from stepout.runner import Runner
@@ -30,7 +30,7 @@ DB_PATH = HOME / "stepout.db"
 GRANTS_PATH = HOME / "config" / "grants.toml"  # only the User edits this (`stepout grant`)
 SHOTS_PATH = HOME / "runs"  # page screenshots, one folder per Run
 LOGS_PATH = HOME / "logs"  # the app log (logs.py)
-MEMORY_PATH = HOME / "memory"  # Persona and what was learned (memory.py)
+MEMORY_PATH = HOME / "memory"  # Persona and what was learned (memory/)
 CAPTURE_PATH = HOME / "capture"  # prompts and replies, only when STEPOUT_CAPTURE=1 (capture.py)
 
 
@@ -87,7 +87,7 @@ def month_cap(environ=os.environ) -> float:
 
 async def run(channel, intake: Intake, runner: Runner, month_left=None, memory=None, learner: Learner | None = None) -> None:
     """`month_left()`: dollars the month has left; at zero a message is answered with a line and costs nothing (a slash command is free and still works)."""
-    from stepout import commands
+    from stepout.memory import commands
     from stepout.domain import Reply, Task
     from stepout.failure import UNEXPECTED
     from stepout.intake import ChatReading, CommandReading, DeclinedReading, FailedReading, NewTask
@@ -128,7 +128,7 @@ async def main(web: bool = True, open_browser: bool = False, show_qr: bool = Fal
     from stepout.channels.cli import CliChannel
     from stepout.channels.web import StoreHistory, WebChannel
     from stepout.chats import ChatKeeper
-    from stepout.extract import Extractor, Learner
+    from stepout.memory.extract import Extractor, Learner
     from stepout.fetch import Fetcher
     from stepout.files import Files
     from stepout.intake import Intake

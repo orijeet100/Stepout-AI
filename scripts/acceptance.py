@@ -33,7 +33,7 @@ from stepout import memory as memory_mod  # noqa: E402
 from stepout.app import SavedChannel, run  # noqa: E402
 from stepout.browser import Browser  # noqa: E402
 from stepout.domain import Message  # noqa: E402
-from stepout.extract import Extractor, Learner  # noqa: E402
+from stepout.memory.extract import Extractor, Learner  # noqa: E402
 from stepout.fetch import Fetcher  # noqa: E402
 from stepout.files import Files  # noqa: E402
 from stepout.intake import Intake  # noqa: E402

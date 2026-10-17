@@ -4,8 +4,8 @@ import os
 
 from stepout.files import Files, Grant
 from stepout.memory import MemoryService
-from stepout.memory_files import FileStore
-from stepout.persona import Persona
+from stepout.memory.files import FileStore
+from stepout.memory.persona import Persona
 from tests.support.pdfs import make_pdf
 from tests.test_reader_role import norm, reads
 from tests.test_runner import FakeFetcher, Harness, fetch, plan, say

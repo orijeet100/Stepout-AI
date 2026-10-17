@@ -31,7 +31,7 @@ A message becomes a Task. The **Orchestrator** (the only agent that talks to you
 | **Capability** (registry) | one subclass per tool: name, blurb, `tool` (derived from its Action class), `reaches_web`, `run`, `check`, `summary` | schema, validation, trace line, repeat rules | `capabilities/*` |
 | **Tool implementations** | each is called through its Tool with plain data | their own limits (below) | `fetch.py`, `browser.py`, `files.py`, `reader.py`, `redact.py`, `search.py` |
 | **Model port** | `call(request, on_text=None) → one Action, its cost, tokens, duration, attempts` | tool formats, provider errors, prices, streaming, **retries: one policy, every attempt recorded** ([ADR 0015](adr/0015-one-retry-policy-at-the-model-port.md)) | `model.py`, `pydantic_model.py`, `retry.py`, `scope.py` |
-| **Memory** | `recall(request)` · `record_run` · `learn` · `remember` · `edit` · `forget` · `forget_chat` | Persona (a Markdown file the User owns), the learned store behind one seam (plain files or Mem0), the Recollection budget, what may write it ([ADR 0016](adr/0016-memory-on-mem0-behind-the-seam.md)) | `memory.py`, `persona.py`, `memory_files.py`, `memory_mem0.py`, `extract.py`, `commands.py` |
+| **Memory** | `recall(request)` · `record_run` · `learn` · `remember` · `edit` · `forget` · `forget_chat` | Persona (a Markdown file the User owns), the learned store behind one seam (plain files or Mem0), the Recollection budget, what may write it ([ADR 0016](adr/0016-memory-on-mem0-behind-the-seam.md)) | `memory/` (the seam in `__init__.py`; `persona.py`, `files.py`, `mem0.py`, `types.py`, `extract.py`, `commands.py`) |
 | **Chats** | `rename` · `delete` (purge, after-delete hooks) | what leaves with a deleted chat: rows, screenshots, Capture, what Memory kept | `chats.py` |
 | **Ledger + Store** | `record(event)` · `start_run` / `end_run` · `save_message` · `close_interrupted` · `month_spend` · read-only `history` | SQLite, migrations (copied first), chat titles, tokens, durations and attempts per step, what the month has cost | `ledger.py`, `store.py`, `history.py` |
 | **Log + Capture** | the app log file; opt-in prompts and replies per Run | rotation, ids on every line, no contents; Capture is refused for a Run that read a file | `logs.py`, `capture.py`, `housekeeping.py` |
@@ -95,7 +95,7 @@ A seam is real when two adapters exist (a test double counts).
 | **Channel** | web (aiohttp + React page), terminal; test fakes |
 | **Model** | Anthropic SDK (default; streams the final answer), Pydantic AI (any provider, e.g. OpenRouter; opt-in with `STEPOUT_STRONG_MODEL` / `STEPOUT_CHEAP_MODEL`), scripted (tests) ([ADR 0011](adr/0011-pydantic-ai-as-the-plumbing.md)) |
 | **Screener** | Screening's Haiku call; a fixed one in tests |
-| **Learned store** | plain files (`memory_files.py`), Mem0 (`memory_mem0.py`, primary when `OPENAI_API_KEY` is there), a fake embedder in tests ([ADR 0016](adr/0016-memory-on-mem0-behind-the-seam.md)) |
+| **Learned store** | plain files (`memory/files.py`), Mem0 (`memory/mem0.py`, primary when `OPENAI_API_KEY` is there), a fake embedder in tests ([ADR 0016](adr/0016-memory-on-mem0-behind-the-seam.md)) |
 
 Deliberately not seams: Chrome, Fetcher, Files (one adapter each, tested against real Chrome, a local server and temp folders) and Store (SQLite). Actions and Results are plain data, so a Tool's implementation can run elsewhere later ([ADR 0007](adr/0007-brain-and-hands.md)).
 

@@ -12,7 +12,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from stepout.memory_types import Entry
+from stepout.memory.types import Entry
 
 _STOP = frozenset("the and for are but not you your with this that have from what when where how can will about into just like please".split())
 _OLDEST = datetime.min.replace(tzinfo=timezone.utc)
