@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Mapping
 
 from stepout.model import ModelRequest, ModelResponse
-from stepout.redact import redact
+from stepout.access.redact import redact
 
 _log = logging.getLogger(__name__)
 

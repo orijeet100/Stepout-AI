@@ -10,7 +10,7 @@ import os
 from stepout import history
 from stepout.capabilities.read_text import ReadTextAction
 from stepout.domain import Exchange, Proceed, Task
-from stepout.files import Files, Grant
+from stepout.access.files import Files, Grant
 from stepout.model import ModelResponse
 from stepout.runner import _previous_block
 from tests.support.pdfs import make_pdf

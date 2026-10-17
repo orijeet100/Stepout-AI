@@ -10,7 +10,7 @@ import time
 
 from stepout.capabilities.read_text import ReadTextAction
 from stepout.domain import FilesAction
-from stepout.files import Files, Grant
+from stepout.access.files import Files, Grant
 from stepout.model import ModelResponse
 from stepout.roles import ROLES
 from tests.support.pdfs import make_pdf

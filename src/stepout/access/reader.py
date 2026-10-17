@@ -19,8 +19,8 @@ from dataclasses import dataclass
 
 from pypdf import PdfReader
 
-from stepout.files import Files, _clean, _size
-from stepout.redact import redact
+from stepout.access.files import Files, _clean, _size
+from stepout.access.redact import redact
 
 MAX_FILES = 20  # per Run
 MAX_BYTES = 10 * 1024 * 1024  # per Run, counted over the files opened

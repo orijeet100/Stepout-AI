@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from stepout.fetch import BlockedUrl, Fetcher, _check_policy, _html_to_text
+from stepout.access.fetch import BlockedUrl, Fetcher, _check_policy, _html_to_text
 
 BLOCKED_URLS = [
     "file:///etc/passwd",
@@ -45,7 +45,7 @@ async def test_fetch_happy_path(monkeypatch):
             kwargs["transport"] = transport
             super().__init__(*args, **kwargs)
 
-    monkeypatch.setattr("stepout.fetch.httpx.AsyncClient", PatchedClient)
+    monkeypatch.setattr("stepout.access.fetch.httpx.AsyncClient", PatchedClient)
 
     page = await Fetcher().get("https://example.com/weather")
     assert page.text == "sunny, 70F"
@@ -70,7 +70,7 @@ def serve(monkeypatch, handler):
             kwargs["transport"] = httpx.MockTransport(record)
             super().__init__(*args, **kwargs)
 
-    monkeypatch.setattr("stepout.fetch.httpx.AsyncClient", PatchedClient)
+    monkeypatch.setattr("stepout.access.fetch.httpx.AsyncClient", PatchedClient)
     return requests
 
 
@@ -132,7 +132,7 @@ async def test_the_policy_runs_off_the_event_loop(monkeypatch):
     import threading
 
     seen = []
-    monkeypatch.setattr("stepout.fetch._check_policy", lambda url: seen.append(threading.current_thread() is threading.main_thread()))
+    monkeypatch.setattr("stepout.access.fetch._check_policy", lambda url: seen.append(threading.current_thread() is threading.main_thread()))
     serve(monkeypatch, lambda request: httpx.Response(200, text="ok"))
     await Fetcher().get("https://example.com/")
     assert seen == [False]

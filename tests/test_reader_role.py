@@ -5,7 +5,7 @@ import os
 import pytest
 
 from stepout.capabilities.read_text import ReadTextAction
-from stepout.files import Files, Grant
+from stepout.access.files import Files, Grant
 from stepout.model import HAIKU, ModelResponse
 from stepout.roles import ROLES, SPECIALISTS
 from tests.support.pdfs import make_pdf

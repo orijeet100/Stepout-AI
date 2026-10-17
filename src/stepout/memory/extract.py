@@ -15,7 +15,7 @@ from stepout.domain import Event, Message
 from stepout.ledger import Ledger
 from stepout.memory.types import Memory
 from stepout.model import Model, ModelRequest, ToolCall
-from stepout.redact import redact
+from stepout.access.redact import redact
 from stepout.roles import HAIKU
 
 _log = logging.getLogger(__name__)

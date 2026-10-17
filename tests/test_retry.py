@@ -246,7 +246,7 @@ class FlakyFetcher:
         self._outcomes, self.urls = list(outcomes), []
 
     async def get(self, url):
-        from stepout.fetch import FetchedPage
+        from stepout.access.fetch import FetchedPage
 
         self.urls.append(url)
         outcome = self._outcomes.pop(0)
@@ -296,7 +296,7 @@ async def test_a_dropped_connection_is_fetched_again(monkeypatch):
 
 
 async def test_a_missing_page_a_blocked_address_and_a_long_wait_are_not_retried(monkeypatch):
-    from stepout.fetch import BlockedUrl
+    from stepout.access.fetch import BlockedUrl
 
     for outcome in (status_error(404), BlockedUrl("private/local address blocked: 10.0.0.1"), status_error(429, **{"retry-after": "120"})):
         text, fetcher, waits, events = await fetch_with(monkeypatch, outcome, "never reached")

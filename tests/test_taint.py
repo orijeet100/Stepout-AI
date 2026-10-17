@@ -12,9 +12,9 @@ from stepout import capabilities, gate
 from stepout.capabilities.base import RunContext, RunState
 from stepout.capabilities.read_text import ReadText, ReadTextAction
 from stepout.domain import AnswerAction, BrowseAction, FetchAction, FilesAction, PlanAction, PlanStep, Refuse, Allow
-from stepout.files import Files, Grant
+from stepout.access.files import Files, Grant
 from stepout.model import ModelResponse
-from stepout.reader import Reader
+from stepout.access.reader import Reader
 from tests.support.pdfs import make_pdf
 from tests.test_runner import FakeBrowser, FakeFetcher, Harness, browse, delegate, fetch, say, web_search
 

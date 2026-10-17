@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
-from stepout import files as files_mod
-from stepout.files import Files, Grant, _clean, blocked_reason, load_grants
+from stepout.access import files as files_mod
+from stepout.access.files import Files, Grant, _clean, blocked_reason, load_grants
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows paths")
 
@@ -102,6 +102,11 @@ def test_denied_paths(fs, tree, case, op):
     make, reason = DENIED[case]
     out = run(fs, op, make(*tree), "x")
     assert out.startswith("Denied") and reason in out, out
+
+
+def test_the_assistants_own_folder_is_the_repo():
+    from stepout.paths import _ROOT
+    assert files_mod._REPO == os.path.normcase(str(_ROOT))  # moved a folder deeper: the block list must still cover the repo
 
 
 def test_the_block_list_beats_a_whole_drive_grant():

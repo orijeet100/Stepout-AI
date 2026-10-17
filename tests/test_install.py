@@ -6,7 +6,7 @@ import os
 import pytest
 
 from stepout import app, init, paths
-from stepout.files import Files, blocked_reason, load_grants
+from stepout.access.files import Files, blocked_reason, load_grants
 
 windows = pytest.mark.skipif(os.name != "nt", reason="file access is Windows-only")
 

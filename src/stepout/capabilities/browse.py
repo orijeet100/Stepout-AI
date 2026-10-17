@@ -1,4 +1,4 @@
-"""browse: read web pages in a headless browser, read-only. The hand is `stepout.browser.Browser` (it polices every request and redirect)."""
+"""browse: read web pages in a headless browser, read-only. The hand is `stepout.access.browser.Browser` (it polices every request and redirect)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from stepout.capabilities.base import Capability, RunContext, tool_from
 
 _KEEP_PAGES = 2  # page views a Role keeps in full
-_PAGE_HEAD = re.compile(r"URL: (.*)\nTitle: (.*)")  # how every page view starts (stepout.browser)
+_PAGE_HEAD = re.compile(r"URL: (.*)\nTitle: (.*)")  # how every page view starts (stepout.access.browser)
 
 
 class BrowseAction(BaseModel):

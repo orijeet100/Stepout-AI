@@ -18,7 +18,7 @@ import pytest
 
 from stepout.capabilities.read_text import ReadTextAction
 from stepout.domain import Exchange, Task
-from stepout.files import Files, Grant
+from stepout.access.files import Files, Grant
 from stepout.links import defang, links_in, urls
 from stepout.model import ModelResponse
 from tests.support.pdfs import make_pdf

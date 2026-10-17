@@ -17,7 +17,7 @@ from stepout import init, remote
 from stepout.paths import CHECKOUT, home
 
 if TYPE_CHECKING:  # the rest is imported where it is used: `stepout status`, `stop` and `--help` must not wait for the model SDKs (seconds)
-    from stepout.browser import Browser
+    from stepout.access.browser import Browser
     from stepout.domain import Reply
     from stepout.memory.extract import Learner
     from stepout.intake import Intake
@@ -36,7 +36,7 @@ CAPTURE_PATH = HOME / "capture"  # prompts and replies, only when STEPOUT_CAPTUR
 
 def make_browser(channel) -> Browser:
     """The Runs' browser. It sends live frames to the channel if the channel shows them (the web channel does; the terminal has none, so nothing is captured)."""
-    from stepout.browser import Browser
+    from stepout.access.browser import Browser
 
     return Browser(shots=SHOTS_PATH, on_frame=getattr(channel, "live_frame", None))
 
@@ -129,8 +129,8 @@ async def main(web: bool = True, open_browser: bool = False, show_qr: bool = Fal
     from stepout.channels.web import StoreHistory, WebChannel
     from stepout.chats import ChatKeeper
     from stepout.memory.extract import Extractor, Learner
-    from stepout.fetch import Fetcher
-    from stepout.files import Files
+    from stepout.access.fetch import Fetcher
+    from stepout.access.files import Files
     from stepout.intake import Intake
     from stepout.ledger import Ledger
     from stepout.pydantic_model import PydanticModel, default_model

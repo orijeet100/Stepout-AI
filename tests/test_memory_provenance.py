@@ -2,7 +2,7 @@
 
 import os
 
-from stepout.files import Files, Grant
+from stepout.access.files import Files, Grant
 from stepout.memory import MemoryService
 from stepout.memory.files import FileStore
 from stepout.memory.persona import Persona
